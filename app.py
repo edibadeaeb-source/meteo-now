@@ -35,17 +35,19 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 BASE_DIR = str(Path(__file__).parent.resolve())
 
 # Folderul noului site METEO Târgoviște (stil IMGW).
-# Caută în mai multe locuri, ca să meargă atât local cât și pe server:
+# Caută în mai multe locuri, ca să meargă indiferent cum sunt urcate fișierele:
 #  1) variabila de mediu STATIC_DIR (dacă o setezi pe gazdă)
 #  2) ./public lângă app.py (structura recomandată pentru găzduire)
 #  3) ../targoviste-meteo (1)/public (structura ta locală actuală)
+#  4) chiar lângă app.py (structură „aplatizată": index.html + iconițe la rădăcină)
 _static_candidates = [
     os.environ.get('STATIC_DIR'),
     os.path.join(BASE_DIR, 'public'),
     str((Path(BASE_DIR).parent / 'targoviste-meteo (1)' / 'public').resolve()),
+    BASE_DIR,
 ]
 METEO_DIR = next((c for c in _static_candidates if c and os.path.exists(os.path.join(c, 'index.html'))),
-                 _static_candidates[-1])
+                 BASE_DIR)
 
 # ═══════════════════════════════════════════════════════════════
 #  CLOUDFLARE TUNNEL
@@ -107,8 +109,11 @@ def meteo_static(fname):
     full = os.path.join(METEO_DIR, safe)
     if os.path.isfile(full):
         resp = send_from_directory(METEO_DIR, safe)
+        # tipul corect pentru manifestul PWA (unele servere îl trimit greșit)
+        if safe.endswith('.webmanifest'):
+            resp.headers['Content-Type'] = 'application/manifest+json'
         # HTML și service worker-ul nu se păstrează în cache; restul (iconițe) da
-        if safe.endswith('.html') or safe.endswith('sw.js'):
+        if safe.endswith('.html') or safe.endswith('sw.js') or safe.endswith('.webmanifest'):
             return _no_store(resp)
         return resp
     return 'Not found', 404
