@@ -841,6 +841,15 @@
             </div>
 
             <div class="set-group">
+                <div class="set-label">Notificări</div>
+                <div class="set-row">
+                    <div>Alerte meteo<small id="pushHint">Primești notificare la avertizări ANM pentru Dâmbovița</small></div>
+                    <label class="switch"><input type="checkbox" id="setPush"><span></span></label>
+                </div>
+                <div class="set-note" id="pushNote"></div>
+            </div>
+
+            <div class="set-group">
                 <div class="set-label">Afișare</div>
                 <div class="set-row">
                     <div>Actualizare automată<small>Reîmprospătează datele fără reîncărcare</small></div>
@@ -3847,6 +3856,95 @@ enableSwipe('#forecast-section', '.fc-pill');
             ind.style.transform = 'translate(-50%, -60px)';
         }
     }, { passive: true });
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  NOTIFICĂRI PUSH — abonare din setări
+// ═══════════════════════════════════════════════════════════
+function b64ToUint8(base64) {
+    var pad = '='.repeat((4 - base64.length % 4) % 4);
+    var b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+    var raw = atob(b64), arr = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+}
+function pushNote(text, color) {
+    var el = document.getElementById('pushNote');
+    if (el) { el.textContent = text || ''; el.style.color = color || 'var(--muted)'; }
+}
+function pushSupported() {
+    return ('serviceWorker' in navigator) && ('PushManager' in window) &&
+           location.protocol.indexOf('http') === 0;
+}
+async function pushSubscribe() {
+    var perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+        pushNote('Notificările au fost blocate. Le poți reactiva din setările telefonului.', 'var(--red)');
+        return false;
+    }
+    var reg = await navigator.serviceWorker.ready;
+    var r = await fetch('api/push/key');
+    if (!r.ok) { pushNote('Serverul nu are notificările configurate.', 'var(--red)'); return false; }
+    var key = (await r.json()).publicKey;
+    var sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+        sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: b64ToUint8(key)
+        });
+    }
+    await fetch('api/push/subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub)
+    });
+    pushNote('✅ Activat. Vei primi alerte la avertizările ANM pentru Dâmbovița.', 'var(--green)');
+    return true;
+}
+async function pushUnsubscribe() {
+    try {
+        var reg = await navigator.serviceWorker.ready;
+        var sub = await reg.pushManager.getSubscription();
+        if (sub) {
+            await fetch('api/push/unsubscribe', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint: sub.endpoint })
+            });
+            await sub.unsubscribe();
+        }
+    } catch (e) {}
+    pushNote('Notificările sunt dezactivate.');
+}
+(function initPush() {
+    var el = document.getElementById('setPush');
+    if (!el) return;
+    if (!pushSupported()) {
+        el.disabled = true;
+        pushNote('Notificările funcționează doar în aplicația instalată (Adaugă la ecranul principal).');
+        return;
+    }
+    // starea reală: abonat sau nu
+    navigator.serviceWorker.ready.then(function(reg) {
+        return reg.pushManager.getSubscription();
+    }).then(function(sub) {
+        el.checked = !!sub && Notification.permission === 'granted';
+        if (el.checked) pushNote('✅ Activat pentru avertizările ANM — Dâmbovița.', 'var(--green)');
+    }).catch(function() {});
+
+    el.addEventListener('change', async function() {
+        el.disabled = true;
+        try {
+            if (el.checked) {
+                var ok = await pushSubscribe();
+                el.checked = ok;
+            } else {
+                await pushUnsubscribe();
+            }
+        } catch (e) {
+            pushNote('Nu s-a putut schimba setarea: ' + e.message, 'var(--red)');
+            el.checked = false;
+        }
+        el.disabled = false;
+    });
 })();
 
 // ── APLICĂ TEMA SALVATĂ ──

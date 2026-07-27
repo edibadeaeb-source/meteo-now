@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import csv
+import json
 import os
 import subprocess
 import threading
@@ -27,6 +28,10 @@ def _load_key(env_name, keys_attr):
 
 ANTHROPIC_API_KEY   = _load_key("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
+VAPID_PUBLIC_KEY    = _load_key("VAPID_PUBLIC_KEY", "VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY   = _load_key("VAPID_PRIVATE_KEY", "VAPID_PRIVATE_KEY")
+VAPID_CLAIM_EMAIL   = _load_key("VAPID_CLAIM_EMAIL", "VAPID_CLAIM_EMAIL") or "mailto:admin@example.com"
+PUSH_CRON_SECRET    = _load_key("PUSH_CRON_SECRET", "PUSH_CRON_SECRET") or "schimba-ma"
 if not ANTHROPIC_API_KEY:
     print("⚠️  ANTHROPIC_API_KEY lipsește (setează variabila de mediu sau keys.py) — asistentul AI nu va funcționa.")
 OUTPUT_DIR = "exported_data"
@@ -253,6 +258,205 @@ def owm_tile(layer, z, x, y):
         return Response(r.content, mimetype='image/png')
     except Exception:
         return '', 502
+
+
+# ═══════════════════════════════════════════════════════════════
+#  NOTIFICĂRI PUSH (Web Push / VAPID)
+#  Abonamentele se păstrează în Firebase, la calea /push_subs.
+#  Verificarea avertizărilor ANM se declanșează prin /api/push/check.
+# ═══════════════════════════════════════════════════════════════
+PUSH_FIREBASE_URL = "https://licenta-ae902-default-rtdb.europe-west1.firebasedatabase.app"
+JUDET_MONITORIZAT = "DB"          # Dâmbovița
+_COD_NUME = {1: "cod galben", 2: "cod portocaliu", 3: "cod roșu"}
+
+
+def _fb(path, method='GET', payload=None):
+    """Citire/scriere simplă în Firebase Realtime Database."""
+    url = f"{PUSH_FIREBASE_URL}/{path}.json"
+    try:
+        if method == 'GET':
+            r = requests.get(url, timeout=15)
+        elif method == 'PUT':
+            r = requests.put(url, json=payload, timeout=15)
+        elif method == 'DELETE':
+            r = requests.delete(url, timeout=15)
+        else:
+            r = requests.post(url, json=payload, timeout=15)
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        print(f"⚠️  Firebase {method} {path}: {e}")
+        return None
+
+
+def _sub_key(endpoint):
+    """Cheie stabilă pentru un abonament (Firebase nu acceptă caractere speciale)."""
+    import hashlib
+    return hashlib.sha256(endpoint.encode()).hexdigest()[:32]
+
+
+@app.route('/api/push/key')
+def push_key():
+    """Cheia publică VAPID — aplicația o folosește la abonare."""
+    if not VAPID_PUBLIC_KEY:
+        return jsonify({'error': 'notificările nu sunt configurate pe server'}), 503
+    return jsonify({'publicKey': VAPID_PUBLIC_KEY})
+
+
+@app.route('/api/push/subscribe', methods=['POST'])
+def push_subscribe():
+    sub = request.get_json(silent=True) or {}
+    endpoint = sub.get('endpoint')
+    if not endpoint:
+        return jsonify({'error': 'abonament invalid'}), 400
+    _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', {
+        'endpoint': endpoint,
+        'keys': sub.get('keys', {}),
+        'creat': datetime.now().isoformat(timespec='seconds')
+    })
+    return jsonify({'ok': True})
+
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+def push_unsubscribe():
+    sub = request.get_json(silent=True) or {}
+    endpoint = sub.get('endpoint')
+    if endpoint:
+        _fb(f'push_subs/{_sub_key(endpoint)}', 'DELETE')
+    return jsonify({'ok': True})
+
+
+def _send_push(subscription, payload):
+    """Trimite o notificare către un abonament. Returnează (succes, cod)."""
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        print("⚠️  pywebpush lipsește: pip install pywebpush")
+        return False, 'lib'
+    try:
+        webpush(
+            subscription_info={'endpoint': subscription['endpoint'], 'keys': subscription.get('keys', {})},
+            data=json.dumps(payload, ensure_ascii=False),
+            vapid_private_key=VAPID_PRIVATE_KEY,
+            vapid_claims={'sub': VAPID_CLAIM_EMAIL}
+        )
+        return True, 200
+    except WebPushException as e:
+        code = getattr(getattr(e, 'response', None), 'status_code', 0)
+        return False, code
+    except Exception as e:
+        print(f"⚠️  push: {e}")
+        return False, 0
+
+
+def broadcast_push(payload):
+    """Trimite tuturor abonaților; curăță abonamentele expirate."""
+    subs = _fb('push_subs') or {}
+    trimise, sterse = 0, 0
+    for key, sub in (subs.items() if isinstance(subs, dict) else []):
+        if not isinstance(sub, dict) or not sub.get('endpoint'):
+            continue
+        ok, code = _send_push(sub, payload)
+        if ok:
+            trimise += 1
+        elif code in (404, 410):        # abonament expirat / dezinstalat
+            _fb(f'push_subs/{key}', 'DELETE')
+            sterse += 1
+    return trimise, sterse
+
+
+@app.route('/api/push/test', methods=['POST', 'GET'])
+def push_test():
+    """Trimite o notificare de test (util la verificare)."""
+    if request.args.get('secret') != PUSH_CRON_SECRET:
+        return jsonify({'error': 'acces interzis'}), 403
+    t, s = broadcast_push({
+        'title': '🌤️ METEO Târgoviște',
+        'body': 'Notificările funcționează. Vei primi alerte la avertizări meteo.',
+        'url': '/'
+    })
+    return jsonify({'trimise': t, 'sterse': s})
+
+
+@app.route('/api/push/check')
+def push_check():
+    """
+    Verifică avertizările ANM pentru județul monitorizat și trimite notificare
+    DOAR când apare ceva nou (nu la fiecare verificare).
+    Se apelează periodic dintr-un serviciu de cron.
+    """
+    if request.args.get('secret') != PUSH_CRON_SECRET:
+        return jsonify({'error': 'acces interzis'}), 403
+
+    try:
+        r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
+                         timeout=20, headers={'User-Agent': 'StatiaMeteoTargoviste/1.0'})
+        r.raise_for_status()
+        data = r.json()
+    except Exception as e:
+        return jsonify({'error': f'ANM indisponibil: {e}'}), 502
+
+    def unwrap(o):
+        if not isinstance(o, dict):
+            return {}
+        out = dict(o.get('@attributes') or {})
+        for k, v in o.items():
+            if k != '@attributes':
+                out[k] = v
+        return out
+
+    def as_list(x):
+        if not x:
+            return []
+        return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
+
+    warns = as_list(data.get('avertizare'))
+    active = []
+    for w in warns:
+        nivel = 0
+        # zonele precise (ex. DB_munte) au prioritate; altfel județul
+        for z in as_list(w.get('zona')) + as_list(w.get('judet')):
+            cod = str(z.get('cod', '')).upper()
+            if cod.startswith(JUDET_MONITORIZAT):
+                try:
+                    nivel = max(nivel, int(z.get('culoare') or 0))
+                except (TypeError, ValueError):
+                    pass
+        if nivel > 0:
+            active.append({
+                'nivel': nivel,
+                'tip': w.get('numeTipMesaj') or 'Avertizare meteorologică',
+                'fenomene': (w.get('fenomeneVizate') or '').strip(),
+                'interval': (w.get('intervalul') or '').strip(),
+                'expira': w.get('dataExpirarii') or ''
+            })
+
+    # amprenta situației curente — ca să nu repetăm aceeași notificare
+    amprenta = "|".join(sorted(f"{a['nivel']}:{a['tip']}:{a['interval']}" for a in active)) or "fara"
+    stare = _fb('push_state') or {}
+    if isinstance(stare, dict) and stare.get('amprenta') == amprenta:
+        return jsonify({'schimbare': False, 'active': len(active)})
+
+    _fb('push_state', 'PUT', {'amprenta': amprenta,
+                              'actualizat': datetime.now().isoformat(timespec='seconds')})
+
+    if not active:
+        return jsonify({'schimbare': True, 'active': 0, 'trimise': 0,
+                        'info': 'nu mai sunt avertizări active — fără notificare'})
+
+    top = max(active, key=lambda a: a['nivel'])
+    cod_txt = _COD_NUME.get(top['nivel'], 'avertizare')
+    titlu = f"⚠️ {cod_txt.upper()} — Dâmbovița"
+    corp = top['tip']
+    if top['fenomene'] and top['fenomene'] != 'conform textelor':
+        corp = top['fenomene']
+    if top['interval'] and top['interval'] != 'conform textelor':
+        corp += f" · {top['interval']}"
+
+    t, s = broadcast_push({'title': titlu, 'body': corp, 'url': '/#warnings-section',
+                           'tag': 'anm-avertizare', 'nivel': top['nivel']})
+    return jsonify({'schimbare': True, 'active': len(active), 'trimise': t, 'sterse': s,
+                    'titlu': titlu, 'corp': corp})
 
 
 # ═══════════════════════════════════════════════════════════════
