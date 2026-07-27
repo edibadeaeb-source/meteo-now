@@ -100,6 +100,25 @@ def licenta():
     # Vechiul dashboard din proiectul de diplomă
     return _no_store(send_from_directory(BASE_DIR, 'index.html'))
 
+
+# ═══════════════════════════════════════════════════════════════
+#  DIGITAL ASSET LINKS — verificarea aplicației Android (TWA)
+#  Fără acest fișier, aplicația instalată din APK afișează bara de
+#  browser (cu X și adresa). Cu el, se deschide pe tot ecranul.
+#  Pune fișierul „assetlinks.json" (primit de la PWABuilder) lângă app.py.
+# ═══════════════════════════════════════════════════════════════
+@app.route('/.well-known/assetlinks.json')
+def assetlinks():
+    for folder in (METEO_DIR, BASE_DIR, os.path.join(BASE_DIR, '.well-known'),
+                   os.path.join(METEO_DIR, '.well-known')):
+        p = os.path.join(folder, 'assetlinks.json')
+        if os.path.isfile(p):
+            resp = send_file(p)
+            resp.headers['Content-Type'] = 'application/json'
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            return resp
+    return jsonify({'error': 'assetlinks.json lipsește — încarcă fișierul primit de la PWABuilder'}), 404
+
 @app.route('/<path:fname>')
 def meteo_static(fname):
     # Fișiere statice ale noului site (manifest PWA, service worker, iconițe)
