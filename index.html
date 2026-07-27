@@ -2272,13 +2272,21 @@ function setChatLock(locked) {
         // Lock viewport zoom
         meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     } else {
+        // Oprim temporar derularea lină, altfel revenirea se vede ca un salt sus-jos
+        var html = document.documentElement;
+        var prevBehavior = html.style.scrollBehavior;
+        html.style.scrollBehavior = 'auto';
+
         document.body.style.position = '';
         document.body.style.top = '';
         document.body.style.left = '';
         document.body.style.right = '';
         document.body.style.width = '';
-        // Restauram pozitia salvata
+        // Restauram pozitia salvata, instantaneu (fara animatie)
         window.scrollTo(0, savedScrollY);
+
+        // Redam derularea lină după ce s-a aplicat poziția
+        requestAnimationFrame(function() { html.style.scrollBehavior = prevBehavior || ''; });
         meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
     }
 }
