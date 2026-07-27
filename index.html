@@ -3940,7 +3940,16 @@ async function pushUnsubscribe() {
                 await pushUnsubscribe();
             }
         } catch (e) {
-            pushNote('Nu s-a putut schimba setarea: ' + e.message, 'var(--red)');
+            var msg = String(e && e.message || e);
+            if (/push service error|Registration failed|AbortError/i.test(msg)) {
+                pushNote('Browserul nu s-a putut conecta la serviciul de notificări. ' +
+                         'De obicei e din cauza unei extensii de blocare (AdBlock), a unui VPN sau a rețelei. ' +
+                         'Pe telefon funcționează normal.', 'var(--amber)');
+            } else if (/denied|permission/i.test(msg)) {
+                pushNote('Notificările sunt blocate în browser. Activează-le din setările site-ului.', 'var(--red)');
+            } else {
+                pushNote('Nu s-a putut activa: ' + msg, 'var(--red)');
+            }
             el.checked = false;
         }
         el.disabled = false;
