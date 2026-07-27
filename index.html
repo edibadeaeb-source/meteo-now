@@ -2,8 +2,28 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="color-scheme" content="dark">
-    <style>:root { color-scheme: dark; }</style>
+    <meta name="color-scheme" content="dark light">
+    <style>
+        html[data-theme="dark"]  { color-scheme: dark; }
+        html[data-theme="light"] { color-scheme: light; }
+    </style>
+    <script>
+    // Tema se aplică ÎNAINTE de randare, ca să nu clipească.
+    // Implicit: urmează setarea telefonului; utilizatorul o poate schimba din Setări.
+    (function () {
+        try {
+            var saved = localStorage.getItem('meteo-theme');   // 'dark' | 'light' | 'system' | null
+            var mode = saved || 'system';
+            var sysDark = !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var theme = (mode === 'system') ? (sysDark ? 'dark' : 'light') : mode;
+            document.documentElement.setAttribute('data-theme', theme);
+            window.__themeMode = mode;
+        } catch (e) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            window.__themeMode = 'system';
+        }
+    })();
+    </script>
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -50,6 +70,31 @@
             --amber: #f5a300;
             --blue: #3b82f6;
             --radius: 14px;
+            /* elemente care diferă între teme */
+            --topbar-bg: #ffffff;
+            --topbar-text: var(--navy-deep);
+            --band-text: #e6e7eb;
+            --tile-bg: var(--tile-bg);
+            --tile-border: var(--tile-border);
+            --hero-card-bg: var(--hero-card-bg);
+            --hero-card-border: var(--hero-card-border);
+            --shadow: rgba(0, 0, 0, 0.45);
+        }
+        /* ── TEMA LUMINOASĂ ── */
+        html[data-theme="light"] {
+            --band: #123a86;              /* banda hero rămâne albastră, dar mai deschisă */
+            --bg: #eef1f7;
+            --card: #ffffff;
+            --card-soft: #f4f6fb;
+            --border: #dfe4ef;
+            --heading: #12203f;
+            --text: #232c50;
+            --muted: #6d7593;
+            --tile-bg: #17307a;
+            --tile-border: rgba(255, 255, 255, 0.16);
+            --hero-card-bg: rgba(255, 255, 255, 0.10);
+            --hero-card-border: rgba(255, 255, 255, 0.28);
+            --shadow: rgba(30, 40, 90, 0.14);
         }
         html { scroll-behavior: smooth; }
         body {
@@ -64,7 +109,7 @@
         /* ── TOP BAR ── */
         .topbar {
             position: sticky; top: 0; z-index: 5000;
-            background: #ffffff;
+            background: var(--topbar-bg);
             border-bottom: 1px solid var(--border);
             box-shadow: 0 1px 10px rgba(30, 40, 90, 0.06);
         }
@@ -121,8 +166,8 @@
             display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px;
         }
         .hero-band .card {
-            background: rgba(10, 18, 48, 0.55);
-            border: 1px solid rgba(160, 175, 220, 0.35);
+            background: var(--hero-card-bg);
+            border: 1px solid var(--hero-card-border);
             padding: 16px 18px;
         }
         .hero-card { display: flex; justify-content: space-between; gap: 18px; flex-wrap: wrap; align-items: center; }
@@ -167,7 +212,7 @@
 
         .lora-info-bar {
             display: flex; gap: 18px; flex-wrap: wrap;
-            background: rgba(10, 18, 48, 0.55); border: 1px solid rgba(160, 175, 220, 0.25);
+            background: var(--hero-card-bg); border: 1px solid var(--hero-card-border);
             border-radius: 12px; padding: 10px 16px;
             font-size: 0.8rem; color: var(--text);
         }
@@ -326,7 +371,7 @@
 
         /* ── FOOTER ── */
         .site-footer {
-            background: #0b0b0d; border-top: 1px solid var(--border); color: #c8d0ea;
+            background: var(--card-soft); border-top: 1px solid var(--border); color: #c8d0ea;
             margin-top: 50px; padding: 34px 20px;
         }
         .footer-inner {
@@ -334,7 +379,7 @@
             display: flex; justify-content: space-between; align-items: center;
             gap: 20px; flex-wrap: wrap;
         }
-        .footer-brand { display: flex; align-items: center; gap: 12px; color: #fff; font-weight: 700; }
+        .footer-brand { display: flex; align-items: center; gap: 12px; color: var(--heading); font-weight: 700; }
         .footer-brand .brand-logo { background: rgba(255,255,255,0.12); }
         .footer-note { font-size: 0.78rem; line-height: 1.6; text-align: right; }
 
@@ -415,7 +460,7 @@
         .ps-results div:hover { background: #eef1f7; }
         .sunmoon-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
         .sun-col, .moon-col {
-            background: #0c1631; border: 1px solid rgba(160, 175, 220, 0.18); border-radius: 10px;
+            background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 10px;
             padding: 10px 10px 8px; min-height: 150px;
             display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 6px;
             color: var(--text);
@@ -424,7 +469,7 @@
         .hero-divider { border: none; border-top: 1px solid rgba(160,175,220,0.3); margin: 10px 0 8px; }
         .your-place { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
         .pill-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff;
+            background: transparent; border: 1px solid rgba(255,255,255,0.5); color: var(--heading);
             border-radius: 8px; padding: 6px 16px; font-size: 0.8rem; font-weight: 700; cursor: pointer;
         }
         .pill-btn:hover { background: rgba(255,255,255,0.12); }
@@ -434,7 +479,7 @@
         .space-card .card-head h2 { font-size: 1.05rem; }
         .gauges-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex: 1; }
         .gauge {
-            background: #0c1631; border: 1px solid rgba(160, 175, 220, 0.18); border-radius: 10px;
+            background: var(--tile-bg); border: 1px solid var(--tile-border); border-radius: 10px;
             padding: 10px 4px 8px; min-height: 150px;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
         }
@@ -445,14 +490,14 @@
 
         /* secțiunea monitorizare: 2 coloane */
         .monitor-wrap { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
-        .monitor-left { background: #101014; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+        .monitor-left { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
         .mon-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
         .mon-tab {
             flex: 1; text-align: center; padding: 11px 6px; cursor: pointer;
             font-size: 0.88rem; font-weight: 700; color: var(--text);
             border-bottom: 3px solid transparent; user-select: none;
         }
-        .mon-tab.active { color: #fff; border-bottom-color: var(--blue); }
+        .mon-tab.active { color: var(--heading); border-bottom-color: var(--blue); }
         .mon-panel { display: none; }
         .mon-panel.active { display: block; }
         .light-panel { background: #fff; border-radius: 10px; padding: 14px; color: #1c2434; }
@@ -460,7 +505,7 @@
         .panel-note { font-size: 0.68rem; color: #6d7593; margin-top: 8px; line-height: 1.4; }
         .mon-btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
         .outline-btn {
-            background: transparent; border: 1px solid var(--blue); color: #fff;
+            background: transparent; border: 1px solid var(--blue); color: var(--heading);
             border-radius: 8px; padding: 9px 18px; font-size: 0.8rem; font-weight: 700;
         }
         .outline-btn:hover { background: rgba(59,130,246,0.15); }
@@ -508,13 +553,13 @@
         .warn-card #alertList li { background: #f4f6fb; color: #333; font-size: 0.76rem; }
 
         /* banda prognoze */
-        .band-section { background: #131316; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 0 30px; margin-top: 40px; }
+        .band-section { background: var(--card-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 0 30px; margin-top: 40px; }
         .band-inner { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
         .fc-pills { display: flex; gap: 14px; margin: 18px 0 22px; flex-wrap: wrap; }
         .fc-pill {
             flex: 1; min-width: 200px; text-align: center; padding: 12px 10px;
             border: 1px solid var(--blue); border-radius: 8px; background: transparent;
-            color: #fff; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+            color: var(--heading); font-weight: 700; font-size: 0.85rem; cursor: pointer;
         }
         .fc-pill.active, .fc-pill:hover { background: var(--navy); border-color: var(--navy); }
         .fc-panel { display: none; } .fc-panel.active { display: block; }
@@ -527,7 +572,7 @@
             padding: 10px 6px; text-align: center; font-size: 0.72rem; color: var(--text);
         }
         .day-card .dc-ico { font-size: 1.4rem; margin: 4px 0; }
-        .day-card .dc-max { font-weight: 800; color: #fff; font-size: 0.95rem; }
+        .day-card .dc-max { font-weight: 800; color: var(--heading); font-size: 0.95rem; }
         .day-card .dc-min { color: var(--muted); }
         .day-card .dc-name { font-weight: 700; text-transform: capitalize; }
         .chart-wrapper-sm { position: relative; height: 260px; width: 100%; }
@@ -535,13 +580,13 @@
             display: flex; align-items: center; justify-content: center; gap: 20px;
             margin-top: 26px; flex-wrap: wrap;
         }
-        .localisation-bar .lb-title { font-size: 1.15rem; font-weight: 800; color: #fff; }
+        .localisation-bar .lb-title { font-size: 1.15rem; font-weight: 800; color: var(--heading); }
         .localisation-bar .place-search { width: min(420px, 90vw); }
         #placeForecast { margin-top: 14px; display: none; }
 
         /* produse speciale */
         .special-head { display: flex; align-items: center; justify-content: center; gap: 20px; padding: 26px 0 6px; }
-        .special-head h2 { font-size: 1.7rem; font-weight: 800; color: #fff; }
+        .special-head h2 { font-size: 1.7rem; font-weight: 800; color: var(--heading); }
         .special-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 18px; }
         .players { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .player-card { background: #000; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
@@ -596,6 +641,79 @@
         @media (max-width: 560px) {
             .services-grid { grid-template-columns: 1fr; }
             .gauge svg { width: 92px; height: 56px; }
+        }
+
+        /* ══ ECRAN DE PORNIRE (SPLASH) ══ */
+        #splash {
+            position: fixed; inset: 0; z-index: 99999;
+            background: var(--band);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+            transition: opacity 0.45s ease, visibility 0.45s ease;
+        }
+        #splash.hide { opacity: 0; visibility: hidden; }
+        #splash .sp-logo { width: 104px; height: 104px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+        #splash .sp-name { font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+        #splash .sp-sub { font-size: 0.82rem; color: #9fb0d8; margin-top: -10px; }
+        #splash .sp-bar { width: 150px; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.18); overflow: hidden; }
+        #splash .sp-bar i { display: block; height: 100%; width: 40%; background: #4f83ff; border-radius: 3px; animation: spload 1.1s ease-in-out infinite; }
+        @keyframes spload { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+
+        /* ══ SETĂRI ══ */
+        .sheet-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10000;
+            display: none; align-items: center; justify-content: center; padding: 16px;
+        }
+        .sheet-backdrop.open { display: flex; }
+        .sheet {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            width: min(430px, 100%); max-height: 86vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .sheet-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 18px; border-bottom: 1px solid var(--border);
+        }
+        .sheet-head h3 { font-size: 1.05rem; font-weight: 800; color: var(--heading); margin: 0; }
+        .sheet-close {
+            background: var(--card-soft); border: 1px solid var(--border); color: var(--text);
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 0.95rem; line-height: 1;
+        }
+        .sheet-body { padding: 16px 18px 20px; }
+        .set-group { margin-bottom: 18px; }
+        .set-label { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+        .seg { display: flex; gap: 6px; }
+        .seg button {
+            flex: 1; padding: 10px 8px; border-radius: 10px; cursor: pointer;
+            background: var(--card-soft); border: 1px solid var(--border); color: var(--text);
+            font-size: 0.82rem; font-weight: 700; font-family: inherit;
+        }
+        .seg button.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+        .set-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 0.86rem; color: var(--text);
+        }
+        .set-row:last-child { border-bottom: none; }
+        .set-row small { display: block; color: var(--muted); font-size: 0.72rem; margin-top: 2px; }
+        .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch span {
+            position: absolute; inset: 0; background: var(--border); border-radius: 26px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .switch span::before {
+            content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+            background: #fff; border-radius: 50%; transition: transform 0.2s;
+        }
+        .switch input:checked + span { background: var(--navy); }
+        .switch input:checked + span::before { transform: translateX(20px); }
+        .set-note { font-size: 0.72rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+
+        /* trage pentru reîmprospătare */
+        #pullRefresh {
+            position: fixed; top: 0; left: 50%; transform: translate(-50%, -60px);
+            z-index: 9000; background: var(--navy); color: #fff;
+            border-radius: 0 0 14px 14px; padding: 8px 18px; font-size: 0.78rem; font-weight: 700;
+            transition: transform 0.18s ease; pointer-events: none; box-shadow: 0 4px 14px var(--shadow);
         }
 
         /* ══ CHATBOT WIDGET ══ */
@@ -681,9 +799,76 @@
             .chat-header { padding-top: max(16px, env(safe-area-inset-top)); }
             .chat-input-area { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
         }
-    </style>
+    
+        /* banda hero rămâne închisă în ambele teme → text deschis */
+        .hero-band .pill-btn { color: #fff; border-color: rgba(255,255,255,0.5); }
+        .hero-band .pill-btn:hover { background: rgba(255,255,255,0.14); }
+        .hero-band, .hero-band .hero-sub, .hero-band .hero-extra, .hero-band .sm-title,
+        .hero-band .tile-sub, .hero-band .your-place, .hero-band .lora-info-bar { color: #dbe3f5; }
+        .hero-band h1, .hero-band .hero-temp, .hero-band .card-head h2, .hero-band .hero-feels { color: #ffffff; }
+        .hero-band .gauge-label { color: #d7dcea; }
+</style>
 </head>
 <body>
+
+<!-- ═══ ECRAN DE PORNIRE ═══ -->
+<div id="splash">
+    <img class="sp-logo" src="icon-192.png" alt="METEO Târgoviște">
+    <div class="sp-name">METEO Târgoviște</div>
+    <div class="sp-sub">Stație meteo · Dâmbovița</div>
+    <div class="sp-bar"><i></i></div>
+</div>
+
+<!-- ═══ INDICATOR TRAGE-PENTRU-REÎMPROSPĂTARE ═══ -->
+<div id="pullRefresh">↓ Trage pentru actualizare</div>
+
+<!-- ═══ SETĂRI ═══ -->
+<div class="sheet-backdrop" id="settingsSheet">
+    <div class="sheet">
+        <div class="sheet-head">
+            <h3>⚙ Setări</h3>
+            <button class="sheet-close" id="settingsClose" aria-label="Închide">✕</button>
+        </div>
+        <div class="sheet-body">
+            <div class="set-group">
+                <div class="set-label">Temă</div>
+                <div class="seg" id="themeSeg">
+                    <button data-theme-mode="system">Automat</button>
+                    <button data-theme-mode="light">☀ Luminos</button>
+                    <button data-theme-mode="dark">🌙 Întunecat</button>
+                </div>
+                <div class="set-note">„Automat" urmează setarea telefonului.</div>
+            </div>
+
+            <div class="set-group">
+                <div class="set-label">Afișare</div>
+                <div class="set-row">
+                    <div>Actualizare automată<small>Reîmprospătează datele fără reîncărcare</small></div>
+                    <label class="switch"><input type="checkbox" id="setAutoRefresh" checked><span></span></label>
+                </div>
+                <div class="set-row">
+                    <div>Animații<small>Efecte și tranziții</small></div>
+                    <label class="switch"><input type="checkbox" id="setAnimations" checked><span></span></label>
+                </div>
+                <div class="set-row">
+                    <div>Asistent AI<small>Butonul de chat din colț</small></div>
+                    <label class="switch"><input type="checkbox" id="setChatVisible" checked><span></span></label>
+                </div>
+            </div>
+
+            <div class="set-group">
+                <div class="set-label">Despre</div>
+                <div class="set-row">
+                    <div>METEO Târgoviște<small id="aboutVersion">Stație meteo pentru Dâmbovița</small></div>
+                </div>
+                <div class="set-note">
+                    Surse de date: ANM (meteoromania.ro) · NOAA SWPC · Open-Meteo · RainViewer · OpenWeatherMap · DWD.<br>
+                    Dezvoltat de Eduard-Emanuel Badea · Universitatea Valahia din Târgoviște.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ═══ TOP BAR (stil IMGW) ═══ -->
 <header class="topbar">
@@ -697,6 +882,7 @@
         <div class="topbar-right">
             <span class="lang-chip">RO</span>
             <span class="lang-chip" style="opacity:0.4;">EN</span>
+            <button id="settingsBtn" class="lang-chip" title="Setări" aria-label="Setări" style="cursor:pointer;border:none;font-size:1.15rem;">⚙</button>
             <button id="toggleControls" class="services-btn">▦ Servicii METEO<span id="toggleArrow" style="display:none;">▼</span></button>
         </div>
     </div>
@@ -1031,10 +1217,10 @@
                 </div>
             </div>
             <div>
-                <h3 style="color:#fff;font-size:1.1rem;font-weight:800;margin:4px 0 10px;">Hartă sinoptică — analiză Europa</h3>
+                <h3 style="color:var(--heading);font-size:1.1rem;font-weight:800;margin:4px 0 10px;">Hartă sinoptică — analiză Europa</h3>
                 <div class="fc-day-select">
                     <span style="font-size:0.8rem;color:var(--muted);">Arată harta sinoptică pentru:</span>
-                    <span id="synChartDate" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:0.8rem;color:#fff;font-weight:700;"></span>
+                    <span id="synChartDate" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:0.8rem;color:var(--heading);font-weight:700;"></span>
                     <button class="outline-btn" id="synReload">⟳ Reîncarcă</button>
                 </div>
                 <div class="light-panel">
@@ -1119,7 +1305,7 @@
         </div>
     </div>
 
-    <h2 style="text-align:center;margin:44px 0 6px;font-size:1.35rem;color:#fff;font-weight:800;">Servicii specializate ale stației</h2>
+    <h2 style="text-align:center;margin:44px 0 6px;font-size:1.35rem;color:var(--heading);font-weight:800;">Servicii specializate ale stației</h2>
     <div class="services-grid" id="services-grid">
         <a class="service-card" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monRadar]').click();},350);"><div class="service-thumb" style="background:#dcecff;">🌦️</div><h4>Radar precipitații</h4></a>
         <a class="service-card" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monSynop]').click();},350);"><div class="service-thumb" style="background:#e2f6e9;">🌡️</div><h4>Starea vremii (stații ANM)</h4></a>
@@ -3317,19 +3503,41 @@ document.getElementById('cbToggle').addEventListener('click', function() {
     if (tenDayChartJs) { tenDayChartJs.data.datasets[0].borderColor = pal[1]; tenDayChartJs.data.datasets[1].borderColor = pal[0]; tenDayChartJs.update(); }
 });
 
-// ── INIȚIALIZARE MODULE NOI ──
+// ── INIȚIALIZARE MODULE ──
+// Ce se vede primul (partea de sus) pornește imediat; restul se încarcă
+// abia când ajungi cu derularea la ele → pornire mult mai rapidă pe telefon.
+function initWhenVisible(elementId, initFn) {
+    var el = document.getElementById(elementId);
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) { try { initFn(); } catch (e) {} return; }
+    var done = false;
+    var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+            if (en.isIntersecting && !done) {
+                done = true; io.disconnect();
+                try { initFn(); } catch (e) {}
+                setTimeout(invalidateAllMaps, 250);
+            }
+        });
+    }, { rootMargin: '350px' });   // pornește puțin înainte să ajungă pe ecran
+    io.observe(el);
+}
+
 window.addEventListener('load', function() {
+    // — imediat: ce se vede la deschidere —
+    try { updateHeroTemp(); } catch (e) {}
     try { initSynopMap(); } catch (e) {}
     try { initWarnMap(); } catch (e) {}
-    try { loadPrecip(); } catch (e) {}
     try { loadFlood(); } catch (e) {}
-    try { initForecastMap(); } catch (e) {}
-    try { initSynChart(); } catch (e) {}
-    try { loadTenDay(); } catch (e) {}
-    try { loadLongRange('weeks'); } catch (e) {}
-    try { initAnimSat(); } catch (e) {}
-    try { initAnimRadar(); } catch (e) {}
-    try { updateHeroTemp(); } catch (e) {}
+
+    // — amânat: se încarcă la derulare —
+    initWhenVisible('precipMap',     function() { loadPrecip(); });
+    initWhenVisible('forecastMap',   function() { initForecastMap(); });
+    initWhenVisible('synChartImg',   function() { initSynChart(); });
+    initWhenVisible('tenDayChart',   function() { loadTenDay(); loadLongRange('weeks'); });
+    initWhenVisible('animSat',       function() { initAnimSat(); });
+    initWhenVisible('animRadar',     function() { initAnimRadar(); });
+
     // reface dimensiunea hărților după ce se așază layout-ul (fix afișare pe mobil)
     [200, 600, 1200, 2500].forEach(function(t) { setTimeout(invalidateAllMaps, t); });
 });
@@ -3397,6 +3605,181 @@ setInterval(function() { try { loadPrecip(); } catch (e) {} }, 20 * 60000);     
 setInterval(function() { try { loadTenDay(); } catch (e) {} }, 30 * 60000);         // prognoză 10 zile la 30 min
 setInterval(refreshRadarFrames, 6 * 60000);                     // cadre radar/satelit la 6 min
 setInterval(function() { try { updateHeroTemp(); } catch (e) {} }, 15000);          // temperatura proprie la 15 s
+</script>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ȘLEFUIRE MOBIL — temă, setări, splash, gesturi
+//  Preferințele se salvează pe dispozitiv (localStorage).
+// ═══════════════════════════════════════════════════════════
+var PREF = {
+    get: function(k, d) { try { var v = localStorage.getItem('meteo-' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set: function(k, v) { try { localStorage.setItem('meteo-' + k, v); } catch (e) {} }
+};
+
+// ── TEMĂ ──
+function applyTheme(mode) {
+    var sysDark = !window.matchMedia || window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = (mode === 'system') ? (sysDark ? 'dark' : 'light') : mode;
+    document.documentElement.setAttribute('data-theme', theme);
+    window.__themeMode = mode;
+    PREF.set('theme', mode);
+    // culoarea barei de sistem pe telefon
+    var m = document.querySelector('meta[name="theme-color"]');
+    if (m) m.setAttribute('content', theme === 'light' ? '#123a86' : '#071031');
+    // graficele urmează tema
+    try {
+        if (window.Chart) {
+            Chart.defaults.color = theme === 'light' ? '#4a5568' : '#c9cdd6';
+            Chart.defaults.borderColor = theme === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
+        }
+    } catch (e) {}
+    // butoanele din setări
+    document.querySelectorAll('#themeSeg button').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-theme-mode') === mode);
+    });
+}
+// reacționează la schimbarea temei telefonului (când e pe „Automat")
+if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onSys = function() { if ((window.__themeMode || 'system') === 'system') applyTheme('system'); };
+    if (mq.addEventListener) mq.addEventListener('change', onSys); else if (mq.addListener) mq.addListener(onSys);
+}
+document.querySelectorAll('#themeSeg button').forEach(function(b) {
+    b.addEventListener('click', function() { applyTheme(b.getAttribute('data-theme-mode')); });
+});
+
+// ── SETĂRI: deschidere / închidere ──
+var sheet = document.getElementById('settingsSheet');
+document.getElementById('settingsBtn').addEventListener('click', function() { sheet.classList.add('open'); });
+document.getElementById('settingsClose').addEventListener('click', function() { sheet.classList.remove('open'); });
+sheet.addEventListener('click', function(e) { if (e.target === sheet) sheet.classList.remove('open'); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') sheet.classList.remove('open'); });
+
+// ── SETĂRI: comutatoare ──
+function bindSwitch(id, key, onChange) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.checked = PREF.get(key, '1') === '1';
+    if (onChange) onChange(el.checked);
+    el.addEventListener('change', function() {
+        PREF.set(key, el.checked ? '1' : '0');
+        if (onChange) onChange(el.checked);
+    });
+}
+var AUTO_REFRESH = true;
+bindSwitch('setAutoRefresh', 'autorefresh', function(on) { AUTO_REFRESH = on; });
+bindSwitch('setAnimations', 'animations', function(on) {
+    document.documentElement.style.scrollBehavior = on ? 'smooth' : 'auto';
+    var st = document.getElementById('noAnimStyle');
+    if (!on && !st) {
+        st = document.createElement('style'); st.id = 'noAnimStyle';
+        st.textContent = '*,*::before,*::after{animation-duration:0s!important;transition-duration:0s!important;}';
+        document.head.appendChild(st);
+    } else if (on && st) { st.remove(); }
+});
+bindSwitch('setChatVisible', 'chatvisible', function(on) {
+    var f = document.getElementById('chatFab');
+    if (f) f.style.display = on ? 'flex' : 'none';
+    if (!on) { var w = document.getElementById('chatWindow'); if (w) w.classList.remove('open'); }
+});
+
+// Actualizarea automată respectă setarea și se oprește când aplicația e în fundal
+// (economisește baterie și date pe telefon).
+(function() {
+    var _si = window.setInterval;
+    window.setInterval = function(fn, ms) {
+        if (typeof fn === 'function' && ms >= 10000) {
+            return _si(function() { if (AUTO_REFRESH && !document.hidden) fn(); }, ms);
+        }
+        return _si.apply(window, arguments);
+    };
+})();
+
+// La revenirea în aplicație, împrospătează imediat datele principale
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden || !AUTO_REFRESH) return;
+    try { liveClock(); } catch (e) {}
+    try { fetchWeather(); } catch (e) {}
+    try { updateHeroTemp(); } catch (e) {}
+    try { loadSynopStations(); } catch (e) {}
+    try { refreshWarnings(); } catch (e) {}
+});
+
+// ── ECRAN DE PORNIRE ──
+function hideSplash() {
+    var sp = document.getElementById('splash');
+    if (sp && !sp.classList.contains('hide')) sp.classList.add('hide');
+}
+window.addEventListener('load', function() { setTimeout(hideSplash, 500); });
+setTimeout(hideSplash, 4000);   // plasă de siguranță: nu rămâne blocat niciodată
+
+// ── GESTURI: glisare între tab-uri ──
+function enableSwipe(container, selector) {
+    var el = document.querySelector(container);
+    if (!el) return;
+    var x0 = null, y0 = null;
+    el.addEventListener('touchstart', function(e) {
+        if (e.touches.length !== 1) return;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    el.addEventListener('touchend', function(e) {
+        if (x0 === null) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - x0, dy = t.clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;   // doar orizontal clar
+        var tabs = Array.prototype.slice.call(document.querySelectorAll(selector));
+        if (tabs.length < 2) return;
+        var i = tabs.findIndex(function(t2) { return t2.classList.contains('active'); });
+        if (i < 0) return;
+        var next = dx < 0 ? i + 1 : i - 1;
+        if (next >= 0 && next < tabs.length) tabs[next].click();
+    }, { passive: true });
+}
+enableSwipe('.monitor-left', '.mon-tab');
+enableSwipe('.warn-card', '.warn-tab');
+enableSwipe('#forecast-section', '.fc-pill');
+
+// ── GESTURI: trage pentru reîmprospătare ──
+(function() {
+    var startY = 0, pulling = false, ind = document.getElementById('pullRefresh');
+    if (!ind) return;
+    window.addEventListener('touchstart', function(e) {
+        if (window.scrollY > 4 || e.touches.length !== 1) { pulling = false; return; }
+        if (document.getElementById('settingsSheet').classList.contains('open')) { pulling = false; return; }
+        startY = e.touches[0].clientY; pulling = true;
+    }, { passive: true });
+    window.addEventListener('touchmove', function(e) {
+        if (!pulling) return;
+        var d = e.touches[0].clientY - startY;
+        if (d > 0 && window.scrollY <= 4) {
+            var shift = Math.min(d * 0.5, 70);
+            ind.style.transform = 'translate(-50%, ' + (shift - 60) + 'px)';
+            if (d > 90) ind.textContent = '↻ Eliberează pentru actualizare';
+            else ind.textContent = '↓ Trage pentru actualizare';
+        }
+    }, { passive: true });
+    window.addEventListener('touchend', function(e) {
+        if (!pulling) return;
+        pulling = false;
+        var d = (e.changedTouches[0] ? e.changedTouches[0].clientY : startY) - startY;
+        if (d > 90 && window.scrollY <= 4) {
+            ind.textContent = '↻ Se actualizează...';
+            ind.style.transform = 'translate(-50%, 10px)';
+            try {
+                fetchWeather(); loadSynopStations(); refreshWarnings();
+                loadFlood(); loadPrecip(); refreshRadarFrames();
+            } catch (err) {}
+            setTimeout(function() { ind.style.transform = 'translate(-50%, -60px)'; }, 1200);
+        } else {
+            ind.style.transform = 'translate(-50%, -60px)';
+        }
+    }, { passive: true });
+})();
+
+// ── APLICĂ TEMA SALVATĂ ──
+applyTheme(PREF.get('theme', 'system'));
 </script>
 </body>
 </html>
