@@ -1246,17 +1246,10 @@
 
 <script>
 // Marcaj de versiune — verifică în consolă (F12) că s-a încărcat versiunea nouă
-console.log('%c METEO Târgoviște — versiune 2026-07-24 (cadrane text NEGRU) ', 'background:#071031;color:#4ade80;font-weight:700;padding:3px;');
-console.log('%cMETEO Târgoviște — versiune index.html: CADRANE NEGRE (v11, ' + new Date().toISOString().slice(0,10) + ')', 'background:#071031;color:#fff;padding:4px 8px;border-radius:4px;font-weight:700;');
-// Curăță orice service worker vechi + tot cache-ul (elimină versiunile blocate în cache).
-// Nu mai înregistrăm service worker deocamdată — pagina se ia mereu proaspătă din rețea.
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(regs) {
-        regs.forEach(function(r) { r.unregister(); });
-    }).catch(function() {});
-}
-if (window.caches && caches.keys) {
-    caches.keys().then(function(keys) { keys.forEach(function(k) { caches.delete(k); }); }).catch(function() {});
+// PWA: înregistrăm service worker-ul — necesar ca aplicația să se instaleze REAL
+// (fără bara de browser). Nu păstrează pagina în cache: conținutul vine mereu din rețea.
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    navigator.serviceWorker.register('sw.js').catch(function() {});
 }
 document.getElementById('heroDate').textContent =
     new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
