@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.meteo_targoviste.twa",
+        "sha256_cert_fingerprints": ["83:64:CA:3B:14:D4:E8:22:82:33:CD:36:50:C9:B4:E1:9B:DF:0C:38:98:18:F4:E5:0A:93:0D:37:88:53:87:ED"]
+      }
+    }]
