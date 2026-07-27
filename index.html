@@ -3033,39 +3033,67 @@ function refreshWarnings() {
         }).addTo(warnMapL);
         warnMapL.fitBounds(judLayer.getBounds(), { padding: [8, 8] });
 
-        // deasupra: zonele afectate, exact cum le trimite ANM (pot fi părți de județ)
+        // deasupra: EXACT zonele afectate trimise de ANM.
+        // ANM oferă „zona" (zone precise, ex. „MH_munte_1") și „judet" (contur județ întreg).
+        // Folosim „zona" — la fel ca harta oficială; județele doar ca rezervă.
         if (warnZonesLayer) { warnMapL.removeLayer(warnZonesLayer); }
         warnZonesLayer = L.layerGroup().addTo(warnMapL);
         var CODNAME = ['', 'cod galben', 'cod portocaliu', 'cod roșu'];
         var drawn = 0;
 
         warns.forEach(function(w) {
-            var msgLevel = Math.max(culNum(w.culoare), tipToLevel(w.tipMesaj), 1);
             var titlu = w.numeTipMesaj || 'Avertizare meteorologică';
             var fen = (w.fenomeneVizate && w.fenomeneVizate !== 'conform textelor') ? stripHtml(w.fenomeneVizate) : '';
             var interval = (w.intervalul && w.intervalul !== 'conform textelor') ? w.intervalul : '';
+            var zonaTxt = stripHtml(w.zonaAfectata || '');
 
-            judArr(w).forEach(function(j) {
-                var lv = Math.max(culNum(j.culoare), msgLevel);
-                var rings = parseWkt(j.coordGis);
+            var zones = zonaArr(w);                       // zone precise (preferat)
+            var useZones = zones.some(function(z) { return culNum(z.culoare) > 0; });
+            var items = useZones ? zones : judArr(w);
+
+            items.forEach(function(z) {
+                var lv = culNum(z.culoare);
+                if (lv < 1) return;                       // culoare 0 = zona NU e sub avertizare
+                var rings = parseWkt(z.coordGis);
                 if (!rings.length) return;
-                var cod = String(j.cod || '').toUpperCase().trim();
-                var nume = JUD_NAME[cod] || cod;
+                var cod = String(z.cod || '').trim();
+                var nume = JUD_NAME[cod.toUpperCase()] || zoneName(cod);
                 rings.forEach(function(ring) {
                     if (ring.length < 3) return;
                     drawn++;
                     L.polygon(ring, {
-                        color: '#ffffff', weight: 1, fillColor: WARN_COLS[lv] || '#f5c500', fillOpacity: 0.78
+                        color: '#ffffff', weight: 1, fillColor: WARN_COLS[lv] || '#f5c500', fillOpacity: 0.8
                     }).addTo(warnZonesLayer).bindPopup(
                         '<b>' + nume + '</b> — ' + (CODNAME[lv] || 'avertizare') + '<br>' + titlu +
                         (fen ? '<br><span style="color:#444;">' + fen + '</span>' : '') +
-                        (interval ? '<br><span style="color:#666;">' + interval + '</span>' : '')
+                        (interval ? '<br><span style="color:#666;">' + interval + '</span>' : '') +
+                        (zonaTxt ? '<br><span style="color:#666;font-size:0.9em;">' + zonaTxt + '</span>' : '')
                     );
                 });
             });
         });
         if (window.console) console.log('ANM: zone afectate desenate =', drawn);
-    }).catch(function(e) { console.error('ANM judete:', e); });
+    }).catch(function(e) { console.error('ANM zone:', e); });
+}
+
+// zonele precise ANM (câmpul „zona"), normalizate la listă
+function zonaArr(w) {
+    var z = w && w.zona;
+    if (!z) return [];
+    if (typeof z === 'string') { try { z = JSON.parse(z); } catch (e) { return []; } }
+    if (!Array.isArray(z)) z = [z];
+    return z.map(anmObj);
+}
+// „MH_munte_1" → „Mehedinți — zona montană"
+function zoneName(cod) {
+    var m = String(cod || '').match(/^([A-Za-z]{1,2})[_-]?(.*)$/);
+    if (!m) return cod;
+    var jud = JUD_NAME[m[1].toUpperCase()] || m[1];
+    var rest = (m[2] || '').replace(/[_\-]/g, ' ').replace(/\d+/g, '').trim();
+    if (/munte/i.test(rest)) return jud + ' — zona montană';
+    if (/deal/i.test(rest)) return jud + ' — zona de deal';
+    if (/campie|câmpie/i.test(rest)) return jud + ' — zona de câmpie';
+    return rest ? jud + ' — ' + rest : jud;
 }
 
 // tipMesaj ANM → nivel de cod (1 galben, 2 portocaliu, 3 roșu)
