@@ -74,10 +74,10 @@
             --topbar-bg: #ffffff;
             --topbar-text: var(--navy-deep);
             --band-text: #e6e7eb;
-            --tile-bg: var(--tile-bg);
-            --tile-border: var(--tile-border);
-            --hero-card-bg: var(--hero-card-bg);
-            --hero-card-border: var(--hero-card-border);
+            --tile-bg: #0c1631;
+            --tile-border: rgba(160, 175, 220, 0.18);
+            --hero-card-bg: rgba(10, 18, 48, 0.55);
+            --hero-card-border: rgba(160, 175, 220, 0.35);
             --shadow: rgba(0, 0, 0, 0.45);
         }
         /* ── TEMA LUMINOASĂ ── */
@@ -2763,7 +2763,7 @@ function loadSynopStations() {
 var radarMapL = null, radarFrames = [], radarLayer = null, radarIdx = 0, radarTimer = null, rvHost = '';
 function initRadar() {
     if (radarMapL) return;
-    radarMapL = L.map('radarMap', { scrollWheelZoom: false }).setView([45.8, 25.0], 6);
+    radarMapL = L.map('radarMap', { scrollWheelZoom: false, minZoom: 4, maxZoom: 11 }).setView([45.8, 25.0], 6);
     // fundal satelitar (markere proprii, fără etichetele Esri)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(radarMapL);
     // graticulă lat/lon la 1°
@@ -2818,7 +2818,7 @@ function initRadar() {
 function showRadarFrame(i) {
     if (!radarFrames[i]) return;
     if (radarLayer) radarMapL.removeLayer(radarLayer);
-    radarLayer = L.tileLayer(rvHost + radarFrames[i].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75 }).addTo(radarMapL);
+    radarLayer = L.tileLayer(rvHost + radarFrames[i].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75, maxNativeZoom: 10, maxZoom: 14 }).addTo(radarMapL);
     var t = new Date(radarFrames[i].time * 1000);
     document.getElementById('radarLabel').innerText = t.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
     document.getElementById('radarTime').innerText = t.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
@@ -2907,7 +2907,7 @@ function loadPrecip() {
 }
 
 // ── AVERTIZĂRI OFICIALE ANM (județe colorate, stil IMGW) ──
-var warnMapL = null, floodChartJs = null, judLayer = null;
+var warnMapL = null, floodChartJs = null, judLayer = null, warnZonesLayer = null;
 var JUD_NAME = { AB:'Alba', AR:'Arad', AG:'Arges', BC:'Bacau', BH:'Bihor', BN:'Bistrita-Nasaud', BT:'Botosani',
     BV:'Brasov', BR:'Braila', B:'Bucharest', BZ:'Buzau', CS:'Caras-Severin', CL:'Calarasi', CJ:'Cluj', CT:'Constanta',
     CV:'Covasna', DB:'Dambovita', DJ:'Dolj', GL:'Galati', GR:'Giurgiu', GJ:'Gorj', HR:'Harghita', HD:'Hunedoara',
@@ -3020,35 +3020,78 @@ function refreshWarnings() {
         document.getElementById('warnTypes').innerHTML = '• datele ANM nu au putut fi încărcate — verifică consola (F12) și ruta /api/anm/avertizari-generale';
     });
 
-    // 2) harta județelor colorate
+    // 2) harta: județe verzi ca fundal + zonele exact afectate (poligoanele ANM) deasupra
     avP.then(function(av) {
         if (!_judeteGeo) return;
         var warns = getWarns(av);
-        var level = {};
-        warns.forEach(function(w) {
-            var juds = judArr(w);
-            var cw = culNum(w.culoare);                       // culoarea generală a mesajului
-            juds.forEach(function(j) {
-                var c = culNum(j.culoare) || cw;              // dacă județul n-are culoare proprie, ia culoarea mesajului
-                var cod = String(j.cod || j.judet || '').toUpperCase().trim();
-                var name = normName(JUD_NAME[cod] || cod);
-                if (name) level[name] = Math.max(level[name] || 0, c);
-            });
-        });
+
+        // fundal: toate județele verzi (fără avertizare)
         if (judLayer) { warnMapL.removeLayer(judLayer); judLayer = null; }
         judLayer = L.geoJSON(_judeteGeo, {
-            style: function(f) {
-                var lv = level[normName(f.properties.NAME_1)] || 0;
-                // pe fundal satelitar: verde translucid unde nu-s avertizări, culori mai pline la coduri
-                return { color: '#ffffff', weight: 1.3, fillColor: lv ? WARN_COLS[lv] : '#3fbf5a', fillOpacity: lv ? 0.62 : 0.32 };
-            },
-            onEachFeature: function(f, layer) {
-                var lv = level[normName(f.properties.NAME_1)] || 0;
-                layer.bindPopup('<b>' + f.properties.NAME_1 + '</b><br>' + (lv ? 'Cod ' + ['', 'galben', 'portocaliu', 'roșu'][lv] : 'fără avertizări'));
-            }
+            style: function() { return { color: '#ffffff', weight: 1.3, fillColor: '#3fbf5a', fillOpacity: 0.32 }; },
+            onEachFeature: function(f, layer) { layer.bindPopup('<b>' + f.properties.NAME_1 + '</b><br>fără avertizări'); }
         }).addTo(warnMapL);
         warnMapL.fitBounds(judLayer.getBounds(), { padding: [8, 8] });
+
+        // deasupra: zonele afectate, exact cum le trimite ANM (pot fi părți de județ)
+        if (warnZonesLayer) { warnMapL.removeLayer(warnZonesLayer); }
+        warnZonesLayer = L.layerGroup().addTo(warnMapL);
+        var CODNAME = ['', 'cod galben', 'cod portocaliu', 'cod roșu'];
+        var drawn = 0;
+
+        warns.forEach(function(w) {
+            var msgLevel = Math.max(culNum(w.culoare), tipToLevel(w.tipMesaj), 1);
+            var titlu = w.numeTipMesaj || 'Avertizare meteorologică';
+            var fen = (w.fenomeneVizate && w.fenomeneVizate !== 'conform textelor') ? stripHtml(w.fenomeneVizate) : '';
+            var interval = (w.intervalul && w.intervalul !== 'conform textelor') ? w.intervalul : '';
+
+            judArr(w).forEach(function(j) {
+                var lv = Math.max(culNum(j.culoare), msgLevel);
+                var rings = parseWkt(j.coordGis);
+                if (!rings.length) return;
+                var cod = String(j.cod || '').toUpperCase().trim();
+                var nume = JUD_NAME[cod] || cod;
+                rings.forEach(function(ring) {
+                    if (ring.length < 3) return;
+                    drawn++;
+                    L.polygon(ring, {
+                        color: '#ffffff', weight: 1, fillColor: WARN_COLS[lv] || '#f5c500', fillOpacity: 0.78
+                    }).addTo(warnZonesLayer).bindPopup(
+                        '<b>' + nume + '</b> — ' + (CODNAME[lv] || 'avertizare') + '<br>' + titlu +
+                        (fen ? '<br><span style="color:#444;">' + fen + '</span>' : '') +
+                        (interval ? '<br><span style="color:#666;">' + interval + '</span>' : '')
+                    );
+                });
+            });
+        });
+        if (window.console) console.log('ANM: zone afectate desenate =', drawn);
     }).catch(function(e) { console.error('ANM judete:', e); });
+}
+
+// tipMesaj ANM → nivel de cod (1 galben, 2 portocaliu, 3 roșu)
+function tipToLevel(t) {
+    var n = parseInt(t);
+    if (isNaN(n)) return 1;
+    return Math.max(1, Math.min(3, n));
+}
+
+// Parsează WKT MULTIPOLYGON/POLYGON (coordonate EPSG:3857) → inele [[lat,lon], ...]
+function parseWkt(wkt) {
+    if (!wkt || typeof wkt !== 'string') return [];
+    var rings = [], m, re = /\(([-\d.,\s]+)\)/g;
+    while ((m = re.exec(wkt)) !== null) {
+        var pts = m[1].split(',');
+        var ring = [];
+        for (var i = 0; i < pts.length; i++) {
+            var p = pts[i].trim().split(/\s+/);
+            if (p.length < 2) continue;
+            var x = parseFloat(p[0]), y = parseFloat(p[1]);
+            if (isNaN(x) || isNaN(y)) continue;
+            ring.push(merc2ll(x, y));
+        }
+        if (ring.length >= 3) rings.push(ring);
+    }
+    return rings;
 }
 function loadFlood() {
     fetch('https://flood-api.open-meteo.com/v1/flood?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&daily=river_discharge&forecast_days=31')
@@ -3331,7 +3374,7 @@ var animSatMapL = null, animSatLayer = null, animSatIdx = 0, animSatTimer = null
 function showSatFrame(i) {
     if (!satFrames[i]) return;
     if (animSatLayer) animSatMapL.removeLayer(animSatLayer);
-    animSatLayer = L.tileLayer(rvHost + satFrames[i].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.7 }).addTo(animSatMapL);
+    animSatLayer = L.tileLayer(rvHost + satFrames[i].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.7, maxNativeZoom: 8, maxZoom: 14 }).addTo(animSatMapL);
     document.getElementById('animSatLabel').innerText = new Date(satFrames[i].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 }
 function initAnimSat() {
@@ -3347,7 +3390,7 @@ function initAnimSat() {
         if (radarFrames.length && animRadarMapL) {
             animRadarIdx = radarFrames.length - 1;
             if (animRadarLayer) animRadarMapL.removeLayer(animRadarLayer);
-            animRadarLayer = L.tileLayer(rvHost + radarFrames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8 }).addTo(animRadarMapL);
+            animRadarLayer = L.tileLayer(rvHost + radarFrames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 10, maxZoom: 14 }).addTo(animRadarMapL);
             document.getElementById('animRadarLabel').innerText = new Date(radarFrames[animRadarIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
         }
     }).catch(function() {});
@@ -3360,7 +3403,7 @@ function initAnimSat() {
                 if (!satFrames.length) return;
                 animSatIdx = (animSatIdx + 1) % satFrames.length;
                 if (animSatLayer) animSatMapL.removeLayer(animSatLayer);
-                animSatLayer = L.tileLayer(rvHost + satFrames[animSatIdx].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.8 }).addTo(animSatMapL);
+                animSatLayer = L.tileLayer(rvHost + satFrames[animSatIdx].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.8, maxNativeZoom: 8, maxZoom: 14 }).addTo(animSatMapL);
                 document.getElementById('animSatLabel').innerText = new Date(satFrames[animSatIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
             }, 700);
         };
@@ -3434,7 +3477,7 @@ function initAnimRadar() {
             animRadarTimer = setInterval(function() {
                 animRadarIdx = (animRadarIdx + 1) % frames.length;
                 if (animRadarLayer) animRadarMapL.removeLayer(animRadarLayer);
-                animRadarLayer = L.tileLayer(host + frames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8 }).addTo(animRadarMapL);
+                animRadarLayer = L.tileLayer(host + frames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 10, maxZoom: 14 }).addTo(animRadarMapL);
                 document.getElementById('animRadarLabel').innerText = new Date(frames[animRadarIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
             }, 700);
         };
