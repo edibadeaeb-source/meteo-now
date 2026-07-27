@@ -3914,9 +3914,57 @@ async function pushUnsubscribe() {
     } catch (e) {}
     pushNote('Notificările sunt dezactivate.');
 }
+// ── ALERTE LOCALE (rezervă când browserul nu acceptă push în fundal) ──
+var _localAlertTimer = null;
+function startLocalAlerts() {
+    if (_localAlertTimer) return;
+    var verifica = function() {
+        if (Notification.permission !== 'granted') return;
+        fetchANM('avertizari-generale').then(function(av) {
+            var warns = getWarns(av), nivel = 0, info = null;
+            warns.forEach(function(w) {
+                var n = 0;
+                zonaArr(w).concat(judArr(w)).forEach(function(z) {
+                    if (String(z.cod || '').toUpperCase().indexOf('DB') === 0) n = Math.max(n, culNum(z.culoare));
+                });
+                if (n > nivel) {
+                    nivel = n;
+                    info = { tip: w.numeTipMesaj || 'Avertizare meteorologică',
+                             fen: stripHtml(w.fenomeneVizate || ''),
+                             int: (w.intervalul || '') };
+                }
+            });
+            var amprenta = nivel ? (nivel + '|' + (info.tip || '') + '|' + (info.int || '')) : 'fara';
+            if (amprenta === PREF.get('lastalert', '')) return;   // deja anunțat
+            PREF.set('lastalert', amprenta);
+            if (!nivel) return;
+            var cod = ['', 'COD GALBEN', 'COD PORTOCALIU', 'COD ROȘU'][nivel] || 'AVERTIZARE';
+            var corp = (info.fen && info.fen !== 'conform textelor') ? info.fen : info.tip;
+            if (info.int && info.int !== 'conform textelor') corp += ' · ' + info.int;
+            try {
+                new Notification('⚠️ ' + cod + ' — Dâmbovița', {
+                    body: corp, icon: 'icon-192.png', tag: 'anm-local'
+                });
+            } catch (e) {}
+        }).catch(function() {});
+    };
+    verifica();
+    _localAlertTimer = setInterval(verifica, 10 * 60000);   // la 10 minute
+}
+function stopLocalAlerts() {
+    if (_localAlertTimer) { clearInterval(_localAlertTimer); _localAlertTimer = null; }
+    PREF.set('localalerts', '0');
+}
+
 (function initPush() {
     var el = document.getElementById('setPush');
     if (!el) return;
+    // reia alertele locale dacă au fost activate anterior
+    if (PREF.get('localalerts', '0') === '1' && window.Notification && Notification.permission === 'granted') {
+        startLocalAlerts();
+        el.checked = true;
+        pushNote('Alerte locale active (browserul nu acceptă notificări în fundal).', 'var(--amber)');
+    }
     if (!pushSupported()) {
         el.disabled = true;
         pushNote('Notificările funcționează doar în aplicația instalată (Adaugă la ecranul principal).');
@@ -3937,20 +3985,32 @@ async function pushUnsubscribe() {
                 var ok = await pushSubscribe();
                 el.checked = ok;
             } else {
+                stopLocalAlerts();
                 await pushUnsubscribe();
             }
         } catch (e) {
             var msg = String(e && e.message || e);
             if (/push service error|Registration failed|AbortError/i.test(msg)) {
-                pushNote('Browserul nu s-a putut conecta la serviciul de notificări. ' +
-                         'De obicei e din cauza unei extensii de blocare (AdBlock), a unui VPN sau a rețelei. ' +
-                         'Pe telefon funcționează normal.', 'var(--amber)');
+                // Browserul nu se poate înregistra la serviciul de push (frecvent pe desktop).
+                // Trecem pe alerte locale: funcționează cât timp aplicația e deschisă.
+                if (Notification.permission === 'granted') {
+                    PREF.set('localalerts', '1');
+                    startLocalAlerts();
+                    el.checked = true;
+                    pushNote('⚠️ Browserul nu acceptă notificări în fundal, dar am activat ' +
+                             'alertele locale: vei fi anunțat cât timp aplicația e deschisă. ' +
+                             'Pe telefon funcționează complet.', 'var(--amber)');
+                } else {
+                    pushNote('Browserul nu s-a putut conecta la serviciul de notificări.', 'var(--amber)');
+                    el.checked = false;
+                }
             } else if (/denied|permission/i.test(msg)) {
                 pushNote('Notificările sunt blocate în browser. Activează-le din setările site-ului.', 'var(--red)');
+                el.checked = false;
             } else {
                 pushNote('Nu s-a putut activa: ' + msg, 'var(--red)');
+                el.checked = false;
             }
-            el.checked = false;
         }
         el.disabled = false;
     });
