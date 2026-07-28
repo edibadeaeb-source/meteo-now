@@ -39,6 +39,24 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 BASE_DIR = str(Path(__file__).parent.resolve())
 
+# ─── Ora României ───
+# Serverele de găzduire (Render etc.) rulează pe UTC, deci datetime.now() ar da ora greșită.
+# Folosim ora locală a României peste tot unde afișăm ceva utilizatorului.
+try:
+    from zoneinfo import ZoneInfo
+    _TZ_RO = ZoneInfo("Europe/Bucharest")
+except Exception:
+    _TZ_RO = None
+
+def now_ro():
+    """Ora curentă în România (funcționează și local, și pe server UTC)."""
+    if _TZ_RO is not None:
+        return datetime.now(_TZ_RO)
+    # rezervă: vara UTC+3, iarna UTC+2 (aproximare simplă)
+    from datetime import timezone as _tz
+    utc = datetime.now(_tz.utc)
+    return utc + timedelta(hours=3 if 3 <= utc.month <= 10 else 2)
+
 # Folderul noului site METEO Târgoviște (stil IMGW).
 # Caută în mai multe locuri, ca să meargă indiferent cum sunt urcate fișierele:
 #  1) variabila de mediu STATIC_DIR (dacă o setezi pe gazdă)
@@ -155,7 +173,7 @@ _ANM_ENDPOINTS = {'avertizari-generale', 'avertizari-nowcasting', 'starea-vremii
 def anm_proxy(endpoint):
     if endpoint not in _ANM_ENDPOINTS:
         return jsonify({'error': 'endpoint necunoscut'}), 404
-    now = datetime.now()
+    now = now_ro()
     cached = _anm_cache.get(endpoint)
     if cached and (now - cached[0]).total_seconds() < 300:
         return jsonify(cached[1])
@@ -207,7 +225,7 @@ _owm_cache = {}
 @app.route('/api/owm/weather')
 def owm_weather():
     key = 'weather:' + request.args.get('lat', '') + ',' + request.args.get('lon', '')
-    now = datetime.now()
+    now = now_ro()
     c = _owm_cache.get(key)
     if c and (now - c[0]).total_seconds() < 120:
         return jsonify(c[1])
@@ -228,7 +246,7 @@ def owm_weather():
 @app.route('/api/owm/find')
 def owm_find():
     key = 'find:' + request.args.get('lat', '') + ',' + request.args.get('lon', '')
-    now = datetime.now()
+    now = now_ro()
     c = _owm_cache.get(key)
     if c and (now - c[0]).total_seconds() < 300:
         return jsonify(c[1])
@@ -312,7 +330,7 @@ def push_subscribe():
     _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', {
         'endpoint': endpoint,
         'keys': sub.get('keys', {}),
-        'creat': datetime.now().isoformat(timespec='seconds')
+        'creat': now_ro().isoformat(timespec='seconds')
     })
     return jsonify({'ok': True})
 
@@ -438,7 +456,7 @@ def push_check():
         return jsonify({'schimbare': False, 'active': len(active)})
 
     _fb('push_state', 'PUT', {'amprenta': amprenta,
-                              'actualizat': datetime.now().isoformat(timespec='seconds')})
+                              'actualizat': now_ro().isoformat(timespec='seconds')})
 
     if not active:
         return jsonify({'schimbare': True, 'active': 0, 'trimise': 0,
@@ -468,7 +486,7 @@ _widget_cache = {'t': None, 'data': None}
 
 @app.route('/api/widget')
 def widget_data():
-    now = datetime.now()
+    now = now_ro()
     if _widget_cache['data'] and _widget_cache['t'] and (now - _widget_cache['t']).total_seconds() < 300:
         return jsonify(_widget_cache['data'])
 
@@ -476,13 +494,17 @@ def widget_data():
         'oras': 'Târgoviște',
         'temp': None,
         'tempText': '--',
+        'resimtit': None,
         'descriere': '',
         'icon': 'nor',
         'umiditate': None,
         'vant': None,
+        'maxAzi': None,
+        'minAzi': None,
         'codAvertizare': 0,
         'codText': '',
         'avertizare': '',
+        'zile': [],                      # prognoza pe 3 zile
         'actualizat': now.strftime('%H:%M')
     }
 
@@ -498,6 +520,9 @@ def widget_data():
         if t is not None:
             out['temp'] = round(t, 1)
             out['tempText'] = f"{round(t)}°"
+        rs = d.get('main', {}).get('feels_like')
+        if rs is not None:
+            out['resimtit'] = round(rs)
         w0 = (d.get('weather') or [{}])[0]
         desc = (w0.get('description') or '').strip()
         out['descriere'] = desc[:1].upper() + desc[1:] if desc else ''
@@ -517,6 +542,54 @@ def widget_data():
         else:                  out['icon'] = 'nor'
     except Exception as e:
         print(f"⚠️  widget/vreme: {e}")
+
+    # 1b) prognoza pe 3 zile + max/min azi (Open-Meteo, fără cheie)
+    try:
+        r = requests.get('https://api.open-meteo.com/v1/forecast', params={
+            'latitude': 44.9266, 'longitude': 25.4566,
+            'daily': 'temperature_2m_max,temperature_2m_min,weathercode',
+            'forecast_days': 4, 'timezone': 'Europe/Bucharest'
+        }, timeout=12)
+        r.raise_for_status()
+        dz = r.json().get('daily', {})
+        zile_ro = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du']
+
+        def icon_wmo(c):
+            if c == 0:   return 'soare'
+            if c <= 2:   return 'partial'
+            if c == 3:   return 'nor'
+            if c <= 48:  return 'ceata'
+            if c <= 57:  return 'burnita'
+            if c <= 67:  return 'ploaie'
+            if c <= 77:  return 'ninsoare'
+            if c <= 82:  return 'ploaie'
+            if c <= 86:  return 'ninsoare'
+            return 'furtuna'
+
+        times = dz.get('time') or []
+        maxs = dz.get('temperature_2m_max') or []
+        mins = dz.get('temperature_2m_min') or []
+        codes = dz.get('weathercode') or []
+
+        if maxs and mins:
+            out['maxAzi'] = round(maxs[0])
+            out['minAzi'] = round(mins[0])
+
+        zile = []
+        for i in range(1, min(4, len(times))):          # mâine + următoarele 2
+            try:
+                d_ = datetime.strptime(times[i], '%Y-%m-%d')
+                zile.append({
+                    'zi': zile_ro[d_.weekday()],
+                    'max': round(maxs[i]),
+                    'min': round(mins[i]),
+                    'icon': icon_wmo(codes[i] if i < len(codes) else 3)
+                })
+            except Exception:
+                pass
+        out['zile'] = zile
+    except Exception as e:
+        print(f"⚠️  widget/prognoza: {e}")
 
     # 2) avertizare ANM pentru județul monitorizat
     try:
@@ -695,7 +768,7 @@ def ask():
     context_text = build_context_prompt(context)
     # Data si ora curenta (ora Romaniei), ca asistentul sa poata raspunde la "cat este ora?"
     _zile = ['luni','marti','miercuri','joi','vineri','sambata','duminica']
-    _acum = datetime.now()
+    _acum = now_ro()
     ora_text = f"\nDATA SI ORA CURENTA: {_zile[_acum.weekday()]}, {_acum.strftime('%d.%m.%Y')}, ora {_acum.strftime('%H:%M')} (ora Romaniei). Daca utilizatorul intreaba cat e ora sau ce zi este, raspunde folosind aceasta valoare."
     full_system = f"{SYSTEM_PROMPT}\n{context_text}{ora_text}"
     
@@ -773,11 +846,11 @@ def export_data(source):
     hours = request.args.get('hours', type=float)
     since_ts = None
     if hours:
-        since_ts = (datetime.now() - timedelta(hours=hours)).timestamp()
+        since_ts = (now_ro() - timedelta(hours=hours)).timestamp()
     
     # Cream un folder temporar
     tmp_dir = tempfile.mkdtemp()
-    stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    stamp = now_ro().strftime('%Y%m%d_%H%M%S')
     
     try:
         if source == 'esp32':
@@ -844,7 +917,7 @@ def save_data():
     if not records:
         return jsonify({"error": "Empty data"}), 400
 
-    filename = f"sensor_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filename = f"sensor_data_{now_ro().strftime('%Y%m%d_%H%M%S')}.csv"
     filepath = os.path.join(OUTPUT_DIR, filename)
 
     fieldnames = [
