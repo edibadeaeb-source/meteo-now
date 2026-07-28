@@ -8,6 +8,28 @@
         html[data-theme="light"] { color-scheme: light; }
     </style>
     <script>
+    // ── Variabile globale definite DEVREME ──
+    // Sunt folosite de mai multe blocuri de script; dacă lipsesc la momentul
+    // rulării, blocul respectiv se oprește (și odată cu el, asistentul AI).
+    var LANG = (function () {
+        try {
+            var s = localStorage.getItem('meteo-lang');
+            if (s) return s;
+        } catch (e) {}
+        return (navigator.language || 'ro').toLowerCase().indexOf('ro') === 0 ? 'ro' : 'en';
+    })();
+    var TGV = { lat: 44.9266, lon: 25.4566 };      // coordonatele locației curente
+    try {
+        var _l = JSON.parse(localStorage.getItem('meteo-loc') || 'null');
+        if (_l && _l.lat != null) { TGV.lat = +_l.lat; TGV.lon = +_l.lon; }
+    } catch (e) {}
+    // traducere minimală până se încarcă dicționarul complet
+    function T(k) {
+        try { return (I18N[LANG] && I18N[LANG][k]) || (I18N.ro && I18N.ro[k]) || k; }
+        catch (e) { return k; }
+    }
+    </script>
+    <script>
     // Tema se aplică ÎNAINTE de randare, ca să nu clipească.
     // Implicit: urmează setarea telefonului; utilizatorul o poate schimba din Setări.
     (function () {
@@ -2741,7 +2763,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ═══════════════════════════════════════════════════════════
 var OWM_KEY = 'c4aee3e251a51e2b8ccbdda9ae64d0e1';   // folosit doar ca fallback pe file://
 var USE_OWM_PROXY = location.protocol.indexOf('http') === 0;
-var TGV = { lat: 44.9266, lon: 25.4566 };
+// TGV e definit deja în <head> (coordonatele locației curente)
 
 // ── cod meteo Open-Meteo → emoji + descriere ──
 function wmoIcon(c) {
@@ -4417,14 +4439,7 @@ var I18N = {
                'Full moon','Waning gibbous','Last quarter','Waning crescent']
     }
 };
-var LANG = (function() {
-    try {
-        var s = localStorage.getItem('meteo-lang');
-        if (s) return s;
-    } catch (e) {}
-    return (navigator.language || 'ro').toLowerCase().indexOf('ro') === 0 ? 'ro' : 'en';
-})();
-function T(cheie) { return (I18N[LANG] && I18N[LANG][cheie]) || I18N.ro[cheie] || cheie; }
+// LANG și T() sunt definite în <head>, ca să fie disponibile din primul moment
 
 function aplicaLimba(l) {
     LANG = (l === 'en') ? 'en' : 'ro';
