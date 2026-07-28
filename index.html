@@ -726,6 +726,45 @@
         #welcome .w-note { font-size: 0.75rem; color: #6d7b9e; margin-top: 14px; max-width: 320px; line-height: 1.5; }
         #welcome .w-eroare { font-size: 0.8rem; color: #ffb4b8; margin-bottom: 10px; min-height: 1em; }
 
+        /* ══ „Cât de neobișnuită e ziua" — funcția unică ══ */
+        .climate-card { margin-bottom: 20px; overflow: hidden; }
+        .cc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .cc-titlu { display: flex; gap: 12px; align-items: flex-start; }
+        .cc-ico { font-size: 1.6rem; line-height: 1; }
+        .cc-head h3 { font-size: 1.1rem; font-weight: 800; color: var(--heading); margin: 0; }
+        .cc-sub { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
+        .cc-badge {
+            font-size: 0.74rem; font-weight: 800; padding: 5px 13px; border-radius: 20px;
+            background: var(--card-soft); color: var(--muted); white-space: nowrap;
+        }
+        .cc-corp { margin-top: 14px; }
+        .cc-loading { font-size: 0.85rem; color: var(--muted); padding: 8px 0; }
+        .cc-fraza { font-size: 1.02rem; line-height: 1.55; color: var(--text); margin-bottom: 14px; }
+        .cc-fraza b { color: var(--heading); }
+        .cc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .cc-box {
+            background: var(--card-soft); border: 1px solid var(--border);
+            border-radius: 10px; padding: 11px 13px;
+        }
+        .cc-box .ccb-et { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); font-weight: 700; }
+        .cc-box .ccb-val { font-size: 1.25rem; font-weight: 800; color: var(--heading); line-height: 1.2; margin-top: 3px; }
+        .cc-box .ccb-info { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+
+        /* termometrul de anomalie */
+        .cc-scala { margin-top: 16px; }
+        .cc-bara {
+            position: relative; height: 12px; border-radius: 8px;
+            background: linear-gradient(90deg, #2456b3, #2f7fd1, #7ec8e3, #e9edf3, #f5c500, #f97316, #e5484d);
+        }
+        .cc-ac {
+            position: absolute; top: -6px; width: 4px; height: 24px; border-radius: 3px;
+            background: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.35);
+            transform: translateX(-50%); transition: left 0.5s ease;
+        }
+        .cc-scala-et { display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--muted); margin-top: 6px; }
+        .cc-nota { font-size: 0.7rem; color: var(--muted); margin-top: 12px; line-height: 1.45; }
+        @media (max-width: 560px) { .cc-badge { align-self: flex-start; } }
+
         /* panoul de locație (se deschide sub săgeata din bara de sus) */
         .loc-panel {
             position: fixed; z-index: 9500; display: none;
@@ -1191,6 +1230,24 @@
         </div>
     </div>
 
+    <!-- ═══ CÂT DE NEOBIȘNUITĂ E ZIUA (funcție unică) ═══ -->
+    <div class="card climate-card" id="climateCard">
+        <div class="cc-head">
+            <div class="cc-titlu">
+                <span class="cc-ico">📊</span>
+                <div>
+                    <h3 data-i18n="ccTitlu">Cât de neobișnuită e ziua de azi?</h3>
+                    <div class="cc-sub" data-i18n="ccSub">Comparație cu ultimii 30 de ani, pentru aceeași zi calendaristică</div>
+                </div>
+            </div>
+            <span class="cc-badge" id="ccBadge">—</span>
+        </div>
+
+        <div class="cc-corp" id="ccCorp">
+            <div class="cc-loading" data-i18n="ccIncarca">Se analizează arhiva climatică…</div>
+        </div>
+    </div>
+
     <!-- ═══ MONITORIZARE ȘI MĂSURĂTORI (stil IMGW: 2 coloane) ═══ -->
     <div class="section-title" id="monitor-section">
         <span class="section-ico" aria-hidden="true">🌡️</span>
@@ -1567,34 +1624,33 @@
 <footer class="site-footer-w">
     <div class="footer-cols">
         <div>
-            <h5>Aplicația METEO Târgoviște</h5>
-            <p>Alerte meteo, hărți radar, prognoze și date de la stația proprie — cele mai importante informații despre vreme într-un singur loc. Scanează codul pentru a deschide site-ul pe telefon.</p>
-            <p style="margin-top:10px;font-weight:700;font-size:0.72rem;letter-spacing:0.5px;color:#1c2434;">DESCHIDE PE TELEFON</p>
-            <img id="footQr" alt="Cod QR" width="86" height="86" style="margin-top:6px;border:1px solid #e2e6f0;border-radius:6px;">
+            <h5 data-i18n="ftAplicatie">Aplicația METEO NOW</h5>
+            <p data-i18n="ftDescriere">Vremea în timp real oriunde în lume: alerte, radar, prognoze pe 10 zile și asistent AI — toate într-un singur loc. Scanează codul pentru a deschide aplicația pe telefon.</p>
+            <p style="margin-top:10px;font-weight:700;font-size:0.72rem;letter-spacing:0.5px;color:#1c2434;" data-i18n="ftDeschidePeTelefon">DESCHIDE PE TELEFON</p>
+            <img id="footQr" alt="QR" width="86" height="86" style="margin-top:6px;border:1px solid #e2e6f0;border-radius:6px;">
         </div>
         <div>
-            <h5>Linkuri utile</h5>
-            <a href="#monitor-section">Monitorizare și măsurători</a>
-            <a href="#warnings-section">Avertizări curente</a>
-            <a href="#forecast-section">Prognoze meteo</a>
-            <a href="https://www.meteoromania.ro/avertizari/" target="_blank" rel="noopener">Avertizări ANM (oficial)</a>
-            <a href="#" id="footExport">Export date (CSV / Excel)</a>
-            <a href="mailto:edibadea.eb@gmail.com">Contact</a>
+            <h5 data-i18n="ftLinkuri">Linkuri utile</h5>
+            <a href="#monitor-section" data-i18n="monitorizare">Monitorizare și măsurători</a>
+            <a href="#warnings-section" data-i18n="avertizari">Avertizări curente</a>
+            <a href="#forecast-section" data-i18n="prognoze">Prognoze meteo</a>
+            <a href="https://www.meteoromania.ro/avertizari/" target="_blank" rel="noopener" data-i18n="ftANM">Avertizări ANM (România)</a>
+            <a href="#" id="footExport" data-i18n="ftExport">Export date (CSV / Excel)</a>
+            <a href="mailto:edibadea.eb@gmail.com" data-i18n="ftContact">Contact</a>
         </div>
         <div>
-            <h5>Stația METEO Târgoviște</h5>
-            <p>Universitatea Valahia din Târgoviște<br>
-            Aleea Sinaia 13, Târgoviște, Dâmbovița<br><br>
-            E. edibadea.eb@gmail.com<br>
-            W. stația proprie · BME680<br>
-            Noduri: ESP32-C61 (Wi-Fi 6) · SparkFun expLoRaBLE (LoRaWAN EU868)<br>
-            Gateway: Dragino LPS8v2 · ChirpStack v4</p>
+            <h5 data-i18n="ftDespre">Despre METEO NOW</h5>
+            <p data-i18n-html="ftDespreText">METEO NOW oferă date meteo pentru orice localitate din lume.<br>
+            Pentru Târgoviște (România) afișăm în plus măsurători de la stații proprii,
+            cu senzori BME680 conectați prin Wi-Fi și LoRaWAN.<br><br>
+            Dezvoltat de Eduard-Emanuel Badea<br>
+            Universitatea Valahia din Târgoviște</p>
             <p style="margin-top:8px;font-size:1rem;letter-spacing:10px;">𝕏 ▶ f ◎ in</p>
         </div>
     </div>
     <div class="footer-bottom">
-        <span>Acest site este un serviciu informativ al stației meteo Târgoviște.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate</span>
-        <span style="text-align:right;color:#666;">Surse de date: ANM (meteoromania.ro) · NOAA SWPC · Open-Meteo · RainViewer · OpenWeatherMap<br>Universitatea Valahia din Târgoviște</span>
+        <span data-i18n-html="ftCopyright">METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate</span>
+        <span style="text-align:right;color:#666;" data-i18n-html="ftSurse">Surse de date: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (România)<br>Stații proprii: Târgoviște, România</span>
     </div>
     <script>
         (function() {
@@ -3789,6 +3845,7 @@ function initWhenVisible(elementId, initFn) {
 window.addEventListener('load', function() {
     // — imediat: ce se vede la deschidere —
     try { updateHeroTemp(); } catch (e) {}
+    try { analizeazaZiua(); } catch (e) {}
     try { initSynopMap(); } catch (e) {}
     try { initWarnMap(); } catch (e) {}
     try { loadFlood(); } catch (e) {}
@@ -4217,6 +4274,30 @@ var I18N = {
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
         dateRadar: 'Date radar', precipitatii: 'Precipitații',
+        ccTitlu: 'Cât de neobișnuită e ziua de azi?',
+        ccSub: 'Comparație cu ultimii 30 de ani, pentru aceeași zi calendaristică',
+        ccIncarca: 'Se analizează arhiva climatică…',
+        ccIndisponibil: 'Arhiva climatică nu e disponibilă pentru această locație.',
+        ccFraza: 'Azi e cu {abatere} {semn} normalul pentru {data} — {rang} {tip} zi din ultimii {ani} ani.',
+        ccPeste: 'peste', ccSub2: 'sub',
+        ccCeaMaiCalda: 'caldă', ccCeaMaiRece: 'rece',
+        ccNormal: 'Zi normală', ccPesteNormal: 'Peste normal', ccSubNormal: 'Sub normal',
+        ccCald: 'Neobișnuit de cald', ccRece: 'Neobișnuit de rece',
+        ccExtremCald: 'Extrem de cald', ccExtremRece: 'Extrem de rece',
+        ccMaximaAzi: 'Maxima de azi', ccPrognozata: 'prognozată',
+        ccNormala: 'Normala zilei', ccMedia: 'media',
+        ccAbatere: 'Abatere', ccFataDeNormal: 'față de normal',
+        ccRecord: 'Record de căldură', ccInAnul: 'în',
+        ccMultMaiRece: 'mult mai rece', ccNormalScala: 'normal', ccMultMaiCald: 'mult mai cald',
+        ccNota: 'Calculat din {ani} de observații pentru aceeași zi calendaristică ({start}–{end}), arhiva ERA5 (Open-Meteo).',
+        ftAplicatie: 'Aplicația METEO NOW',
+        ftDescriere: 'Vremea în timp real oriunde în lume: alerte, radar, prognoze pe 10 zile și asistent AI — toate într-un singur loc. Scanează codul pentru a deschide aplicația pe telefon.',
+        ftDeschidePeTelefon: 'DESCHIDE PE TELEFON', ftLinkuri: 'Linkuri utile',
+        ftANM: 'Avertizări ANM (România)', ftExport: 'Export date (CSV / Excel)', ftContact: 'Contact',
+        ftDespre: 'Despre METEO NOW',
+        ftDespreText: 'METEO NOW oferă date meteo pentru orice localitate din lume.<br>Pentru Târgoviște (România) afișăm în plus măsurători de la stații proprii, cu senzori BME680 conectați prin Wi-Fi și LoRaWAN.<br><br>Dezvoltat de Eduard-Emanuel Badea<br>Universitatea Valahia din Târgoviște',
+        ftCopyright: 'METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate',
+        ftSurse: 'Surse de date: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (România)<br>Stații proprii: Târgoviște, România',
         locRecente: 'Locații recente',
         sideAvertizari: 'Avertizări<br>emise', sideHarti: 'Hărți', sideHidro: 'Hidro',
         titluRadar: 'Reflectivitate maximă [dBZ]', titluPrecip: 'Acumulare precipitații 24 h [mm]',
@@ -4262,6 +4343,30 @@ var I18N = {
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
         dateRadar: 'Radar data', precipitatii: 'Precipitation',
+        ccTitlu: 'How unusual is today?',
+        ccSub: 'Compared with the last 30 years, for the same calendar day',
+        ccIncarca: 'Analysing the climate archive…',
+        ccIndisponibil: 'Climate archive is not available for this location.',
+        ccFraza: 'Today is {abatere} {semn} the normal for {data} — the {rang} {tip} on record in the last {ani} years.',
+        ccPeste: 'above', ccSub2: 'below',
+        ccCeaMaiCalda: 'warmest', ccCeaMaiRece: 'coldest',
+        ccNormal: 'Normal day', ccPesteNormal: 'Above normal', ccSubNormal: 'Below normal',
+        ccCald: 'Unusually warm', ccRece: 'Unusually cold',
+        ccExtremCald: 'Extremely warm', ccExtremRece: 'Extremely cold',
+        ccMaximaAzi: 'Today\'s high', ccPrognozata: 'forecast',
+        ccNormala: 'Normal for the day', ccMedia: 'average',
+        ccAbatere: 'Anomaly', ccFataDeNormal: 'vs normal',
+        ccRecord: 'Record high', ccInAnul: 'in',
+        ccMultMaiRece: 'much colder', ccNormalScala: 'normal', ccMultMaiCald: 'much warmer',
+        ccNota: 'Computed from {ani} observations for the same calendar day ({start}–{end}), ERA5 archive (Open-Meteo).',
+        ftAplicatie: 'The METEO NOW app',
+        ftDescriere: 'Real-time weather anywhere in the world: alerts, radar, 10-day forecasts and an AI assistant — all in one place. Scan the code to open the app on your phone.',
+        ftDeschidePeTelefon: 'OPEN ON YOUR PHONE', ftLinkuri: 'Useful links',
+        ftANM: 'Official warnings (Romania)', ftExport: 'Export data (CSV / Excel)', ftContact: 'Contact',
+        ftDespre: 'About METEO NOW',
+        ftDespreText: 'METEO NOW provides weather data for any location in the world.<br>For Târgoviște (Romania) we additionally show readings from our own weather stations, using BME680 sensors connected over Wi-Fi and LoRaWAN.<br><br>Developed by Eduard-Emanuel Badea<br>Valahia University of Târgoviște',
+        ftCopyright: 'METEO NOW — weather information service.<br>© 2026 Eduard-Emanuel Badea — all rights reserved',
+        ftSurse: 'Data sources: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (Romania)<br>Own stations: Târgoviște, Romania',
         locRecente: 'Recent locations',
         sideAvertizari: 'Warnings<br>issued', sideHarti: 'Maps', sideHidro: 'Hydro',
         titluRadar: 'Maximum reflectivity [dBZ]', titluPrecip: '24 h precipitation accumulation [mm]',
@@ -4364,6 +4469,7 @@ function aplicaLimba(l) {
     try { longData = null; loadLongRange('weeks'); } catch (e) {}
     try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
     try { deseneazaRecente(); } catch (e) {}
+    try { _ccUltimaLoc = null; analizeazaZiua(); } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
@@ -4471,6 +4577,7 @@ function reincarcaTot() {
         try { refreshWarnings(); } catch (e) {}
     }
     puneMarcajLocatie();
+    try { analizeazaZiua(); } catch (e) {}
 }
 
 // ── Marcaj (pin) pe hărți pentru locația aleasă ──
@@ -4597,6 +4704,148 @@ document.getElementById('wTargoviste').addEventListener('click', function() {
     seteazaLocatie({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
     ascundeWelcome();
 });
+// ═══════════════════════════════════════════════════════════
+//  „CÂT DE NEOBIȘNUITĂ E ZIUA DE AZI?"
+//  Compară maxima de azi cu aceeași zi calendaristică din
+//  ultimii 30 de ani (arhiva ERA5) → abatere + rang istoric.
+//  Nicio aplicație meteo obișnuită nu face asta.
+// ═══════════════════════════════════════════════════════════
+var _ccUltimaLoc = null;
+
+function analizeazaZiua() {
+    var card = document.getElementById('climateCard');
+    if (!card) return;
+    var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2) + ',' + LANG;
+    if (_ccUltimaLoc === cheie) return;          // deja calculat pentru locația asta
+    _ccUltimaLoc = cheie;
+
+    document.getElementById('ccCorp').innerHTML =
+        '<div class="cc-loading">' + T('ccIncarca') + '</div>';
+    document.getElementById('ccBadge').textContent = '—';
+
+    var azi = new Date();
+    var an = azi.getFullYear();
+    var mmdd = ('0' + (azi.getMonth() + 1)).slice(-2) + '-' + ('0' + azi.getDate()).slice(-2);
+    var anStart = an - 30, anEnd = an - 1;
+
+    // 1) arhiva: aceeași zi calendaristică, 30 de ani  2) prognoza de azi
+    Promise.all([
+        fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+              '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
+              '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); }),
+        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+              '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto').then(function(r) { return r.json(); })
+    ]).then(function(res) {
+        var arh = res[0].daily, azi_ = res[1].daily;
+        if (!arh || !arh.time || !azi_ || !azi_.temperature_2m_max) throw new Error('date lipsă');
+
+        var maxAzi = azi_.temperature_2m_max[0];
+        var minAzi = azi_.temperature_2m_min[0];
+
+        // valorile istorice pentru aceeași zi calendaristică
+        var ist = [];
+        for (var i = 0; i < arh.time.length; i++) {
+            if (arh.time[i].slice(5) === mmdd && arh.temperature_2m_max[i] != null) {
+                ist.push({ an: +arh.time[i].slice(0, 4), max: arh.temperature_2m_max[i], min: arh.temperature_2m_min[i] });
+            }
+        }
+        if (ist.length < 5) throw new Error('prea puține date');
+
+        var maxime = ist.map(function(x) { return x.max; });
+        var media = maxime.reduce(function(a, b) { return a + b; }, 0) / maxime.length;
+        var abatere = maxAzi - media;
+
+        // rang: câți ani au avut mai cald în aceeași zi
+        var maiCalde = maxime.filter(function(v) { return v > maxAzi; }).length;
+        var rang = maiCalde + 1;                       // 1 = cea mai caldă
+        var rangRece = maxime.filter(function(v) { return v < maxAzi; }).length + 1;
+
+        var recordCald = ist.reduce(function(a, b) { return b.max > a.max ? b : a; });
+        var recordRece = ist.reduce(function(a, b) { return b.min < a.min ? b : a; });
+
+        // abaterea standard → cât de „ieșită din comun" e ziua
+        var varianta = maxime.reduce(function(s, v) { return s + Math.pow(v - media, 2); }, 0) / maxime.length;
+        var sigma = Math.sqrt(varianta) || 1;
+        var z = abatere / sigma;
+
+        deseneazaAnaliza({
+            maxAzi: maxAzi, minAzi: minAzi, media: media, abatere: abatere, z: z,
+            rang: rang, rangRece: rangRece, ani: maxime.length,
+            recordCald: recordCald, recordRece: recordRece,
+            anStart: ist[0].an, anEnd: ist[ist.length - 1].an, mmdd: mmdd
+        });
+    }).catch(function(e) {
+        document.getElementById('ccCorp').innerHTML =
+            '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
+    });
+}
+
+function deseneazaAnaliza(d) {
+    var ab = d.abatere, z = d.z;
+    var caldut = ab >= 0;
+    var abs = Math.abs(ab);
+
+    // eticheta principală
+    var eticheta, culoare;
+    if (Math.abs(z) < 0.5)      { eticheta = T('ccNormal');      culoare = '#7e8cb0'; }
+    else if (Math.abs(z) < 1.0) { eticheta = caldut ? T('ccPesteNormal') : T('ccSubNormal'); culoare = caldut ? '#f5c500' : '#7ec8e3'; }
+    else if (Math.abs(z) < 1.8) { eticheta = caldut ? T('ccCald') : T('ccRece');   culoare = caldut ? '#f97316' : '#3f9fd1'; }
+    else                        { eticheta = caldut ? T('ccExtremCald') : T('ccExtremRece'); culoare = caldut ? '#e5484d' : '#2456b3'; }
+
+    var badge = document.getElementById('ccBadge');
+    badge.textContent = eticheta;
+    badge.style.background = culoare;
+    badge.style.color = (culoare === '#f5c500') ? '#1c2434' : '#fff';
+
+    // fraza principală
+    var data = new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'long' });
+    var semn = caldut ? T('ccPeste') : T('ccSub2');
+    var fraza = T('ccFraza')
+        .replace('{abatere}', '<b>' + abs.toFixed(1) + '°C</b>')
+        .replace('{semn}', semn)
+        .replace('{data}', '<b>' + data + '</b>')
+        .replace('{rang}', '<b>' + ordinal(caldut ? d.rang : d.rangRece) + '</b>')
+        .replace('{tip}', caldut ? T('ccCeaMaiCalda') : T('ccCeaMaiRece'))
+        .replace('{ani}', '<b>' + (LANG === 'en' ? d.ani : (d.ani >= 20 ? d.ani + ' de' : d.ani)) + '</b>');
+
+    // poziția acului pe scala de anomalie (-3σ … +3σ)
+    var poz = Math.max(2, Math.min(98, 50 + (z / 3) * 50));
+
+    var html =
+        '<div class="cc-fraza">' + fraza + '</div>' +
+        '<div class="cc-grid">' +
+            box(T('ccMaximaAzi'), d.maxAzi.toFixed(1) + '°C', T('ccPrognozata')) +
+            box(T('ccNormala'), d.media.toFixed(1) + '°C', T('ccMedia') + ' ' + d.anStart + '–' + d.anEnd) +
+            box(T('ccAbatere'), (ab >= 0 ? '+' : '') + ab.toFixed(1) + '°C', T('ccFataDeNormal')) +
+            box(T('ccRecord'), d.recordCald.max.toFixed(1) + '°C', T('ccInAnul') + ' ' + d.recordCald.an) +
+        '</div>' +
+        '<div class="cc-scala">' +
+            '<div class="cc-bara"><div class="cc-ac" style="left:' + poz + '%"></div></div>' +
+            '<div class="cc-scala-et">' +
+                '<span>' + T('ccMultMaiRece') + '</span>' +
+                '<span>' + T('ccNormalScala') + '</span>' +
+                '<span>' + T('ccMultMaiCald') + '</span>' +
+            '</div>' +
+        '</div>' +
+        '<div class="cc-nota">' + T('ccNota').replace('{ani}', d.ani).replace('{start}', d.anStart).replace('{end}', d.anEnd) + '</div>';
+
+    document.getElementById('ccCorp').innerHTML = html;
+
+    function box(et, val, info) {
+        return '<div class="cc-box"><div class="ccb-et">' + et + '</div>' +
+               '<div class="ccb-val">' + val + '</div>' +
+               '<div class="ccb-info">' + info + '</div></div>';
+    }
+}
+
+function ordinal(n) {
+    if (LANG === 'en') {
+        var s = ['th', 'st', 'nd', 'rd'], v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    }
+    return n === 1 ? 'cea mai' : 'a ' + n + '-a cea mai';
+}
+
 // ═══════════════════════════════════════════════════════════
 //  PANOU LOCAȚIE — se deschide sub săgeata din bara de sus.
 //  Ecranul mare de întâmpinare apare DOAR la prima pornire.
