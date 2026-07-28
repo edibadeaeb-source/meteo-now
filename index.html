@@ -643,6 +643,57 @@
             .gauge svg { width: 92px; height: 56px; }
         }
 
+        /* ══════════════════════════════════════════════════════
+           ADAPTARE STRICTĂ LA ECRANE MICI
+           Fără asta, lățimile minime din hero (220px + 300px)
+           forțau pagina la ~520px → pe telefon părea „mărită".
+           ══════════════════════════════════════════════════════ */
+        html, body { max-width: 100%; overflow-x: hidden; }
+        img, svg, canvas, iframe, video { max-width: 100%; }
+
+        @media (max-width: 760px) {
+            /* nimic nu mai are voie să forțeze pagina mai lată decât ecranul */
+            .hero-left, .hero-mid, .hero-card, .status-card,
+            .chart-card, .card, .light-panel, .monitor-left,
+            .fc-pill, .day-card, .gauge, .sun-col, .moon-col,
+            .navy-tile, .metric-card, .player-card { min-width: 0 !important; }
+
+            .hero-card { flex-direction: column; align-items: stretch; gap: 12px; }
+            .hero-mid { width: 100%; }
+            .sunmoon-row { grid-template-columns: 1fr 1fr; }
+            .sun-col svg, .sun-times { width: 100% !important; max-width: 150px; }
+
+            .container, .band-inner, .hero-inner { padding-left: 12px; padding-right: 12px; }
+            .topbar-inner { padding-left: 10px; padding-right: 10px; gap: 8px; }
+            .loc-chip { max-width: 120px; font-size: 0.78rem; padding: 7px 9px; }
+            .services-btn { padding: 8px 10px; font-size: 0.74rem; }
+            .brand-text b { font-size: 0.98rem; }
+            .brand-text small { font-size: 0.62rem; }
+            .brand-logo { width: 36px; height: 36px; }
+
+            /* hărțile și scările lor nu depășesc ecranul */
+            .dbz-scale { width: 34px; }
+            #synopMap, #radarMap, #precipMap, #warnMap,
+            #forecastMap, #pressureMap { height: 300px; }
+
+            /* butoanele laterale mai discrete, ca să nu acopere conținutul */
+            .side-btn { width: 44px; font-size: 0.5rem; padding: 6px 3px; }
+            .side-btn .side-ico { font-size: 0.9rem; }
+
+            .analysis-banner { padding: 20px 16px; }
+            .analysis-banner h2 { font-size: 1.25rem; }
+            .analysis-emojis { font-size: 1.5rem; letter-spacing: 4px; text-align: left; }
+            .special-head { flex-direction: column; gap: 10px; padding: 18px 0 4px; }
+            .special-head h2 { font-size: 1.2rem; text-align: center; }
+            .footer-cols { padding: 24px 14px 18px; }
+        }
+
+        @media (max-width: 420px) {
+            .sunmoon-row { grid-template-columns: 1fr; }
+            .hero-card h1 { font-size: 1.7rem; }
+            .hero-temp { font-size: 2.3rem; }
+        }
+
         /* ══ ECRAN DE ÎNTÂMPINARE (alegerea locației) ══ */
         #welcome {
             position: fixed; inset: 0; z-index: 99998;
@@ -976,12 +1027,12 @@
             <div class="hero-left">
                 <h1>Târgoviște</h1>
                 <p class="hero-sub">municipiu: Târgoviște, județ: Dâmbovița</p>
-                <p class="hero-date">Vremea curentă: <span id="heroDate" class="red"></span></p>
+                <p class="hero-date"><span data-i18n="vremeaCurenta">Vremea curentă</span>: <span id="heroDate" class="red"></span></p>
                 <div id="weatherInfo" class="hero-weather">Încărcare date meteo...</div>
                 <hr class="hero-divider">
                 <div class="your-place">
-                    <span>Vremea pentru localitatea ta</span>
-                    <button class="pill-btn" onclick="document.getElementById('locSearch2').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('placeSearch2').focus();">Mergi</button>
+                    <span data-i18n="vremeaLocalitate">Vremea pentru localitatea ta</span>
+                    <button class="pill-btn" onclick="document.getElementById('locSearch2').scrollIntoView({behavior:'smooth',block:'center'});document.getElementById('placeSearch2').focus();" data-i18n="mergi">Mergi</button>
                 </div>
             </div>
             <div class="hero-mid">
@@ -993,7 +1044,7 @@
                 </div>
                 <div class="sunmoon-row">
                     <div class="sun-col">
-                        <span class="sm-title">Poziția soarelui</span>
+                        <span class="sm-title" data-i18n="pozitiaSoarelui">Poziția soarelui</span>
                         <svg viewBox="0 0 160 92" aria-hidden="true" style="width:118px;height:66px;">
                             <defs>
                                 <linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="0">
@@ -1018,7 +1069,7 @@
                         </div>
                     </div>
                     <div class="moon-col">
-                        <span class="sm-title">Faza lunii</span>
+                        <span class="sm-title" data-i18n="fazaLunii">Faza lunii</span>
                         <span style="font-size:3rem;line-height:1.2;" id="moonEmoji">—</span>
                         <span class="tile-sub" id="moonName">Se calculează...</span>
                     </div>
@@ -1027,20 +1078,20 @@
         </div>
         <div class="card status-card space-card">
             <div class="card-head">
-                <h2>🚀 Alerte meteo spațiale</h2>
-                <button class="pill-btn" onclick="window.open('https://www.swpc.noaa.gov/', '_blank')">Mai mult</button>
+                <h2>🚀 <span data-i18n="alerteSpatiale">Alerte meteo spațiale</span></h2>
+                <button class="pill-btn" onclick="window.open('https://www.swpc.noaa.gov/', '_blank')" data-i18n="maiMult">Mai mult</button>
             </div>
             <div class="gauges-row">
                 <div class="gauge">
-                    <span class="gauge-label">Blackout<br>radio</span>
+                    <span class="gauge-label" data-i18n-html="blackoutRadio">Blackout<br>radio</span>
                     <svg viewBox="0 0 120 72" id="gaugeR"></svg>
                 </div>
                 <div class="gauge">
-                    <span class="gauge-label">Furtuni geomagnetice<br>(indice Kp)</span>
+                    <span class="gauge-label" data-i18n-html="furtuniGeo">Furtuni geomagnetice<br>(indice Kp)</span>
                     <svg viewBox="0 0 120 72" id="gaugeG"></svg>
                 </div>
                 <div class="gauge">
-                    <span class="gauge-label">Furtună de<br>radiație solară</span>
+                    <span class="gauge-label" data-i18n-html="radiatieSolara">Furtună de<br>radiație solară</span>
                     <svg viewBox="0 0 120 72" id="gaugeS"></svg>
                 </div>
             </div>
@@ -1334,7 +1385,7 @@
     </div>
 
     <div class="localisation-bar" id="locSearch2">
-        <span class="lb-title">Vremea pentru localitatea ta</span>
+        <span class="lb-title" data-i18n="vremeaLocalitate">Vremea pentru localitatea ta</span>
         <div class="place-search">
             <span class="ps-ico">🔍</span>
             <input type="text" id="placeSearch2" placeholder="Introdu numele localității" autocomplete="off">
@@ -1511,7 +1562,7 @@ if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     navigator.serviceWorker.register('sw.js').catch(function() {});
 }
 document.getElementById('heroDate').textContent =
-    new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
+    new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
     ' (' + new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' }) + ')';
 </script>
 
@@ -1981,8 +2032,8 @@ function updateRecs(temp, hum, iaq) {
 function fetchWeather() {
     // prin proxy Flask (cheia rămâne pe server); doar pe file:// cade pe apelul direct
     var _u = (location.protocol.indexOf('http') === 0)
-        ? 'api/owm/weather?lat=44.9266&lon=25.4566'
-        : 'https://api.openweathermap.org/data/2.5/weather?lat=44.9266&lon=25.4566&appid=c4aee3e251a51e2b8ccbdda9ae64d0e1&units=metric&lang=ro';
+        ? ('api/owm/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro'))
+        : ('https://api.openweathermap.org/data/2.5/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&appid=c4aee3e251a51e2b8ccbdda9ae64d0e1&units=metric&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro'));
     fetch(_u)
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -2010,8 +2061,8 @@ function fetchWeather() {
                     iconHtml +
                     '<span class="hero-temp">' + d.main.temp.toFixed(1) + '<span class="hero-temp-unit">°C</span></span>' +
                 '</div>' +
-                '<div class="hero-feels">Temperatura resimțită: <b>' + d.main.feels_like.toFixed(1) + '°C</b></div>' +
-                '<div class="hero-extra">' + desc + ' · Umiditate <b>' + d.main.humidity + '%</b> · Vânt <b>' + d.wind.speed + ' m/s</b> · Presiune <b>' + d.main.pressure + ' hPa</b></div>';
+                '<div class="hero-feels">' + (typeof T === 'function' ? T('resimtit') : 'Temperatura resimțită') + ': <b>' + d.main.feels_like.toFixed(1) + '°C</b></div>' +
+                '<div class="hero-extra">' + desc + ' · ' + (typeof T === 'function' ? T('umiditate') : 'Umiditate') + ' <b>' + d.main.humidity + '%</b> · Vânt <b>' + d.wind.speed + ' m/s</b> · Presiune <b>' + d.main.pressure + ' hPa</b></div>';
             try {
                 if (d.sys && d.sys.sunrise) {
                     document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
@@ -2058,8 +2109,10 @@ function updateMoonPhase() {
     if (days < 0) days += synodic;
     var phase = days / synodic;                              // 0 = nouă, 0.5 = plină
     var idx = Math.floor(phase * 8 + 0.5) % 8;
-    var names  = ['Lună nouă','Lună crescătoare','Primul pătrar','Aproape plină',
-                  'Lună plină','Aproape ultimul pătrar','Ultimul pătrar','Lună descrescătoare'];
+    var names = (typeof I18N !== 'undefined' && I18N[LANG] && I18N[LANG].luni)
+        ? I18N[LANG].luni
+        : ['Lună nouă','Lună crescătoare','Primul pătrar','Aproape plină',
+           'Lună plină','Aproape ultimul pătrar','Ultimul pătrar','Lună descrescătoare'];
     // lună cu aspect fotografic: textura moon.png + umbra fazei reale (terminator eliptic)
     var r = 40, cx = 42, cy = 42;
     var waxing = phase < 0.5;
@@ -2934,7 +2987,7 @@ function initPrecipMap() {
                     .addTo(precipMapL).bindPopup(v.toFixed(1) + ' mm / 24h');
             });
             document.getElementById('precipTimeBox').innerText =
-                new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + ' · max: ' + maxV.toFixed(1) + ' mm';
+                new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + ' · max: ' + maxV.toFixed(1) + ' mm';
         }).catch(function() {});
     // orașe
     [['Târgoviște', 44.93, 25.46], ['București', 44.43, 26.10], ['Cluj-Napoca', 46.78, 23.57], ['Iași', 47.17, 27.63],
@@ -3253,7 +3306,7 @@ function initForecastMap() {
             sel.innerHTML = '';
             fcData[0].daily.time.forEach(function(t, i) {
                 var dt = new Date(t + 'T12:00');
-                var name = dt.toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                var name = dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' });
                 ['zi', 'noapte'].forEach(function(part) {
                     var o = document.createElement('option');
                     o.value = i + '|' + part;
@@ -3289,7 +3342,7 @@ function renderForecastDay() {
         fcMarkers.push(m);
     });
     var dt = new Date(fcData[0].daily.time[di] + 'T12:00');
-    document.getElementById('fcMapTitle').innerText = 'Prognoză — ' + dt.toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (noapte)' : ' (zi)');
+    document.getElementById('fcMapTitle').innerText = 'Prognoză — ' + dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (noapte)' : ' (zi)');
 }
 
 // ── HARTA SINOPTICĂ: imagine de analiză DWD, cu fallback pe straturi de presiune ──
@@ -3735,7 +3788,7 @@ window.addEventListener('orientationchange', function() { setTimeout(invalidateA
 function liveClock() {
     var el = document.getElementById('heroDate');
     if (el) el.textContent =
-        new Date().toLocaleDateString('ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
+        new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
         ' (' + new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ')';
     var pl = document.getElementById('pageLoadTime');
     if (pl) pl.textContent = new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -4110,7 +4163,15 @@ var I18N = {
         monitorizare: 'Monitorizare vreme și măsurători',
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
-        dateRadar: 'Date radar', precipitatii: 'Precipitații'
+        dateRadar: 'Date radar', precipitatii: 'Precipitații',
+        vremeaCurenta: 'Vremea curentă', vremeaLocalitate: 'Vremea pentru localitatea ta',
+        mergi: 'Mergi', pozitiaSoarelui: 'Poziția soarelui', fazaLunii: 'Faza lunii',
+        alerteSpatiale: 'Alerte meteo spațiale', maiMult: 'Mai mult',
+        blackoutRadio: 'Blackout<br>radio', furtuniGeo: 'Furtuni geomagnetice<br>(indice Kp)',
+        radiatieSolara: 'Furtună de<br>radiație solară',
+        resimtit: 'Temperatura resimțită', umiditate: 'Umiditate', vant: 'Vânt', presiune: 'Presiune',
+        luni: ['Lună nouă','Lună crescătoare','Primul pătrar','Aproape plină',
+               'Lună plină','Aproape ultimul pătrar','Ultimul pătrar','Lună descrescătoare']
     },
     en: {
         brandSub: 'Real-time weather', services: 'Services',
@@ -4125,7 +4186,15 @@ var I18N = {
         monitorizare: 'Weather monitoring and measurements',
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
-        dateRadar: 'Radar data', precipitatii: 'Precipitation'
+        dateRadar: 'Radar data', precipitatii: 'Precipitation',
+        vremeaCurenta: 'Current weather', vremeaLocalitate: 'Weather for your place',
+        mergi: 'Go', pozitiaSoarelui: 'Sun position', fazaLunii: 'Moon phase',
+        alerteSpatiale: 'Space weather alerts', maiMult: 'More',
+        blackoutRadio: 'Radio<br>blackout', furtuniGeo: 'Geomagnetic storms<br>(Kp index)',
+        radiatieSolara: 'Solar radiation<br>storm',
+        resimtit: 'Feels like', umiditate: 'Humidity', vant: 'Wind', presiune: 'Pressure',
+        luni: ['New moon','Waxing crescent','First quarter','Waxing gibbous',
+               'Full moon','Waning gibbous','Last quarter','Waning crescent']
     }
 };
 var LANG = (function() {
@@ -4142,10 +4211,14 @@ function aplicaLimba(l) {
     try { localStorage.setItem('meteo-lang', LANG); } catch (e) {}
     document.documentElement.setAttribute('lang', LANG);
 
-    // elemente marcate cu data-i18n
+    // elemente marcate cu data-i18n (text) și data-i18n-html (permite <br>)
     document.querySelectorAll('[data-i18n]').forEach(function(el) {
         var k = el.getAttribute('data-i18n');
         if (I18N[LANG][k]) el.textContent = I18N[LANG][k];
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el) {
+        var k = el.getAttribute('data-i18n-html');
+        if (I18N[LANG][k]) el.innerHTML = I18N[LANG][k];
     });
     // ecranul de întâmpinare
     var set = function(id, txt, html) {
@@ -4179,6 +4252,10 @@ function aplicaLimba(l) {
         en.style.opacity = LANG === 'en' ? '1' : '0.4';
         ro.style.cursor = en.style.cursor = 'pointer';
     }
+    // reîmprospătăm datele care conțin text (descrierea vremii, faza lunii, ceasul)
+    try { updateMoonPhase(); } catch (e) {}
+    try { liveClock(); } catch (e) {}
+    try { fetchWeather(); } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
@@ -4280,22 +4357,58 @@ function reincarcaTot() {
     try { loadPrecip(); } catch (e) {}
     try { loadFlood(); } catch (e) {}
     try { if (typeof loadHourly === 'function') loadHourly(); } catch (e) {}
-    // hărțile se recentrează pe noua locație
-    [['radarMapL', 8], ['precipMapL', 7], ['synopMapL', 8], ['forecastMapL', 8]].forEach(function(p) {
-        try {
-            var m = window[p[0]];
-            if (m && m.setView) m.setView([LOC.lat, LOC.lon], p[1]);
-        } catch (e) {}
-    });
     if (esteRomania()) {
         try { loadSynopStations(); } catch (e) {}
         try { refreshWarnings(); } catch (e) {}
     }
+    puneMarcajLocatie();
+}
+
+// ── Marcaj (pin) pe hărți pentru locația aleasă ──
+var _pinuri = [];
+function puneMarcajLocatie() {
+    // ștergem marcajele vechi
+    _pinuri.forEach(function(p) { try { p.map.removeLayer(p.marker); } catch (e) {} });
+    _pinuri = [];
+
+    var icon = L.divIcon({
+        className: '', iconSize: [30, 42], iconAnchor: [15, 40], popupAnchor: [0, -36],
+        html: '<div style="position:relative;width:30px;height:42px;">' +
+              '<svg viewBox="0 0 30 42" width="30" height="42">' +
+              '<path d="M15 41C15 41 28 25.5 28 15A13 13 0 1 0 2 15C2 25.5 15 41 15 41Z" ' +
+              'fill="#e5484d" stroke="#fff" stroke-width="2.5"/>' +
+              '<circle cx="15" cy="15" r="5" fill="#fff"/></svg></div>'
+    });
+
+    [['synopMapL', 9], ['radarMapL', 8], ['precipMapL', 7], ['forecastMapL', 9]].forEach(function(p) {
+        try {
+            var m = window[p[0]];
+            if (!m || !m.setView) return;
+            var mk = L.marker([LOC.lat, LOC.lon], { icon: icon, zIndexOffset: 1000 })
+                .addTo(m).bindPopup('<b>' + LOC.nume + '</b>');
+            _pinuri.push({ map: m, marker: mk });
+            // zoom potrivit: radarul nu suportă zoom mare
+            var z = Math.min(p[1], m.getMaxZoom ? m.getMaxZoom() : p[1]);
+            m.setView([LOC.lat, LOC.lon], z);
+        } catch (e) {}
+    });
 }
 
 // ── Ecranul de întâmpinare ──
-function aratăWelcome() { document.getElementById('welcome').classList.add('show'); }
-function ascundeWelcome() { document.getElementById('welcome').classList.remove('show'); }
+var _scrollInainte = 0;
+function aratăWelcome() {
+    _scrollInainte = window.scrollY || 0;              // reținem unde eram în pagină
+    document.getElementById('welcome').classList.add('show');
+}
+function ascundeWelcome() {
+    document.getElementById('welcome').classList.remove('show');
+    // revenim exact unde eram, fără animație și fără salt la început
+    var html = document.documentElement;
+    var prev = html.style.scrollBehavior;
+    html.style.scrollBehavior = 'auto';
+    window.scrollTo(0, _scrollInainte);
+    requestAnimationFrame(function() { html.style.scrollBehavior = prev || ''; });
+}
 
 function cereLocatie() {
     var err = document.getElementById('wEroare');
