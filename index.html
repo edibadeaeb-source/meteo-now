@@ -665,8 +665,11 @@
 
             .container, .band-inner, .hero-inner { padding-left: 12px; padding-right: 12px; }
             .topbar-inner { padding-left: 10px; padding-right: 10px; gap: 8px; }
-            .loc-chip { max-width: 120px; font-size: 0.78rem; padding: 7px 9px; }
-            .services-btn { padding: 8px 10px; font-size: 0.74rem; }
+            .loc-chip { max-width: 118px; font-size: 0.76rem; padding: 7px 8px; }
+            /* butonul „Servicii" devine doar pictogramă, ca să încapă pe ecran */
+            .services-btn { padding: 8px 10px; font-size: 0.9rem; }
+            .services-btn span[data-i18n] { display: none; }
+            .lang-chip { width: 32px; height: 32px; font-size: 0.72rem; border-radius: 8px; }
             .brand-text b { font-size: 0.98rem; }
             .brand-text small { font-size: 0.62rem; }
             .brand-logo { width: 36px; height: 36px; }
@@ -1038,7 +1041,7 @@
             <div class="hero-mid">
                 <div class="place-search">
                     <span class="ps-ico">🔍</span>
-                    <input type="text" id="placeSearch" placeholder="Introdu numele localității" autocomplete="off">
+                    <input type="text" id="placeSearch" placeholder="Introdu numele localității" data-i18n-ph="cautaLoc" autocomplete="off">
                     <button id="psGeoBtn" title="Localizare automată">⌖</button>
                     <div class="ps-results" id="psResults"></div>
                 </div>
@@ -1157,7 +1160,7 @@
 
             <div class="mon-panel active" id="monSynop">
                 <div class="light-panel">
-                    <h4>Temperaturi curente — stații din zonă <span id="synopTime" style="float:right;font-weight:800;"></span></h4>
+                    <h4><span data-i18n="tempCurente">Temperaturi curente — stații din zonă</span> <span id="synopTime" style="float:right;font-weight:800;"></span></h4>
                     <div id="synopMap"></div>
                     <div class="synop-extremes">
                         <span class="maxc" id="synopMax">--</span>
@@ -1233,13 +1236,13 @@
             </div>
             <div class="warn-card">
                 <div class="warn-tabs">
-                    <span class="warn-tab active" data-warn="warnMet">Meteorologice</span>
-                    <span class="warn-tab" data-warn="warnHidro">Hidrologice</span>
+                    <span class="warn-tab active" data-warn="warnMet" data-i18n="meteorologice">Meteorologice</span>
+                    <span class="warn-tab" data-warn="warnHidro" data-i18n="hidrologice">Hidrologice</span>
                 </div>
                 <div class="warn-panel active" id="warnMet">
                     <div id="warnMap"></div>
                     <div class="warn-body">
-                        <h4>Avertizări meteorologice <span style="float:right;font-size:0.7rem;color:#888;font-weight:600;">sursa: ANM · meteoromania.ro</span></h4>
+                        <h4><span data-i18n="avertMeteo">Avertizări meteorologice</span> <span style="float:right;font-size:0.7rem;color:#888;font-weight:600;">sursa: ANM · meteoromania.ro</span></h4>
                         <div class="warn-asof">Din data: <span id="warnDate">--</span></div>
                         <div class="warn-issued">Emise: <b id="warnCount">0</b> avertizări meteorologice.</div>
                         <div class="warn-types" id="warnTypes"></div>
@@ -1321,9 +1324,9 @@
         <h2>Prognoze meteo</h2>
     </div>
     <div class="fc-pills">
-        <button class="fc-pill active" data-fc="fcSynoptic">Prognoză sinoptică</button>
-        <button class="fc-pill" data-fc="fcNumeric">Predicție numerică pentru 10 zile</button>
-        <button class="fc-pill" data-fc="fcLong">Prognoze pe termen lung</button>
+        <button class="fc-pill active" data-fc="fcSynoptic" data-i18n="fcSinoptic">Prognoză sinoptică</button>
+        <button class="fc-pill" data-fc="fcNumeric" data-i18n="fcNumeric">Predicție numerică pentru 10 zile</button>
+        <button class="fc-pill" data-fc="fcLong" data-i18n="fcLung">Prognoze pe termen lung</button>
     </div>
 
     <div class="fc-panel active" id="fcSynoptic">
@@ -1401,7 +1404,7 @@
 <section class="band-section" style="margin-top:0;border-top:none;">
   <div class="band-inner">
     <div class="special-head">
-        <h2>Descoperă produsele noastre speciale</h2>
+        <h2 data-i18n="produseSpeciale">Descoperă produsele noastre speciale</h2>
         <button class="pill-btn" id="specialToggle">Ascunde ▲</button>
     </div>
     <div id="specialBody">
@@ -1429,7 +1432,7 @@
         </div>
     </div>
 
-    <h2 style="text-align:center;margin:44px 0 6px;font-size:1.35rem;color:var(--heading);font-weight:800;">Servicii specializate ale stației</h2>
+    <h2 style="text-align:center;margin:44px 0 6px;font-size:1.35rem;color:var(--heading);font-weight:800;"data-i18n="serviciiSpec">Servicii specializate ale stației</h2>
     <div class="services-grid" id="services-grid">
         <a class="service-card" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monRadar]').click();},350);"><div class="service-thumb" style="background:#dcecff;">🌦️</div><h4>Radar precipitații</h4></a>
         <a class="service-card" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monSynop]').click();},350);"><div class="service-thumb" style="background:#e2f6e9;">🌡️</div><h4>Starea vremii (stații ANM)</h4></a>
@@ -1441,7 +1444,7 @@
 
     <div class="analysis-banner">
         <div>
-            <h2>Analiză meteorologică și climatică</h2>
+            <h2 data-i18n="analizaClim">Analiză meteorologică și climatică</h2>
             <div class="ab-btns">
                 <button class="outline-btn" onclick="switchFcPanel('fcNumeric');document.getElementById('forecast-section').scrollIntoView({behavior:'smooth'});">Modele</button>
                 <button class="outline-btn" onclick="document.getElementById('charts-section').scrollIntoView({behavior:'smooth'})">Climă</button>
@@ -2062,11 +2065,14 @@ function fetchWeather() {
                     '<span class="hero-temp">' + d.main.temp.toFixed(1) + '<span class="hero-temp-unit">°C</span></span>' +
                 '</div>' +
                 '<div class="hero-feels">' + (typeof T === 'function' ? T('resimtit') : 'Temperatura resimțită') + ': <b>' + d.main.feels_like.toFixed(1) + '°C</b></div>' +
-                '<div class="hero-extra">' + desc + ' · ' + (typeof T === 'function' ? T('umiditate') : 'Umiditate') + ' <b>' + d.main.humidity + '%</b> · Vânt <b>' + d.wind.speed + ' m/s</b> · Presiune <b>' + d.main.pressure + ' hPa</b></div>';
+                '<div class="hero-extra">' + desc +
+                    ' · ' + T('umiditate') + ' <b>' + d.main.humidity + '%</b>' +
+                    ' · ' + T('vant') + ' <b>' + d.wind.speed + ' m/s</b>' +
+                    ' · ' + T('presiune') + ' <b>' + d.main.pressure + ' hPa</b></div>';
             try {
                 if (d.sys && d.sys.sunrise) {
-                    document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
-                    document.getElementById('sunsetVal').innerText  = new Date(d.sys.sunset  * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
+                    document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', { hour: '2-digit', minute: '2-digit' });
+                    document.getElementById('sunsetVal').innerText  = new Date(d.sys.sunset  * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', { hour: '2-digit', minute: '2-digit' });
                     sunTimes = { rise: d.sys.sunrise * 1000, set: d.sys.sunset * 1000 };
                     updateSunArc();
                 }
@@ -2556,7 +2562,7 @@ setInterval(function() {
             <button class="chat-suggestion" data-q="Ce pot vedea pe acest site?">❓ Ce oferă stația?</button>
         </div>
         <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chatInput" placeholder="Întreabă-mă orice..." autocomplete="off">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Întreabă-mă orice..." data-i18n-ph="intreaba" autocomplete="off">
             <button class="chat-send" id="chatSend">➤</button>
         </div>
     </div>
@@ -4164,6 +4170,12 @@ var I18N = {
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
         dateRadar: 'Date radar', precipitatii: 'Precipitații',
+        cautaLoc: 'Introdu numele localității', intreaba: 'Întreabă-mă orice...',
+        avertMeteo: 'Avertizări meteorologice', meteorologice: 'Meteorologice', hidrologice: 'Hidrologice',
+        fcSinoptic: 'Prognoză sinoptică', fcNumeric: 'Predicție numerică pentru 10 zile',
+        fcLung: 'Prognoze pe termen lung', produseSpeciale: 'Descoperă produsele noastre speciale',
+        serviciiSpec: 'Servicii specializate ale stației', analizaClim: 'Analiză meteorologică și climatică',
+        tempCurente: 'Temperaturi curente — stații din zonă',
         vremeaCurenta: 'Vremea curentă', vremeaLocalitate: 'Vremea pentru localitatea ta',
         mergi: 'Mergi', pozitiaSoarelui: 'Poziția soarelui', fazaLunii: 'Faza lunii',
         alerteSpatiale: 'Alerte meteo spațiale', maiMult: 'Mai mult',
@@ -4187,6 +4199,12 @@ var I18N = {
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
         dateRadar: 'Radar data', precipitatii: 'Precipitation',
+        cautaLoc: 'Enter a place name', intreaba: 'Ask me anything...',
+        avertMeteo: 'Meteorological warnings', meteorologice: 'Meteorological', hidrologice: 'Hydrological',
+        fcSinoptic: 'Synoptic forecast', fcNumeric: 'Numerical forecast for 10 days',
+        fcLung: 'Long-range forecasts', produseSpeciale: 'Discover our special products',
+        serviciiSpec: 'Specialized services', analizaClim: 'Meteorological and climate analysis',
+        tempCurente: 'Current temperatures — nearby stations',
         vremeaCurenta: 'Current weather', vremeaLocalitate: 'Weather for your place',
         mergi: 'Go', pozitiaSoarelui: 'Sun position', fazaLunii: 'Moon phase',
         alerteSpatiale: 'Space weather alerts', maiMult: 'More',
@@ -4219,6 +4237,10 @@ function aplicaLimba(l) {
     document.querySelectorAll('[data-i18n-html]').forEach(function(el) {
         var k = el.getAttribute('data-i18n-html');
         if (I18N[LANG][k]) el.innerHTML = I18N[LANG][k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el) {
+        var k = el.getAttribute('data-i18n-ph');
+        if (I18N[LANG][k]) el.placeholder = I18N[LANG][k];
     });
     // ecranul de întâmpinare
     var set = function(id, txt, html) {
@@ -4397,17 +4419,24 @@ function puneMarcajLocatie() {
 // ── Ecranul de întâmpinare ──
 var _scrollInainte = 0;
 function aratăWelcome() {
-    _scrollInainte = window.scrollY || 0;              // reținem unde eram în pagină
+    _scrollInainte = window.scrollY || window.pageYOffset || 0;   // reținem unde eram
+    document.body.style.overflow = 'hidden';                      // blocăm derularea în fundal
     document.getElementById('welcome').classList.add('show');
 }
 function ascundeWelcome() {
     document.getElementById('welcome').classList.remove('show');
-    // revenim exact unde eram, fără animație și fără salt la început
+    document.body.style.overflow = '';
+
+    // Revenim exact unde eram. Datele se încarcă asincron și schimbă înălțimea paginii,
+    // așa că restaurăm poziția de mai multe ori, până se așază totul.
     var html = document.documentElement;
     var prev = html.style.scrollBehavior;
     html.style.scrollBehavior = 'auto';
-    window.scrollTo(0, _scrollInainte);
-    requestAnimationFrame(function() { html.style.scrollBehavior = prev || ''; });
+    var tinta = _scrollInainte;
+    var pune = function() { window.scrollTo(0, tinta); };
+    pune();
+    [50, 200, 500, 1000, 1800].forEach(function(t) { setTimeout(pune, t); });
+    setTimeout(function() { html.style.scrollBehavior = prev || ''; }, 1900);
 }
 
 function cereLocatie() {

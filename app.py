@@ -224,7 +224,7 @@ _owm_cache = {}
 
 @app.route('/api/owm/weather')
 def owm_weather():
-    key = 'weather:' + request.args.get('lat', '') + ',' + request.args.get('lon', '')
+    key = 'weather:' + request.args.get('lat','') + ',' + request.args.get('lon','') + ',' + request.args.get('lang','ro')
     now = now_ro()
     c = _owm_cache.get(key)
     if c and (now - c[0]).total_seconds() < 120:
@@ -232,7 +232,7 @@ def owm_weather():
     try:
         r = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
             'lat': request.args.get('lat', '44.9266'), 'lon': request.args.get('lon', '25.4566'),
-            'units': 'metric', 'lang': 'ro', 'appid': OPENWEATHER_API_KEY
+            'units': 'metric', 'lang': request.args.get('lang', 'ro'), 'appid': OPENWEATHER_API_KEY
         }, timeout=15)
         r.raise_for_status()
         data = r.json()
