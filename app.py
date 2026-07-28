@@ -460,6 +460,110 @@ def push_check():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  API PENTRU WIDGET (ecranul telefonului)
+#  Răspuns mic și rapid, gata de afișat — widget-ul nativ nu face calcule.
+# ═══════════════════════════════════════════════════════════════
+_widget_cache = {'t': None, 'data': None}
+
+
+@app.route('/api/widget')
+def widget_data():
+    now = datetime.now()
+    if _widget_cache['data'] and _widget_cache['t'] and (now - _widget_cache['t']).total_seconds() < 300:
+        return jsonify(_widget_cache['data'])
+
+    out = {
+        'oras': 'Târgoviște',
+        'temp': None,
+        'tempText': '--',
+        'descriere': '',
+        'icon': 'nor',
+        'umiditate': None,
+        'vant': None,
+        'codAvertizare': 0,
+        'codText': '',
+        'avertizare': '',
+        'actualizat': now.strftime('%H:%M')
+    }
+
+    # 1) vremea curentă (OpenWeatherMap)
+    try:
+        r = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
+            'lat': 44.9266, 'lon': 25.4566, 'units': 'metric', 'lang': 'ro',
+            'appid': OPENWEATHER_API_KEY
+        }, timeout=12)
+        r.raise_for_status()
+        d = r.json()
+        t = d.get('main', {}).get('temp')
+        if t is not None:
+            out['temp'] = round(t, 1)
+            out['tempText'] = f"{round(t)}°"
+        w0 = (d.get('weather') or [{}])[0]
+        desc = (w0.get('description') or '').strip()
+        out['descriere'] = desc[:1].upper() + desc[1:] if desc else ''
+        out['umiditate'] = d.get('main', {}).get('humidity')
+        vant = d.get('wind', {}).get('speed')
+        if vant is not None:
+            out['vant'] = round(vant * 3.6)          # m/s → km/h
+        oid = w0.get('id', 800)
+        noapte = 'n' in (w0.get('icon') or '')
+        if 200 <= oid < 300:   out['icon'] = 'furtuna'
+        elif 300 <= oid < 400: out['icon'] = 'burnita'
+        elif 500 <= oid < 600: out['icon'] = 'ploaie'
+        elif 600 <= oid < 700: out['icon'] = 'ninsoare'
+        elif 700 <= oid < 800: out['icon'] = 'ceata'
+        elif oid == 800:       out['icon'] = 'luna' if noapte else 'soare'
+        elif oid in (801, 802): out['icon'] = 'partial'
+        else:                  out['icon'] = 'nor'
+    except Exception as e:
+        print(f"⚠️  widget/vreme: {e}")
+
+    # 2) avertizare ANM pentru județul monitorizat
+    try:
+        r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
+                         timeout=15, headers={'User-Agent': 'StatiaMeteoTargoviste/1.0'})
+        r.raise_for_status()
+        data = r.json()
+
+        def unwrap(o):
+            if not isinstance(o, dict):
+                return {}
+            res = dict(o.get('@attributes') or {})
+            for k, v in o.items():
+                if k != '@attributes':
+                    res[k] = v
+            return res
+
+        def as_list(x):
+            if not x:
+                return []
+            return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
+
+        nivel, text = 0, ''
+        for w in as_list(data.get('avertizare')):
+            n = 0
+            for z in as_list(w.get('zona')) + as_list(w.get('judet')):
+                if str(z.get('cod', '')).upper().startswith(JUDET_MONITORIZAT):
+                    try:
+                        n = max(n, int(z.get('culoare') or 0))
+                    except (TypeError, ValueError):
+                        pass
+            if n > nivel:
+                nivel = n
+                fen = (w.get('fenomeneVizate') or '').strip()
+                text = fen if fen and fen != 'conform textelor' else (w.get('numeTipMesaj') or '')
+        out['codAvertizare'] = nivel
+        out['codText'] = _COD_NUME.get(nivel, '')
+        out['avertizare'] = text[:90]
+    except Exception as e:
+        print(f"⚠️  widget/ANM: {e}")
+
+    _widget_cache['t'] = now
+    _widget_cache['data'] = out
+    return jsonify(out)
+
+
+# ═══════════════════════════════════════════════════════════════
 #  CONTEXT DATE SENZORI
 # ═══════════════════════════════════════════════════════════════
 def build_context_prompt(context):
