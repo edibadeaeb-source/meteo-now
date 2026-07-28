@@ -643,6 +643,46 @@
             .gauge svg { width: 92px; height: 56px; }
         }
 
+        /* ══ ECRAN DE ÎNTÂMPINARE (alegerea locației) ══ */
+        #welcome {
+            position: fixed; inset: 0; z-index: 99998;
+            background: var(--band);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 28px 22px; text-align: center; overflow-y: auto;
+        }
+        #welcome.show { display: flex; }
+        #welcome .w-logo { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 16px; }
+        #welcome h1 { font-size: 1.7rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
+        #welcome .w-sub { font-size: 0.9rem; color: #9fb0d8; margin: 8px 0 26px; max-width: 340px; line-height: 1.5; }
+        #welcome .w-btn {
+            width: min(330px, 100%); padding: 14px 20px; border-radius: 12px; cursor: pointer;
+            font-size: 0.95rem; font-weight: 700; font-family: inherit; border: none;
+            background: var(--navy); color: #fff; margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        #welcome .w-btn:hover { background: var(--navy-dark); }
+        #welcome .w-btn.secundar { background: transparent; border: 1px solid rgba(255,255,255,0.4); }
+        #welcome .w-btn.secundar:hover { background: rgba(255,255,255,0.1); }
+        #welcome .w-search { width: min(330px, 100%); position: relative; margin-bottom: 10px; }
+        #welcome .w-search input {
+            width: 100%; padding: 13px 16px; border-radius: 12px; font-size: 0.92rem;
+            border: 1px solid #33415f; background: #0c1631; color: #e6e7eb; outline: none; font-family: inherit;
+        }
+        #welcome .w-search input:focus { border-color: var(--navy); }
+        #welcome .w-note { font-size: 0.75rem; color: #6d7b9e; margin-top: 14px; max-width: 320px; line-height: 1.5; }
+        #welcome .w-eroare { font-size: 0.8rem; color: #ffb4b8; margin-bottom: 10px; min-height: 1em; }
+
+        /* selectorul de locație din bara de sus */
+        .loc-chip {
+            display: flex; align-items: center; gap: 6px; cursor: pointer;
+            background: #eef1f7; color: var(--navy-deep);
+            border: none; border-radius: 10px; padding: 8px 12px;
+            font-size: 0.84rem; font-weight: 700; font-family: inherit;
+            max-width: 190px;
+        }
+        .loc-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .loc-chip:hover { background: #dfe6f5; }
+
         /* ══ ECRAN DE PORNIRE (SPLASH) ══ */
         #splash {
             position: fixed; inset: 0; z-index: 99999;
@@ -811,6 +851,29 @@
 </head>
 <body>
 
+<!-- ═══ ECRAN DE ÎNTÂMPINARE — alegerea locației ═══ -->
+<div id="welcome">
+    <img class="w-logo" src="icon-192.png" alt="METEO NOW">
+    <h1>METEO NOW</h1>
+    <div class="w-sub" id="wSub">Vremea în timp real, oriunde în lume.<br>Alege locația pentru care vrei prognoza.</div>
+
+    <div class="w-eroare" id="wEroare"></div>
+
+    <button class="w-btn" id="wLocatie">📍 <span id="wLocatieTxt">Folosește locația mea</span></button>
+
+    <div class="w-search">
+        <input type="text" id="wCauta" placeholder="Caută un oraș…" autocomplete="off">
+        <div class="ps-results" id="wRezultate" style="top:52px;"></div>
+    </div>
+
+    <button class="w-btn secundar" id="wTargoviste">🏛️ <span id="wTgvTxt">Târgoviște (stație proprie)</span></button>
+
+    <div class="w-note" id="wNota">
+        Poți schimba oricând locația din bara de sus. Pentru Târgoviște afișăm în plus
+        datele măsurate de stațiile noastre.
+    </div>
+</div>
+
 <!-- ═══ ECRAN DE PORNIRE ═══ -->
 <div id="splash">
     <img class="sp-logo" src="icon-192.png" alt="METEO Târgoviște">
@@ -886,13 +949,14 @@
             <span class="brand-logo" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 1 0 0-9h-1.8A7 7 0 1 0 4 14.9"/><path d="M8 19h.01M12 21h.01M16 21h.01"/></svg>
             </span>
-            <span class="brand-text"><b>METEO</b><small>Stație Târgoviște</small></span>
+            <span class="brand-text"><b>METEO NOW</b><small data-i18n="brandSub">Vremea în timp real</small></span>
         </a>
         <div class="topbar-right">
-            <span class="lang-chip">RO</span>
-            <span class="lang-chip" style="opacity:0.4;">EN</span>
+            <button class="loc-chip" id="locChip" title="Schimbă locația">📍 <span id="locChipText">Târgoviște</span> ▾</button>
+            <span class="lang-chip" id="langRO">RO</span>
+            <span class="lang-chip" id="langEN" style="opacity:0.4;">EN</span>
             <button id="settingsBtn" class="lang-chip" title="Setări" aria-label="Setări" style="cursor:pointer;border:none;font-size:1.15rem;">⚙</button>
-            <button id="toggleControls" class="services-btn">▦ Servicii METEO<span id="toggleArrow" style="display:none;">▼</span></button>
+            <button id="toggleControls" class="services-btn">▦ <span data-i18n="services">Servicii</span><span id="toggleArrow" style="display:none;">▼</span></button>
         </div>
     </div>
 </header>
@@ -3043,8 +3107,11 @@ function refreshWarnings() {
         warnMapL.fitBounds(judLayer.getBounds(), { padding: [8, 8] });
 
         // deasupra: EXACT zonele afectate trimise de ANM.
-        // ANM oferă „zona" (zone precise, ex. „MH_munte_1") și „judet" (contur județ întreg).
-        // Folosim „zona" — la fel ca harta oficială; județele doar ca rezervă.
+        // O avertizare poate conține SIMULTAN:
+        //   • „zona"  — arii precise (ex. „BZ_munte" = zona montană a Buzăului)
+        //   • „judet" — județe întregi (ex. „BT" = tot Botoșaniul)
+        // Le desenăm pe AMÂNDOUĂ, ca pe harta oficială. Dacă un județ are deja
+        // zone precise active, nu-l mai colorăm integral (ar acoperi zonele).
         if (warnZonesLayer) { warnMapL.removeLayer(warnZonesLayer); }
         warnZonesLayer = L.layerGroup().addTo(warnMapL);
         var CODNAME = ['', 'cod galben', 'cod portocaliu', 'cod roșu'];
@@ -3056,11 +3123,18 @@ function refreshWarnings() {
             var interval = (w.intervalul && w.intervalul !== 'conform textelor') ? w.intervalul : '';
             var zonaTxt = stripHtml(w.zonaAfectata || '');
 
-            var zones = zonaArr(w);                       // zone precise (preferat)
-            var useZones = zones.some(function(z) { return culNum(z.culoare) > 0; });
-            var items = useZones ? zones : judArr(w);
+            var zones = zonaArr(w).filter(function(z) { return culNum(z.culoare) > 0; });
+            var jud   = judArr(w).filter(function(z) { return culNum(z.culoare) > 0; });
 
-            items.forEach(function(z) {
+            // județele care au deja zone precise active — nu le colorăm integral
+            var cuZone = {};
+            zones.forEach(function(z) {
+                var m = String(z.cod || '').match(/^([A-Za-z]{1,2})/);
+                if (m) cuZone[m[1].toUpperCase()] = true;
+            });
+            jud = jud.filter(function(j) { return !cuZone[String(j.cod || '').toUpperCase()]; });
+
+            zones.concat(jud).forEach(function(z) {
                 var lv = culNum(z.culoare);
                 if (lv < 1) return;                       // culoare 0 = zona NU e sub avertizare
                 var rings = parseWkt(z.coordGis);
@@ -3456,6 +3530,8 @@ function initAnimSat() {
 
 // ── TEMPERATURA STAȚIEI PROPRII ÎN HERO (ca Varșovia la IMGW) ──
 function updateHeroTemp() {
+    // datele de la stațiile proprii se aplică DOAR pentru zona Târgoviște
+    if (typeof esteTargoviste === 'function' && !esteTargoviste()) return;
     var el = document.querySelector('#weatherInfo .hero-temp');
     if (!el) return;
     var t = parseFloat(document.getElementById('tempVal').innerText);
@@ -3465,7 +3541,8 @@ function updateHeroTemp() {
         el.innerHTML = t.toFixed(1) + '<span class="hero-temp-unit">°C</span>';
         var extra = document.querySelector('#weatherInfo .hero-extra');
         if (extra && extra.innerHTML.indexOf('stația proprie') === -1)
-            extra.innerHTML += ' · <b style="color:#7ec8e3;">măsurat de stația proprie</b>';
+            extra.innerHTML += ' · <b style="color:#7ec8e3;" data-i18n-skip>' +
+                (typeof T === 'function' && LANG === 'en' ? 'measured by our own station' : 'măsurat de stația proprie') + '</b>';
     }
 }
 setInterval(updateHeroTemp, 20000);
@@ -4014,6 +4091,298 @@ function stopLocalAlerts() {
         }
         el.disabled = false;
     });
+})();
+
+// ═══════════════════════════════════════════════════════════
+//  TRADUCERE RO / EN
+// ═══════════════════════════════════════════════════════════
+var I18N = {
+    ro: {
+        brandSub: 'Vremea în timp real', services: 'Servicii',
+        folosesteLocatia: 'Folosește locația mea', seCauta: 'Se caută locația…',
+        locatiaMea: 'Locația mea',
+        locRefuzat: 'Acces la locație refuzat — caută orașul mai jos.',
+        locNesuportat: 'Dispozitivul nu acceptă localizarea. Caută orașul mai jos.',
+        welcomeSub: 'Vremea în timp real, oriunde în lume.<br>Alege locația pentru care vrei prognoza.',
+        cautaOras: 'Caută un oraș…',
+        tgvBtn: 'Târgoviște (stație proprie)',
+        welcomeNota: 'Poți schimba oricând locația din bara de sus. Pentru Târgoviște afișăm în plus datele măsurate de stațiile noastre.',
+        monitorizare: 'Monitorizare vreme și măsurători',
+        avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
+        harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
+        dateRadar: 'Date radar', precipitatii: 'Precipitații'
+    },
+    en: {
+        brandSub: 'Real-time weather', services: 'Services',
+        folosesteLocatia: 'Use my location', seCauta: 'Getting location…',
+        locatiaMea: 'My location',
+        locRefuzat: 'Location access denied — search for a city below.',
+        locNesuportat: 'Your device does not support geolocation. Search below.',
+        welcomeSub: 'Real-time weather, anywhere in the world.<br>Choose a location to get started.',
+        cautaOras: 'Search for a city…',
+        tgvBtn: 'Târgoviște (own station)',
+        welcomeNota: 'You can change the location anytime from the top bar. For Târgoviște we also show data from our own weather stations.',
+        monitorizare: 'Weather monitoring and measurements',
+        avertizari: 'Current warnings', prognoze: 'Weather forecasts',
+        harti: 'Maps and coverage', raportStatii: 'Station report',
+        dateRadar: 'Radar data', precipitatii: 'Precipitation'
+    }
+};
+var LANG = (function() {
+    try {
+        var s = localStorage.getItem('meteo-lang');
+        if (s) return s;
+    } catch (e) {}
+    return (navigator.language || 'ro').toLowerCase().indexOf('ro') === 0 ? 'ro' : 'en';
+})();
+function T(cheie) { return (I18N[LANG] && I18N[LANG][cheie]) || I18N.ro[cheie] || cheie; }
+
+function aplicaLimba(l) {
+    LANG = (l === 'en') ? 'en' : 'ro';
+    try { localStorage.setItem('meteo-lang', LANG); } catch (e) {}
+    document.documentElement.setAttribute('lang', LANG);
+
+    // elemente marcate cu data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var k = el.getAttribute('data-i18n');
+        if (I18N[LANG][k]) el.textContent = I18N[LANG][k];
+    });
+    // ecranul de întâmpinare
+    var set = function(id, txt, html) {
+        var el = document.getElementById(id);
+        if (el) { if (html) el.innerHTML = txt; else el.textContent = txt; }
+    };
+    set('wSub', T('welcomeSub'), true);
+    set('wLocatieTxt', T('folosesteLocatia'));
+    set('wTgvTxt', T('tgvBtn'));
+    set('wNota', T('welcomeNota'));
+    var c = document.getElementById('wCauta');
+    if (c) c.placeholder = T('cautaOras');
+    // titluri de secțiuni
+    var titluri = [['monitor-section', 'monitorizare'], ['warnings-section', 'avertizari'],
+                   ['forecast-section', 'prognoze'], ['maps-section', 'harti']];
+    titluri.forEach(function(p) {
+        var s = document.getElementById(p[0]);
+        var h = s && (s.tagName === 'H2' ? s : s.querySelector('h2'));
+        if (h) h.textContent = T(p[1]);
+    });
+    // tab-urile de monitorizare
+    var tabs = [['monSynop', 'raportStatii'], ['monRadar', 'dateRadar'], ['monPrecip', 'precipitatii']];
+    tabs.forEach(function(p) {
+        var t = document.querySelector('.mon-tab[data-mon="' + p[0] + '"]');
+        if (t) t.textContent = T(p[1]);
+    });
+    // evidențiem butonul activ
+    var ro = document.getElementById('langRO'), en = document.getElementById('langEN');
+    if (ro && en) {
+        ro.style.opacity = LANG === 'ro' ? '1' : '0.4';
+        en.style.opacity = LANG === 'en' ? '1' : '0.4';
+        ro.style.cursor = en.style.cursor = 'pointer';
+    }
+}
+document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
+document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
+
+// ═══════════════════════════════════════════════════════════
+//  METEO NOW — LOCAȚIE MONDIALĂ
+//  Aplicația funcționează pentru orice loc din lume.
+//  Secțiunile românești (ANM) apar doar în România,
+//  iar stațiile proprii doar în zona Târgoviște / Dâmbovița.
+// ═══════════════════════════════════════════════════════════
+var LOC = {
+    nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița',
+    lat: 44.9266, lon: 25.4566
+};
+
+function esteRomania() { return (LOC.tara || '').toUpperCase() === 'RO'; }
+function esteTargoviste() {
+    // ~25 km în jurul Târgoviștei
+    var dLat = Math.abs(LOC.lat - 44.9266), dLon = Math.abs(LOC.lon - 25.4566);
+    return esteRomania() && dLat < 0.25 && dLon < 0.32;
+}
+
+function salveazaLoc() {
+    try { localStorage.setItem('meteo-loc', JSON.stringify(LOC)); } catch (e) {}
+}
+function incarcaLoc() {
+    try {
+        var s = localStorage.getItem('meteo-loc');
+        if (s) { LOC = JSON.parse(s); return true; }
+    } catch (e) {}
+    return false;
+}
+
+/** Aplică locația: actualizează titlul, coordonatele globale și reîncarcă datele. */
+function seteazaLocatie(loc, reincarca) {
+    LOC = {
+        nume: loc.nume || loc.name || 'Locația mea',
+        tara: (loc.tara || loc.country_code || '').toUpperCase(),
+        admin: loc.admin || loc.admin1 || '',
+        lat: +(loc.lat != null ? loc.lat : loc.latitude),
+        lon: +(loc.lon != null ? loc.lon : loc.longitude)
+    };
+    salveazaLoc();
+
+    // coordonatele folosite de restul aplicației
+    TGV.lat = LOC.lat; TGV.lon = LOC.lon;
+
+    // titluri
+    var h1 = document.querySelector('.hero-card h1');
+    if (h1) h1.textContent = LOC.nume;
+    var sub = document.querySelector('.hero-sub');
+    if (sub) sub.textContent = [LOC.admin, tariNume(LOC.tara)].filter(Boolean).join(', ');
+    var chip = document.getElementById('locChipText');
+    if (chip) chip.textContent = LOC.nume;
+    document.title = 'METEO NOW · ' + LOC.nume;
+
+    aplicaVizibilitateSectiuni();
+    if (reincarca !== false) reincarcaTot();
+}
+
+function tariNume(cod) {
+    var t = { RO: 'România', MD: 'Rep. Moldova', IT: 'Italia', ES: 'Spania', FR: 'Franța',
+              DE: 'Germania', GB: 'Marea Britanie', US: 'SUA', AT: 'Austria', HU: 'Ungaria',
+              BG: 'Bulgaria', GR: 'Grecia', TR: 'Turcia', PL: 'Polonia', NL: 'Olanda' };
+    return t[cod] || cod || '';
+}
+
+/** Ascunde secțiunile specifice României când utilizatorul e în altă țară. */
+function aplicaVizibilitateSectiuni() {
+    var ro = esteRomania(), tgv = esteTargoviste();
+
+    // avertizări ANM + hidro (doar România)
+    [['warnings-section', ro], ['monitor-section', true]].forEach(function(p) {
+        var el = document.getElementById(p[0]);
+        if (el) el.style.display = p[1] ? '' : 'none';
+    });
+    var warnCard = document.querySelector('.warn-card');
+    if (warnCard) warnCard.closest('div').style.display = ro ? '' : 'none';
+
+    // tab-ul „Raport stații" (stații ANM) — doar România
+    var tabStatii = document.querySelector('.mon-tab[data-mon="monSynop"]');
+    if (tabStatii) {
+        tabStatii.style.display = ro ? '' : 'none';
+        if (!ro && tabStatii.classList.contains('active')) {
+            var rad = document.querySelector('.mon-tab[data-mon="monRadar"]');
+            if (rad) rad.click();
+        }
+    }
+
+    // datele de la stațiile proprii apar doar în zona Târgoviște
+    // (aplicat direct în updateHeroTemp și pe harta de stații)
+}
+
+/** Reîncarcă toate datele pentru noua locație. */
+function reincarcaTot() {
+    try { fetchWeather(); } catch (e) {}
+    try { loadTenDay(); } catch (e) {}
+    try { loadLongRange('weeks'); longData = null; } catch (e) {}
+    try { loadPrecip(); } catch (e) {}
+    try { loadFlood(); } catch (e) {}
+    try { if (typeof loadHourly === 'function') loadHourly(); } catch (e) {}
+    // hărțile se recentrează pe noua locație
+    [['radarMapL', 8], ['precipMapL', 7], ['synopMapL', 8], ['forecastMapL', 8]].forEach(function(p) {
+        try {
+            var m = window[p[0]];
+            if (m && m.setView) m.setView([LOC.lat, LOC.lon], p[1]);
+        } catch (e) {}
+    });
+    if (esteRomania()) {
+        try { loadSynopStations(); } catch (e) {}
+        try { refreshWarnings(); } catch (e) {}
+    }
+}
+
+// ── Ecranul de întâmpinare ──
+function aratăWelcome() { document.getElementById('welcome').classList.add('show'); }
+function ascundeWelcome() { document.getElementById('welcome').classList.remove('show'); }
+
+function cereLocatie() {
+    var err = document.getElementById('wEroare');
+    var btn = document.getElementById('wLocatieTxt');
+    if (!navigator.geolocation) {
+        err.textContent = T('locNesuportat');
+        return;
+    }
+    btn.textContent = T('seCauta');
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        // aflăm numele localității din coordonate
+        fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+              pos.coords.latitude + '&longitude=' + pos.coords.longitude + '&localityLanguage=ro')
+            .then(function(r) { return r.json(); })
+            .then(function(g) {
+                seteazaLocatie({
+                    nume: g.city || g.locality || g.principalSubdivision || T('locatiaMea'),
+                    tara: g.countryCode || '',
+                    admin: g.principalSubdivision || '',
+                    lat: pos.coords.latitude, lon: pos.coords.longitude
+                });
+                ascundeWelcome();
+            })
+            .catch(function() {
+                seteazaLocatie({ nume: T('locatiaMea'), tara: '', admin: '',
+                                 lat: pos.coords.latitude, lon: pos.coords.longitude });
+                ascundeWelcome();
+            });
+    }, function() {
+        btn.textContent = T('folosesteLocatia');
+        err.textContent = T('locRefuzat');
+        document.getElementById('wCauta').focus();
+    }, { timeout: 12000, maximumAge: 600000 });
+}
+
+// căutare oraș în ecranul de întâmpinare
+(function cautareWelcome() {
+    var inp = document.getElementById('wCauta'), res = document.getElementById('wRezultate'), t = null;
+    if (!inp) return;
+    inp.addEventListener('input', function() {
+        clearTimeout(t);
+        var q = inp.value.trim();
+        if (q.length < 2) { res.style.display = 'none'; return; }
+        t = setTimeout(function() {
+            fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) +
+                  '&count=8&language=' + (LANG === 'en' ? 'en' : 'ro'))
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.results || !d.results.length) { res.style.display = 'none'; return; }
+                    res.innerHTML = '';
+                    d.results.forEach(function(p) {
+                        var div = document.createElement('div');
+                        div.textContent = p.name + (p.admin1 ? ', ' + p.admin1 : '') + ' · ' + (p.country || p.country_code);
+                        div.addEventListener('click', function() {
+                            seteazaLocatie({ nume: p.name, tara: p.country_code, admin: p.admin1,
+                                             lat: p.latitude, lon: p.longitude });
+                            res.style.display = 'none';
+                            ascundeWelcome();
+                        });
+                        res.appendChild(div);
+                    });
+                    res.style.display = 'block';
+                }).catch(function() {});
+        }, 320);
+    });
+})();
+
+document.getElementById('wLocatie').addEventListener('click', cereLocatie);
+document.getElementById('wTargoviste').addEventListener('click', function() {
+    seteazaLocatie({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
+    ascundeWelcome();
+});
+document.getElementById('locChip').addEventListener('click', function() {
+    document.getElementById('wEroare').textContent = '';
+    document.getElementById('wCauta').value = '';
+    aratăWelcome();
+});
+
+// ── Pornire: limbă, apoi locație (salvată sau întrebăm) ──
+(function porneste() {
+    aplicaLimba(LANG);
+    if (incarcaLoc() && LOC.lat != null) {
+        seteazaLocatie(LOC, false);
+        // datele se încarcă oricum la 'load'; aici doar aplicăm vizibilitatea
+    } else {
+        setTimeout(aratăWelcome, 900);      // după splash
+    }
 })();
 
 // ── APLICĂ TEMA SALVATĂ ──
