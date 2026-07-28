@@ -726,6 +726,41 @@
         #welcome .w-note { font-size: 0.75rem; color: #6d7b9e; margin-top: 14px; max-width: 320px; line-height: 1.5; }
         #welcome .w-eroare { font-size: 0.8rem; color: #ffb4b8; margin-bottom: 10px; min-height: 1em; }
 
+        /* panoul de locație (se deschide sub săgeata din bara de sus) */
+        .loc-panel {
+            position: fixed; z-index: 9500; display: none;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; box-shadow: 0 16px 48px var(--shadow);
+            width: min(330px, calc(100vw - 20px)); padding: 12px;
+        }
+        .loc-panel.open { display: block; }
+        .loc-panel h4 {
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.7px;
+            color: var(--muted); font-weight: 700; margin: 0 0 8px;
+        }
+        .loc-panel .lp-btn {
+            width: 100%; padding: 11px 12px; border-radius: 10px; cursor: pointer;
+            background: var(--card-soft); border: 1px solid var(--border); color: var(--text);
+            font-size: 0.86rem; font-weight: 600; font-family: inherit; text-align: left;
+            display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+        }
+        .loc-panel .lp-btn:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+        .loc-panel .lp-search { position: relative; margin-bottom: 8px; }
+        .loc-panel .lp-search input {
+            width: 100%; padding: 11px 12px; border-radius: 10px; font-size: 0.86rem;
+            border: 1px solid var(--border); background: var(--card-soft);
+            color: var(--text); outline: none; font-family: inherit;
+        }
+        .loc-panel .lp-search input:focus { border-color: var(--navy); }
+        .loc-recente { max-height: 190px; overflow-y: auto; }
+        .loc-recente div {
+            padding: 9px 11px; border-radius: 9px; cursor: pointer;
+            font-size: 0.84rem; color: var(--text); display: flex; align-items: center; gap: 8px;
+        }
+        .loc-recente div:hover { background: var(--card-soft); }
+        .loc-recente .lr-activ { color: var(--blue); font-weight: 700; }
+        .loc-eroare { font-size: 0.76rem; color: var(--red); min-height: 1em; margin-bottom: 6px; }
+
         /* selectorul de locație din bara de sus */
         .loc-chip {
             display: flex; align-items: center; gap: 6px; cursor: pointer;
@@ -936,6 +971,18 @@
     <div class="sp-bar"><i></i></div>
 </div>
 
+<!-- ═══ PANOU LOCAȚIE (sub săgeata din bara de sus) ═══ -->
+<div class="loc-panel" id="locPanel">
+    <div class="loc-eroare" id="lpEroare"></div>
+    <button class="lp-btn" id="lpLocatie">📍 <span data-i18n="folosesteLocatia">Folosește locația mea</span></button>
+    <div class="lp-search">
+        <input type="text" id="lpCauta" placeholder="Caută un oraș…" data-i18n-ph="cautaOras" autocomplete="off">
+        <div class="ps-results" id="lpRezultate" style="top:46px;"></div>
+    </div>
+    <h4 data-i18n="locRecente">Locații recente</h4>
+    <div class="loc-recente" id="lpRecente"></div>
+</div>
+
 <!-- ═══ INDICATOR TRAGE-PENTRU-REÎMPROSPĂTARE ═══ -->
 <div id="pullRefresh">↓ Trage pentru actualizare</div>
 
@@ -1017,9 +1064,9 @@
 
 <!-- ═══ BUTOANE FLOTANTE LATERALE (stil IMGW) ═══ -->
 <nav class="side-nav" aria-label="Navigare rapidă">
-    <a class="side-btn warn" href="#warnings-section"><span class="side-ico">⚠️</span>Avertizări<br>emise</a>
-    <a class="side-btn maps" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monRadar]').click();},350);"><span class="side-ico">🗺️</span>Hărți</a>
-    <a class="side-btn charts" href="#warnings-section" onclick="setTimeout(function(){document.querySelector('.warn-tab[data-warn=warnHidro]').click();},350);"><span class="side-ico">〰️</span>Hidro</a>
+    <a class="side-btn warn" href="#warnings-section"><span class="side-ico">⚠️</span><span data-i18n-html="sideAvertizari">Avertizări<br>emise</span></a>
+    <a class="side-btn maps" href="#monitor-section" onclick="setTimeout(function(){document.querySelector('.mon-tab[data-mon=monRadar]').click();},350);"><span class="side-ico">🗺️</span><span data-i18n="sideHarti">Hărți</span></a>
+    <a class="side-btn charts" href="#warnings-section" onclick="setTimeout(function(){document.querySelector('.warn-tab[data-warn=warnHidro]').click();},350);"><span class="side-ico">〰️</span><span data-i18n="sideHidro">Hidro</span></a>
 </nav>
 
 <!-- ═══ HERO (banda navy, stil IMGW) ═══ -->
@@ -1166,7 +1213,7 @@
                         <span class="maxc" id="synopMax">--</span>
                         <span class="minc" id="synopMin">--</span>
                     </div>
-                    <div class="panel-note">Date operative de la stațiile sinoptice ANM (meteoromania.ro) — ora locală — plus stația proprie Târgoviște (BME680). Valorile prezentate pot fi supuse verificării ulterioare.</div>
+                    <div class="panel-note" data-i18n="notaStatii">Date operative de la stațiile sinoptice ANM (meteoromania.ro) — ora locală — plus stația proprie Târgoviște (BME680). Valorile prezentate pot fi supuse verificării ulterioare.</div>
                 </div>
                 <div class="mon-btn-row">
                     <button class="outline-btn" onclick="window.open('https://www.meteoromania.ro/vremea/starea-vremii/','_blank')">Mai multe rapoarte</button>
@@ -1177,7 +1224,7 @@
             <div class="mon-panel" id="monRadar">
                 <div class="light-panel">
                     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;">
-                        <h4 style="margin:0;">Reflectivitate maximă [dBZ] — România</h4>
+                        <h4 style="margin:0;" data-i18n="titluRadar">Reflectivitate maximă [dBZ] — România</h4>
                         <span id="radarTime" style="border:1px solid #333;padding:2px 10px;font-weight:800;font-size:0.8rem;color:#1c2434;background:#fff;"></span>
                     </div>
                     <div style="display:flex;gap:8px;margin-top:10px;">
@@ -1185,7 +1232,7 @@
                         <div class="dbz-scale" id="dbzScale"></div>
                     </div>
                     <div style="font-size:0.62rem;color:#666;border-top:1px solid #eee;margin-top:6px;padding-top:4px;display:flex;justify-content:space-between;flex-wrap:wrap;">
-                        <span>Model: compozit radar RainViewer · Grid: ~1 km · Date: rețele radar naționale</span>
+                        <span data-i18n="notaRadar">Model: compozit radar RainViewer · Grid: ~1 km · Date: rețele radar naționale</span>
                         <span>Vizualizare: stația METEO Târgoviște</span>
                     </div>
                     <div class="radar-controls">
@@ -1202,7 +1249,7 @@
             <div class="mon-panel" id="monPrecip">
                 <div class="light-panel">
                     <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;">
-                        <h4 style="margin:0;">Acumulare precipitații 24 h [mm] — România</h4>
+                        <h4 style="margin:0;" data-i18n="titluPrecip">Acumulare precipitații 24 h [mm] — România</h4>
                         <span id="precipTimeBox" style="border:1px solid #333;padding:2px 10px;font-weight:800;font-size:0.8rem;color:#1c2434;background:#fff;"></span>
                     </div>
                     <div style="display:flex;gap:8px;margin-top:10px;">
@@ -1254,11 +1301,11 @@
                 </div>
                 <div class="warn-panel" id="warnHidro">
                     <div class="warn-body">
-                        <h4>Avertizări hidrologice — râul Ialomița</h4>
+                        <h4 data-i18n="titluHidro">Avertizări hidrologice — râul Ialomița</h4>
                         <div class="warn-asof">Din data: <span id="floodDate">--</span></div>
                         <div class="warn-issued" id="floodStatus">Se încarcă debitul râului...</div>
                         <div class="chart-wrapper-sm" style="height:220px;margin-top:10px;"><canvas id="floodChart"></canvas></div>
-                        <div class="panel-note">Debit prognozat (m³/s) — Open-Meteo Flood API (model GloFAS), secțiunea Târgoviște.</div>
+                        <div class="panel-note" data-i18n="notaHidro">Debit prognozat (m³/s) — Open-Meteo Flood API (model GloFAS).</div>
                     </div>
                 </div>
                 <div class="warn-footer">
@@ -1340,11 +1387,11 @@
                 <div class="light-panel">
                     <h4 id="fcMapTitle">Prognoză — zona Dâmbovița</h4>
                     <div id="forecastMap"></div>
-                    <div class="panel-note">Prognoză Open-Meteo pentru localitățile din zonă: temperatura și fenomenul dominant pentru intervalul selectat.</div>
+                    <div class="panel-note" data-i18n="notaPrognoza">Prognoză Open-Meteo pentru localitățile din zonă: temperatura și fenomenul dominant pentru intervalul selectat.</div>
                 </div>
             </div>
             <div>
-                <h3 style="color:var(--heading);font-size:1.1rem;font-weight:800;margin:4px 0 10px;">Hartă sinoptică — analiză Europa</h3>
+                <h3 style="color:var(--heading);font-size:1.1rem;font-weight:800;margin:4px 0 10px;" data-i18n="titluSinoptic">Hartă sinoptică — analiză Europa</h3>
                 <div class="fc-day-select">
                     <span style="font-size:0.8rem;color:var(--muted);">Arată harta sinoptică pentru:</span>
                     <span id="synChartDate" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:0.8rem;color:var(--heading);font-weight:700;"></span>
@@ -1370,7 +1417,7 @@
     <div class="fc-panel" id="fcNumeric">
         <div class="day-cards" id="dayCards"></div>
         <div class="light-panel">
-            <h4>Evoluție pe 10 zile — Târgoviște (Open-Meteo: ECMWF / ICON)</h4>
+            <h4 data-i18n="titlu10zile">Evoluție pe 10 zile (Open-Meteo: ECMWF / ICON)</h4>
             <div class="chart-wrapper-sm" style="height:300px;"><canvas id="tenDayChart"></canvas></div>
         </div>
     </div>
@@ -1382,7 +1429,7 @@
         </div>
         <div class="day-cards" id="weekCards"></div>
         <div class="light-panel">
-            <h4>Tendință pe termen lung — Târgoviște</h4>
+            <h4 data-i18n="titluLung">Tendință pe termen lung</h4>
             <div class="chart-wrapper-sm" style="height:300px;"><canvas id="longChart"></canvas></div>
         </div>
     </div>
@@ -3029,7 +3076,7 @@ function loadPrecip() {
             if (precipChartJs) precipChartJs.destroy();
             precipChartJs = new Chart(document.getElementById('precipChart').getContext('2d'), {
                 type: 'bar',
-                data: { labels: labels, datasets: [{ label: 'Precipitații (mm/h)', data: d.hourly.precipitation, backgroundColor: '#1d4fd7' }] },
+                data: { labels: labels, datasets: [{ label: T('grPrecipOra'), data: d.hourly.precipitation, backgroundColor: '#1d4fd7' }] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555', maxTicksLimit: 12 }, grid: { color: 'rgba(0,0,0,0.06)' } },
                               y: { ticks: { color: '#555' }, grid: { color: 'rgba(0,0,0,0.06)' } } },
@@ -3278,9 +3325,9 @@ function loadFlood() {
                 type: 'line',
                 data: { labels: t.map(function(x) { return x.slice(8, 10) + '.' + x.slice(5, 7); }),
                     datasets: [
-                        { label: 'Debit râu (m³/s)', data: q, borderColor: '#0288b7', backgroundColor: 'rgba(2,136,183,0.15)', fill: true, tension: 0.3, pointRadius: 0 },
-                        { label: 'Prag atenționare (galben)', data: new Array(n).fill(20), borderColor: '#f5c500', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false },
-                        { label: 'Prag avertizare (portocaliu)', data: new Array(n).fill(50), borderColor: '#f97316', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false }
+                        { label: T('grDebit'), data: q, borderColor: '#0288b7', backgroundColor: 'rgba(2,136,183,0.15)', fill: true, tension: 0.3, pointRadius: 0 },
+                        { label: T('grPragGalben'), data: new Array(n).fill(20), borderColor: '#f5c500', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false },
+                        { label: T('grPragPortocaliu'), data: new Array(n).fill(50), borderColor: '#f97316', borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, fill: false }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555', maxTicksLimit: 10 }, grid: { color: 'rgba(0,0,0,0.06)' } },
@@ -3316,7 +3363,7 @@ function initForecastMap() {
                 ['zi', 'noapte'].forEach(function(part) {
                     var o = document.createElement('option');
                     o.value = i + '|' + part;
-                    o.textContent = name + ' (' + part + ')';
+                    o.textContent = name + ' (' + (part === 'zi' ? T('ziua') : T('noaptea')) + ')';
                     sel.appendChild(o);
                 });
             });
@@ -3348,7 +3395,7 @@ function renderForecastDay() {
         fcMarkers.push(m);
     });
     var dt = new Date(fcData[0].daily.time[di] + 'T12:00');
-    document.getElementById('fcMapTitle').innerText = 'Prognoză — ' + dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (noapte)' : ' (zi)');
+    document.getElementById('fcMapTitle').innerText = 'Prognoză — ' + dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (' + T('noaptea') + ')' : ' (' + T('ziua') + ')');
 }
 
 // ── HARTA SINOPTICĂ: imagine de analiză DWD, cu fallback pe straturi de presiune ──
@@ -3414,9 +3461,9 @@ function loadTenDay() {
             tenDayChartJs = new Chart(document.getElementById('tenDayChart').getContext('2d'), {
                 data: { labels: d.daily.time.map(function(t) { return t.slice(8, 10) + '.' + t.slice(5, 7); }),
                     datasets: [
-                        { type: 'line', label: 'T max (°C)', data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.35, pointRadius: 3 },
-                        { type: 'line', label: 'T min (°C)', data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.35, pointRadius: 3 },
-                        { type: 'bar', label: 'Precipitații (mm)', data: d.daily.precipitation_sum, backgroundColor: 'rgba(29,79,215,0.55)', yAxisID: 'y1' }
+                        { type: 'line', label: T('grTempMax'), data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.35, pointRadius: 3 },
+                        { type: 'line', label: T('grTempMin'), data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.35, pointRadius: 3 },
+                        { type: 'bar', label: T('grPrecip'), data: d.daily.precipitation_sum, backgroundColor: 'rgba(29,79,215,0.55)', yAxisID: 'y1' }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555' }, grid: { color: 'rgba(0,0,0,0.06)' } },
@@ -3436,7 +3483,7 @@ function loadLongRange(mode) {
             for (var w = 0; w < Math.floor(d.daily.time.length / 7); w++) {
                 var tmax = 0, tmin = 0, pr = 0;
                 for (var i = w * 7; i < w * 7 + 7; i++) { tmax += d.daily.temperature_2m_max[i]; tmin += d.daily.temperature_2m_min[i]; pr += d.daily.precipitation_sum[i]; }
-                weeks.push({ label: 'Săptămâna ' + (w + 1), tmax: tmax / 7, tmin: tmin / 7, pr: pr });
+                weeks.push({ label: T('saptamana') + ' ' + (w + 1), tmax: tmax / 7, tmin: tmin / 7, pr: pr });
             }
             wc.innerHTML = weeks.map(function(w) {
                 return '<div class="day-card" style="min-width:140px;"><div class="dc-name">' + w.label + '</div>' +
@@ -3447,8 +3494,8 @@ function loadLongRange(mode) {
                 type: 'bar',
                 data: { labels: weeks.map(function(w) { return w.label; }),
                     datasets: [
-                        { label: 'Media T max (°C)', data: weeks.map(function(w) { return w.tmax; }), backgroundColor: '#f97316' },
-                        { label: 'Media T min (°C)', data: weeks.map(function(w) { return w.tmin; }), backgroundColor: '#38bdf8' }
+                        { label: T('grMediaMax'), data: weeks.map(function(w) { return w.tmax; }), backgroundColor: '#f97316' },
+                        { label: T('grMediaMin'), data: weeks.map(function(w) { return w.tmin; }), backgroundColor: '#38bdf8' }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555' } }, y: { ticks: { color: '#555' } } },
@@ -3460,8 +3507,8 @@ function loadLongRange(mode) {
                 type: 'line',
                 data: { labels: d.daily.time.map(function(t) { return t.slice(8, 10) + '.' + t.slice(5, 7); }),
                     datasets: [
-                        { label: 'T max (°C)', data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.3, pointRadius: 2 },
-                        { label: 'T min (°C)', data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.3, pointRadius: 2 }
+                        { label: T('grTempMax'), data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.3, pointRadius: 2 },
+                        { label: T('grTempMin'), data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.3, pointRadius: 2 }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555' } }, y: { ticks: { color: '#555' } } },
@@ -4170,6 +4217,22 @@ var I18N = {
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
         dateRadar: 'Date radar', precipitatii: 'Precipitații',
+        locRecente: 'Locații recente',
+        sideAvertizari: 'Avertizări<br>emise', sideHarti: 'Hărți', sideHidro: 'Hidro',
+        titluRadar: 'Reflectivitate maximă [dBZ]', titluPrecip: 'Acumulare precipitații 24 h [mm]',
+        titlu10zile: 'Evoluție pe 10 zile (Open-Meteo: ECMWF / ICON)',
+        titluLung: 'Tendință pe termen lung', titluHidro: 'Avertizări hidrologice — râul Ialomița',
+        titluSinoptic: 'Hartă sinoptică — analiză Europa',
+        notaStatii: 'Date operative de la stațiile sinoptice ANM (meteoromania.ro) — ora locală. Valorile pot fi supuse verificării ulterioare.',
+        notaHidro: 'Debit prognozat (m³/s) — Open-Meteo Flood API (model GloFAS).',
+        notaPrognoza: 'Prognoză Open-Meteo pentru localitățile din zonă: temperatura și fenomenul dominant pentru intervalul selectat.',
+        notaRadar: 'Model: compozit radar RainViewer · Grid: ~1 km · Date: rețele radar naționale',
+        grTemp: 'Temperatură', grTempMax: 'T max (°C)', grTempMin: 'T min (°C)',
+        grPrecip: 'Precipitații (mm)', grPrecipOra: 'Precipitații (mm/h)',
+        grDebit: 'Debit râu (m³/s)', grPragGalben: 'Prag atenționare (galben)',
+        grPragPortocaliu: 'Prag avertizare (portocaliu)',
+        grMediaMax: 'Media T max (°C)', grMediaMin: 'Media T min (°C)',
+        saptamana: 'Săptămâna', ziua: 'zi', noaptea: 'noapte',
         cautaLoc: 'Introdu numele localității', intreaba: 'Întreabă-mă orice...',
         avertMeteo: 'Avertizări meteorologice', meteorologice: 'Meteorologice', hidrologice: 'Hidrologice',
         fcSinoptic: 'Prognoză sinoptică', fcNumeric: 'Predicție numerică pentru 10 zile',
@@ -4199,6 +4262,22 @@ var I18N = {
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
         dateRadar: 'Radar data', precipitatii: 'Precipitation',
+        locRecente: 'Recent locations',
+        sideAvertizari: 'Warnings<br>issued', sideHarti: 'Maps', sideHidro: 'Hydro',
+        titluRadar: 'Maximum reflectivity [dBZ]', titluPrecip: '24 h precipitation accumulation [mm]',
+        titlu10zile: '10-day outlook (Open-Meteo: ECMWF / ICON)',
+        titluLung: 'Long-range trend', titluHidro: 'Hydrological warnings — Ialomița river',
+        titluSinoptic: 'Synoptic chart — Europe analysis',
+        notaStatii: 'Operational data from ANM synoptic stations (meteoromania.ro) — local time. Values may be subject to later verification.',
+        notaHidro: 'Forecast river discharge (m³/s) — Open-Meteo Flood API (GloFAS model).',
+        notaPrognoza: 'Open-Meteo forecast for nearby towns: temperature and dominant weather for the selected interval.',
+        notaRadar: 'Model: RainViewer radar composite · Grid: ~1 km · Data: national radar networks',
+        grTemp: 'Temperature', grTempMax: 'Max temp (°C)', grTempMin: 'Min temp (°C)',
+        grPrecip: 'Precipitation (mm)', grPrecipOra: 'Precipitation (mm/h)',
+        grDebit: 'River discharge (m³/s)', grPragGalben: 'Yellow warning threshold',
+        grPragPortocaliu: 'Orange warning threshold',
+        grMediaMax: 'Avg max temp (°C)', grMediaMin: 'Avg min temp (°C)',
+        saptamana: 'Week', ziua: 'day', noaptea: 'night',
         cautaLoc: 'Enter a place name', intreaba: 'Ask me anything...',
         avertMeteo: 'Meteorological warnings', meteorologice: 'Meteorological', hidrologice: 'Hydrological',
         fcSinoptic: 'Synoptic forecast', fcNumeric: 'Numerical forecast for 10 days',
@@ -4274,10 +4353,17 @@ function aplicaLimba(l) {
         en.style.opacity = LANG === 'en' ? '1' : '0.4';
         ro.style.cursor = en.style.cursor = 'pointer';
     }
-    // reîmprospătăm datele care conțin text (descrierea vremii, faza lunii, ceasul)
+    // reîmprospătăm tot ce conține text generat din JS
     try { updateMoonPhase(); } catch (e) {}
     try { liveClock(); } catch (e) {}
     try { fetchWeather(); } catch (e) {}
+    // graficele își refac etichetele (sunt construite cu T(...))
+    try { loadPrecip(); } catch (e) {}
+    try { loadFlood(); } catch (e) {}
+    try { loadTenDay(); } catch (e) {}
+    try { longData = null; loadLongRange('weeks'); } catch (e) {}
+    try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
+    try { deseneazaRecente(); } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
@@ -4335,6 +4421,7 @@ function seteazaLocatie(loc, reincarca) {
     document.title = 'METEO NOW · ' + LOC.nume;
 
     aplicaVizibilitateSectiuni();
+    try { adaugaRecent(LOC); } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
 
@@ -4510,20 +4597,138 @@ document.getElementById('wTargoviste').addEventListener('click', function() {
     seteazaLocatie({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
     ascundeWelcome();
 });
-document.getElementById('locChip').addEventListener('click', function() {
-    document.getElementById('wEroare').textContent = '';
-    document.getElementById('wCauta').value = '';
-    aratăWelcome();
+// ═══════════════════════════════════════════════════════════
+//  PANOU LOCAȚIE — se deschide sub săgeata din bara de sus.
+//  Ecranul mare de întâmpinare apare DOAR la prima pornire.
+// ═══════════════════════════════════════════════════════════
+function locRecente() {
+    try { return JSON.parse(localStorage.getItem('meteo-recente') || '[]'); }
+    catch (e) { return []; }
+}
+function adaugaRecent(loc) {
+    var l = locRecente().filter(function(x) {
+        return !(Math.abs(x.lat - loc.lat) < 0.02 && Math.abs(x.lon - loc.lon) < 0.02);
+    });
+    l.unshift({ nume: loc.nume, tara: loc.tara, admin: loc.admin, lat: loc.lat, lon: loc.lon });
+    l = l.slice(0, 6);
+    try { localStorage.setItem('meteo-recente', JSON.stringify(l)); } catch (e) {}
+}
+function deseneazaRecente() {
+    var box = document.getElementById('lpRecente');
+    if (!box) return;
+    var l = locRecente();
+    // Târgoviște e mereu disponibilă (are stații proprii)
+    var areTgv = l.some(function(x) { return Math.abs(x.lat - 44.9266) < 0.05; });
+    if (!areTgv) l = l.concat([{ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 }]);
+    box.innerHTML = '';
+    l.forEach(function(x) {
+        var activ = Math.abs(x.lat - LOC.lat) < 0.02 && Math.abs(x.lon - LOC.lon) < 0.02;
+        var d = document.createElement('div');
+        var special = Math.abs(x.lat - 44.9266) < 0.05 && Math.abs(x.lon - 25.4566) < 0.05;
+        d.className = activ ? 'lr-activ' : '';
+        d.innerHTML = (activ ? '📍 ' : (special ? '🏛️ ' : '🕘 ')) +
+                      x.nume + (x.admin ? ' <span style="opacity:.6;font-size:.9em;">· ' + x.admin + '</span>' : '');
+        d.addEventListener('click', function() {
+            seteazaLocatie(x);
+            inchideLocPanel();
+        });
+        box.appendChild(d);
+    });
+}
+function deschideLocPanel() {
+    var p = document.getElementById('locPanel'), chip = document.getElementById('locChip');
+    var r = chip.getBoundingClientRect();
+    p.style.top = (r.bottom + 8) + 'px';
+    // aliniat la chip, dar fără să iasă din ecran
+    var w = Math.min(330, window.innerWidth - 20);
+    p.style.left = Math.max(10, Math.min(r.left, window.innerWidth - w - 10)) + 'px';
+    document.getElementById('lpEroare').textContent = '';
+    document.getElementById('lpCauta').value = '';
+    document.getElementById('lpRezultate').style.display = 'none';
+    deseneazaRecente();
+    p.classList.add('open');
+    setTimeout(function() { document.getElementById('lpCauta').focus(); }, 60);
+}
+function inchideLocPanel() { document.getElementById('locPanel').classList.remove('open'); }
+
+document.getElementById('locChip').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var p = document.getElementById('locPanel');
+    if (p.classList.contains('open')) inchideLocPanel(); else deschideLocPanel();
+});
+document.addEventListener('click', function(e) {
+    var p = document.getElementById('locPanel');
+    if (p.classList.contains('open') && !p.contains(e.target)) inchideLocPanel();
+});
+window.addEventListener('resize', function() {
+    if (document.getElementById('locPanel').classList.contains('open')) deschideLocPanel();
 });
 
-// ── Pornire: limbă, apoi locație (salvată sau întrebăm) ──
+// „Folosește locația mea" din panou
+document.getElementById('lpLocatie').addEventListener('click', function() {
+    var err = document.getElementById('lpEroare');
+    if (!navigator.geolocation) { err.textContent = T('locNesuportat'); return; }
+    err.textContent = T('seCauta');
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+              pos.coords.latitude + '&longitude=' + pos.coords.longitude +
+              '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
+            .then(function(r) { return r.json(); })
+            .then(function(g) {
+                seteazaLocatie({ nume: g.city || g.locality || T('locatiaMea'),
+                                 tara: g.countryCode || '', admin: g.principalSubdivision || '',
+                                 lat: pos.coords.latitude, lon: pos.coords.longitude });
+                inchideLocPanel();
+            })
+            .catch(function() {
+                seteazaLocatie({ nume: T('locatiaMea'), tara: '', admin: '',
+                                 lat: pos.coords.latitude, lon: pos.coords.longitude });
+                inchideLocPanel();
+            });
+    }, function() { err.textContent = T('locRefuzat'); }, { timeout: 12000, maximumAge: 600000 });
+});
+
+// căutare în panou
+(function cautarePanou() {
+    var inp = document.getElementById('lpCauta'), res = document.getElementById('lpRezultate'), t = null;
+    if (!inp) return;
+    inp.addEventListener('input', function() {
+        clearTimeout(t);
+        var q = inp.value.trim();
+        if (q.length < 2) { res.style.display = 'none'; return; }
+        t = setTimeout(function() {
+            fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) +
+                  '&count=8&language=' + (LANG === 'en' ? 'en' : 'ro'))
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (!d.results || !d.results.length) { res.style.display = 'none'; return; }
+                    res.innerHTML = '';
+                    d.results.forEach(function(p) {
+                        var div = document.createElement('div');
+                        div.textContent = p.name + (p.admin1 ? ', ' + p.admin1 : '') + ' · ' + (p.country || p.country_code);
+                        div.addEventListener('click', function() {
+                            seteazaLocatie({ nume: p.name, tara: p.country_code, admin: p.admin1,
+                                             lat: p.latitude, lon: p.longitude });
+                            res.style.display = 'none';
+                            inchideLocPanel();
+                        });
+                        res.appendChild(div);
+                    });
+                    res.style.display = 'block';
+                }).catch(function() {});
+        }, 320);
+    });
+})();
+
+// ── Pornire: limbă, apoi locație ──
+// Ecranul mare de întâmpinare apare DOAR la prima deschidere a aplicației.
+// Ulterior, locația se schimbă din panoul de sub săgeata din bara de sus.
 (function porneste() {
     aplicaLimba(LANG);
     if (incarcaLoc() && LOC.lat != null) {
         seteazaLocatie(LOC, false);
-        // datele se încarcă oricum la 'load'; aici doar aplicăm vizibilitatea
     } else {
-        setTimeout(aratăWelcome, 900);      // după splash
+        setTimeout(aratăWelcome, 900);      // după splash, doar prima dată
     }
 })();
 
