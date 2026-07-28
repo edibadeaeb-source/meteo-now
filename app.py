@@ -313,6 +313,16 @@ def _sub_key(endpoint):
     return hashlib.sha256(endpoint.encode()).hexdigest()[:32]
 
 
+@app.route('/api/ping')
+def ping():
+    """
+    Endpoint ultra-ușor, doar ca să țină serverul treaz (planul gratuit adoarme
+    după ~15 min de inactivitate). Nu face nicio cerere externă.
+    Îl apelezi dintr-un cron la fiecare 10 minute.
+    """
+    return jsonify({'ok': True, 'ora': now_ro().strftime('%H:%M:%S')})
+
+
 @app.route('/api/push/key')
 def push_key():
     """Cheia publică VAPID — aplicația o folosește la abonare."""
@@ -700,55 +710,54 @@ def build_context_prompt(context):
     return "\n".join(lines)
 
 
-SYSTEM_PROMPT = """Esti asistentul AI al statiei METEO Targoviste — serviciul meteo public pentru municipiul Targoviste si judetul Dambovita. Rolul tau este sa raspunzi la intrebari despre vremea curenta, prognoze, avertizari si despre ce ofera acest site. Esti practic meteorologul de serviciu al statiei.
+SYSTEM_PROMPT = """Esti asistentul AI al aplicatiei METEO NOW — o aplicatie meteo care ofera vremea in timp real pentru ORICE localitate din lume. Esti practic meteorologul de serviciu al aplicatiei: raspunzi despre vremea curenta, prognoze, avertizari si despre ce ofera aplicatia.
 
-CE STIE SITE-UL (sectiunile lui — poti ghida utilizatorul catre ele):
-- HERO: vremea curenta la Targoviste (temperatura mare afisata e masurata de statia proprie cand e online), temperatura resimtita, pozitia soarelui pe arc (rasarit/apus), faza lunii desenata astronomic, cautare de localitati
-- ALERTE METEO SPATIALE: 3 cadrane cu date NOAA live — blackout radio (R0-R5), furtuni geomagnetice indice Kp (G0-G5), radiatie solara (S0-S5)
-- MONITORIZARE: Raport statii (temperaturi de la statiile sinoptice ANM din toata Romania + statia proprie), Date radar (compozit RainViewer cu animatie), Precipitatii (harta de acumulare 24h pe grila Open-Meteo)
-- AVERTIZARI CURENTE: avertizarile oficiale ANM (meteoromania.ro) cu judetele colorate pe coduri galben/portocaliu/rosu + avertizari hidrologice cu debitul raului Ialomita (Open-Meteo Flood/GloFAS)
-- PROGNOZE: sinoptica (harta cu localitati din zona, zi/noapte), predictie numerica 10 zile, prognoze pe termen lung (saptamani/16 zile), harta sinoptica de analiza (fronturi, DWD), vremea pentru orice localitate cautata
-- PRODUSE SPECIALE: animatie satelit infrarosu, animatie radar, varianta pentru persoane cu deficiente de perceptie a culorilor
-- In aceasta zi: recorduri climatice la Targoviste din ultimii 10 ani (arhiva ERA5)
-- Site-ul e PWA: se poate instala ca aplicatie pe iOS si Android (Adauga la ecranul principal)
+REGULA DE AUR — LOCALITATEA:
+- La fiecare mesaj primesti localitatea selectata de utilizator. TOATE raspunsurile se refera la ACEA localitate.
+- Nu presupune niciodata alt oras. Daca utilizatorul intreaba "cum e vremea?", raspunzi pentru localitatea selectata.
+- Daca vrea alt oras, ii spui ca o poate schimba din selectorul de locatie din bara de sus (pictograma cu ac).
 
-SURSE DE DATE: statia proprie (BME680), ANM/meteoromania.ro (statii sinoptice + avertizari oficiale), NOAA SWPC (vreme spatiala), Open-Meteo (prognoze, arhiva, hidro), RainViewer (radar/satelit), OpenWeatherMap (vreme curenta), DWD (analiza sinoptica).
+CE OFERA APLICATIA (poti ghida utilizatorul catre sectiuni):
+- Vremea curenta: temperatura, temperatura resimtita, umiditate, vant, presiune, rasarit/apus, faza lunii
+- "Cat de neobisnuita e ziua de azi": compara ziua cu ultimii 30 de ani (arhiva ERA5) si arata abaterea de la normal si rangul istoric — functia noastra unica
+- Alerte meteo spatiale: date NOAA live (blackout radio R0-R5, furtuni geomagnetice Kp G0-G5, radiatie solara S0-S5)
+- Radar de precipitatii cu animatie si harta de acumulare 24h
+- Prognoze: sinoptica, numerica pe 10 zile, pe termen lung (16 zile), harta sinoptica de analiza (fronturi)
+- Animatie satelit infrarosu si animatie radar
+- Setari: tema (automat/luminos/intunecat), limba RO/EN, notificari, animatii
+- Se instaleaza ca aplicatie pe telefon (Android si iPhone) si are widget pentru ecranul principal
 
-STATIA PROPRIE (pe scurt, doar daca esti intrebat):
-- Statia are doua noduri de masurare cu senzori BME680 la Targoviste: unul pe Wi-Fi (ESP32-C6) si unul pe LoRaWAN (SparkFun expLoRaBLE, prin gateway Dragino) — masoara temperatura, umiditate, presiune si calitatea aerului (IAQ)
-- Temperatura mare din prima pagina e cea masurata de statia proprie cand nodurile sunt online
-- Nu intra in detalii tehnice de implementare decat daca utilizatorul cere explicit; concentreaza-te pe vreme si pe datele afisate
+DOAR IN ROMANIA (apar automat cand localitatea e in Romania):
+- Avertizarile oficiale ANM cu harta zonelor afectate si codurile galben/portocaliu/rosu
+- Raportul statiilor sinoptice ANM din toata tara
+- Avertizari hidrologice (debitul raurilor)
+
+DOAR PENTRU TARGOVISTE (Romania):
+- Aplicatia are acolo statii meteo proprii, cu senzori BME680, conectate prin Wi-Fi si LoRaWAN
+- Cand nodurile sunt online, temperatura afisata e masurata direct de ele
+- Mentionezi asta doar daca utilizatorul e in Targoviste sau intreaba explicit. NU insista pe detalii tehnice.
+
+SURSE DE DATE: Open-Meteo (prognoze, arhiva climatica, hidro), OpenWeatherMap (vremea curenta), RainViewer (radar si satelit), NOAA SWPC (vreme spatiala), DWD (analiza sinoptica), ANM/meteoromania.ro (avertizari oficiale Romania), statii proprii (Targoviste).
 
 STIL DE COMUNICARE:
-- Vorbesti in limba ROMANA, mereu, natural si prietenos, ca un meteorolog care explica pe intelesul oricui
+- Raspunzi in LIMBA indicata in context (ro = romana, en = engleza). Daca e engleza, raspunzi natural in engleza, nu traduceri stangace.
+- Natural si prietenos, ca un meteorolog care explica pe intelesul oricui
 - IMPLICIT raspunsuri SCURTE (1-3 propozitii). Doar la cerere explicita → mai lungi
-- Emoji subtile (1 per raspuns)
+- Emoji subtile (maxim 1 per raspuns)
 - NU folosi markdown (* ** _ etc)
-- Raspunzi lejer si la lucruri de baza: ce ora e, ce zi/data/an e (le primesti mai jos), saluturi, intrebari generale despre vreme, clima, fenomene meteo, cum functioneaza statia sau site-ul
-- Daca intrebarea nu tine deloc de vreme/statie, raspunzi totusi scurt si politicos, apoi readuci discutia la vreme
-
-DETECTARE STATUS:
-- Daca un dispozitiv apare ca OFFLINE in context, spune asta clar
-- "Merge ESP32-ul?" / "LoRaWAN-ul e online?" → raspuns direct cu statusul
-- Daca e offline, nu cita valorile vechi ca si cum ar fi actuale
+- Raspunzi lejer si la lucruri de baza: ce ora e, ce zi/data e, saluturi, intrebari generale despre vreme, clima, fenomene meteo
+- Daca intrebarea nu tine deloc de vreme, raspunzi scurt si politicos, apoi readuci discutia la vreme
 
 DATE LIVE PRIMITE:
-- La fiecare mesaj primesti valorile curente de la ambii senzori in context
-- Foloseste-le, nu inventa
-- "--" sau lipsa = nu ai datele acelea
+- Primesti vremea afisata acum pentru localitatea selectata. Foloseste-o, nu inventa.
+- Daca esti in Targoviste, primesti si valorile de la senzorii proprii.
+- "--" sau lipsa = nu ai acea informatie; spune sincer ca nu o ai.
 
-CUNOSTINTE TEHNICE:
-- IAQ (0-500): <50 excelent, 50-100 bun, 100-150 moderat, 150-200 nesanatos sensibili, 200-300 nesanatos, >300 foarte poluat
-- Temp ideala: 20-22°C, OK 18-25°C
-- Umiditate ideala: 40-60%
-- ESP32 si LoRaWAN au diferente mici de calibrare/plasament
-- RSSI bun pentru LoRaWAN: >-90 dBm. Sub -110 dBm e la limita
-- SNR pozitiv = semnal mai puternic decat zgomotul (bun)
-
-RECOMANDARI ACTIVE:
-- IAQ > 150 → aerisire imediata
-- Temp > 25 sau < 18 → recomandare concreta
-- Umiditate < 30 → umidificator; > 65 → dezumidificator
+CUNOSTINTE UTILE:
+- Temperatura de confort: 20-22°C; umiditate confortabila: 40-60%
+- Indice UV: <3 scazut, 3-6 moderat, 6-8 ridicat, 8-11 foarte ridicat, >11 extrem
+- Calitatea aerului IAQ (0-500): <50 excelent, 50-100 bun, 100-150 moderat, 150-200 nesanatos pentru sensibili, >200 nesanatos
+- Coduri de avertizare: galben = fii atent, portocaliu = pericol, rosu = pericol major
 - Tii minte conversatia si poti face referire la ce s-a discutat"""
 
 
@@ -761,16 +770,62 @@ def ask():
     user_question = body.get('question', '').strip()
     context = body.get('context', {})
     history = body.get('history', [])
-    
+    lang = (body.get('lang') or 'ro').lower()
+    loc = body.get('locatie') or {}
+    vremea = body.get('vremea') or {}
+
     if not user_question:
         return jsonify({'error': 'No question'}), 400
 
-    context_text = build_context_prompt(context)
+    # ── Limba în care trebuie să răspundă ──
+    if lang.startswith('en'):
+        limba_text = ("\nLIMBA RASPUNSULUI: ENGLEZA. Raspunde natural in engleza, "
+                      "ca un vorbitor nativ. Nu amesteca limbile.")
+    else:
+        limba_text = "\nLIMBA RASPUNSULUI: ROMANA. Raspunde natural in romana."
+
+    # ── Localitatea selectată ──
+    loc_lines = []
+    if loc.get('nume'):
+        zona = ", ".join([x for x in [loc.get('admin'), loc.get('tara')] if x])
+        loc_lines.append(f"\nLOCALITATEA SELECTATA ACUM: {loc['nume']}" + (f" ({zona})" if zona else ""))
+        if loc.get('lat') is not None:
+            loc_lines.append(f"Coordonate: {round(float(loc['lat']), 3)}, {round(float(loc['lon']), 3)}")
+        if loc.get('inRomania'):
+            loc_lines.append("Este in Romania → avertizarile oficiale ANM si raportul statiilor sunt disponibile in aplicatie.")
+        else:
+            loc_lines.append("NU este in Romania → sectiunile ANM (avertizari oficiale romanesti) nu se afiseaza pentru aceasta localitate.")
+        if loc.get('areStatiiProprii'):
+            loc_lines.append("Aici aplicatia are STATII METEO PROPRII (senzori BME680, Wi-Fi + LoRaWAN); temperatura afisata poate fi masurata direct de ele.")
+        else:
+            loc_lines.append("Aici NU exista statii proprii; datele vin din modele si statii publice. Nu vorbi despre senzorii proprii decat daca esti intrebat explicit.")
+    loc_text = "\n".join(loc_lines)
+
+    # ── Vremea afișată acum în aplicație ──
+    v_lines = []
+    if vremea.get('temperatura'):
+        v_lines.append(f"\nVREMEA AFISATA ACUM IN APLICATIE (pentru localitatea de mai sus):")
+        v_lines.append(f"Temperatura: {vremea['temperatura']}")
+    if vremea.get('detalii'):
+        v_lines.append(f"Detalii: {vremea['detalii']}")
+    if vremea.get('rasarit') and vremea.get('rasarit') != '--:--':
+        v_lines.append(f"Rasarit: {vremea['rasarit']} · Apus: {vremea.get('apus', '--')}")
+    if vremea.get('fazaLunii'):
+        v_lines.append(f"Faza lunii: {vremea['fazaLunii']}")
+    vremea_text = "\n".join(v_lines)
+
+    # Datele senzorilor proprii — doar când sunt relevante (Târgoviște)
+    context_text = build_context_prompt(context) if loc.get('areStatiiProprii') else ""
+
     # Data si ora curenta (ora Romaniei), ca asistentul sa poata raspunde la "cat este ora?"
-    _zile = ['luni','marti','miercuri','joi','vineri','sambata','duminica']
+    _zile_ro = ['luni', 'marti', 'miercuri', 'joi', 'vineri', 'sambata', 'duminica']
+    _zile_en = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     _acum = now_ro()
-    ora_text = f"\nDATA SI ORA CURENTA: {_zile[_acum.weekday()]}, {_acum.strftime('%d.%m.%Y')}, ora {_acum.strftime('%H:%M')} (ora Romaniei). Daca utilizatorul intreaba cat e ora sau ce zi este, raspunde folosind aceasta valoare."
-    full_system = f"{SYSTEM_PROMPT}\n{context_text}{ora_text}"
+    _zi = (_zile_en if lang.startswith('en') else _zile_ro)[_acum.weekday()]
+    ora_text = (f"\nDATA SI ORA CURENTA: {_zi}, {_acum.strftime('%d.%m.%Y')}, ora {_acum.strftime('%H:%M')} "
+                f"(ora Romaniei). Daca utilizatorul intreaba cat e ora sau ce zi este, foloseste aceasta valoare.")
+
+    full_system = f"{SYSTEM_PROMPT}{limba_text}{loc_text}{vremea_text}\n{context_text}{ora_text}"
     
     # Construim messages pentru Claude
     messages = []

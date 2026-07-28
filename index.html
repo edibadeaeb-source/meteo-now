@@ -2581,10 +2581,24 @@ function sendChatMessage(text) {
     chatSend.disabled = true;
     chatSuggestions.style.display = 'none';
 
-    var typing = addMessage('Mă gândesc', false);
+    var typing = addMessage(LANG === 'en' ? 'Thinking' : 'Mă gândesc', false);
     typing.classList.add('typing');
 
     var context = getCurrentSensorContext();
+
+    // vremea afișată acum pentru locația aleasă (ca asistentul să știe despre ce vorbește)
+    var vremeaAcum = {};
+    try {
+        var t = document.querySelector('#weatherInfo .hero-temp');
+        var ex = document.querySelector('#weatherInfo .hero-extra');
+        vremeaAcum = {
+            temperatura: t ? t.innerText.replace(/\s+/g, ' ').trim() : null,
+            detalii: ex ? ex.innerText.replace(/\s+/g, ' ').trim() : null,
+            rasarit: (document.getElementById('sunriseVal') || {}).innerText,
+            apus: (document.getElementById('sunsetVal') || {}).innerText,
+            fazaLunii: (document.getElementById('moonName') || {}).innerText
+        };
+    } catch (e) {}
 
     fetch('/ask', {
         method: 'POST',
@@ -2592,7 +2606,15 @@ function sendChatMessage(text) {
         body: JSON.stringify({
             question: text,
             context: context,
-            history: chatHistory.slice(0, -1) // tot in afara de mesajul curent
+            history: chatHistory.slice(0, -1), // tot in afara de mesajul curent
+            lang: LANG,
+            locatie: {
+                nume: LOC.nume, tara: LOC.tara, admin: LOC.admin,
+                lat: LOC.lat, lon: LOC.lon,
+                areStatiiProprii: (typeof esteTargoviste === 'function') ? esteTargoviste() : false,
+                inRomania: (typeof esteRomania === 'function') ? esteRomania() : false
+            },
+            vremea: vremeaAcum
         })
     })
     .then(function(r) { return r.json(); })
@@ -2647,23 +2669,17 @@ setInterval(function() {
     <div class="chat-window" id="chatWindow">
         <div class="chat-header">
             <div>
-                <div class="chat-header-title">🤖 Asistent AI Meteo</div>
-                <div class="chat-header-sub">Stație Târgoviște · știe datele live de la senzori</div>
+                <div class="chat-header-title">🤖 <span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
+                <div class="chat-header-sub" id="chatSub">METEO NOW</div>
             </div>
             <button class="chat-close" id="chatClose">✕</button>
         </div>
         <div class="chat-messages" id="chatMessages">
-            <div class="chat-msg bot">
-                Salut! 👋 Sunt asistentul AI al stației meteo Târgoviște. Pot răspunde la întrebări despre vreme, calitatea aerului și datele live de la senzori. Ce vrei să afli?
+            <div class="chat-msg bot" id="chatSalut">
+                Salut! 👋 Sunt asistentul METEO NOW. Te pot ajuta cu vremea, prognozele și avertizările pentru orașul selectat. Ce vrei să afli?
             </div>
         </div>
-        <div class="chat-suggestions" id="chatSuggestions">
-            <button class="chat-suggestion" data-q="Cum e vremea acum în Târgoviște?">🌡️ Vremea acum în Târgoviște</button>
-            <button class="chat-suggestion" data-q="Ce avertizări meteo sunt active acum în România?">⚠️ Avertizări active</button>
-            <button class="chat-suggestion" data-q="Plouă în următoarele ore la Târgoviște?">🌧️ Plouă în curând?</button>
-            <button class="chat-suggestion" data-q="Cum va fi vremea în weekend?">📅 Vremea în weekend</button>
-            <button class="chat-suggestion" data-q="Ce pot vedea pe acest site?">❓ Ce oferă stația?</button>
-        </div>
+        <div class="chat-suggestions" id="chatSuggestions"></div>
         <div class="chat-input-area">
             <input type="text" class="chat-input" id="chatInput" placeholder="Întreabă-mă orice..." data-i18n-ph="intreaba" autocomplete="off">
             <button class="chat-send" id="chatSend">➤</button>
@@ -4274,6 +4290,7 @@ var I18N = {
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
         dateRadar: 'Date radar', precipitatii: 'Precipitații',
+        chatTitlu: 'Asistent AI Meteo',
         ccTitlu: 'Cât de neobișnuită e ziua de azi?',
         ccSub: 'Comparație cu ultimii 30 de ani, pentru aceeași zi calendaristică',
         ccIncarca: 'Se analizează arhiva climatică…',
@@ -4343,6 +4360,7 @@ var I18N = {
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
         dateRadar: 'Radar data', precipitatii: 'Precipitation',
+        chatTitlu: 'AI Weather Assistant',
         ccTitlu: 'How unusual is today?',
         ccSub: 'Compared with the last 30 years, for the same calendar day',
         ccIncarca: 'Analysing the climate archive…',
@@ -4458,6 +4476,7 @@ function aplicaLimba(l) {
         en.style.opacity = LANG === 'en' ? '1' : '0.4';
         ro.style.cursor = en.style.cursor = 'pointer';
     }
+    try { actualizeazaChat(); } catch (e) {}
     // reîmprospătăm tot ce conține text generat din JS
     try { updateMoonPhase(); } catch (e) {}
     try { liveClock(); } catch (e) {}
@@ -4578,6 +4597,7 @@ function reincarcaTot() {
     }
     puneMarcajLocatie();
     try { analizeazaZiua(); } catch (e) {}
+    try { actualizeazaChat(); } catch (e) {}
 }
 
 // ── Marcaj (pin) pe hărți pentru locația aleasă ──
@@ -4704,6 +4724,56 @@ document.getElementById('wTargoviste').addEventListener('click', function() {
     seteazaLocatie({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
     ascundeWelcome();
 });
+// ═══════════════════════════════════════════════════════════
+//  ASISTENTUL AI — se adaptează la limbă și la orașul selectat
+// ═══════════════════════════════════════════════════════════
+function actualizeazaChat() {
+    var oras = (typeof LOC !== 'undefined' && LOC.nume) ? LOC.nume : '';
+    var en = (LANG === 'en');
+
+    var sub = document.getElementById('chatSub');
+    if (sub) sub.textContent = oras
+        ? (en ? 'Weather for ' + oras : 'Vremea pentru ' + oras)
+        : 'METEO NOW';
+
+    var salut = document.getElementById('chatSalut');
+    if (salut) salut.textContent = en
+        ? 'Hi! 👋 I am the METEO NOW assistant. I can help with the weather, forecasts and warnings for ' +
+          (oras || 'your selected city') + '. What would you like to know?'
+        : 'Salut! 👋 Sunt asistentul METEO NOW. Te pot ajuta cu vremea, prognozele și avertizările pentru ' +
+          (oras || 'orașul selectat') + '. Ce vrei să afli?';
+
+    var box = document.getElementById('chatSuggestions');
+    if (!box) return;
+    var s = en ? [
+        ['🌡️ Weather now',      'What is the weather like right now in ' + oras + '?'],
+        ['🌧️ Will it rain?',    'Will it rain in the next few hours in ' + oras + '?'],
+        ['📅 This weekend',     'What will the weather be like this weekend in ' + oras + '?'],
+        ['📊 Unusual today?',   'How unusual is today compared to normal for ' + oras + '?'],
+        ['❓ What can this app do?', 'What can I do with this app?']
+    ] : [
+        ['🌡️ Vremea acum',      'Cum e vremea acum în ' + oras + '?'],
+        ['🌧️ Plouă în curând?', 'Plouă în următoarele ore în ' + oras + '?'],
+        ['📅 În weekend',       'Cum va fi vremea în weekend în ' + oras + '?'],
+        ['📊 E neobișnuit azi?', 'Cât de neobișnuită e ziua de azi față de normal pentru ' + oras + '?'],
+        ['❓ Ce poate aplicația?', 'Ce pot face cu această aplicație?']
+    ];
+    // avertizările au sens doar în România
+    if (typeof esteRomania === 'function' && esteRomania()) {
+        s.splice(3, 0, en ? ['⚠️ Warnings', 'Are there any active weather warnings for ' + oras + '?']
+                          : ['⚠️ Avertizări', 'Ce avertizări meteo sunt active pentru ' + oras + '?']);
+    }
+    box.innerHTML = '';
+    s.forEach(function(p) {
+        var b = document.createElement('button');
+        b.className = 'chat-suggestion';
+        b.setAttribute('data-q', p[1]);
+        b.textContent = p[0];
+        b.addEventListener('click', function() { sendChatMessage(p[1]); });
+        box.appendChild(b);
+    });
+}
+
 // ═══════════════════════════════════════════════════════════
 //  „CÂT DE NEOBIȘNUITĂ E ZIUA DE AZI?"
 //  Compară maxima de azi cu aceeași zi calendaristică din
