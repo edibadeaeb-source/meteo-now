@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Politica de confidențialitate — METEO NOW</title>
+<meta name="description" content="Politica de confidențialitate a aplicației METEO NOW.">
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        background: #141416; color: #e6e7eb; line-height: 1.65;
+        padding: 32px 20px 60px;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .top img { width: 44px; height: 44px; border-radius: 10px; }
+    h1 { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .data { font-size: 0.8rem; color: #9ca0ab; margin-bottom: 26px; }
+    h2 { font-size: 1.05rem; font-weight: 800; color: #fff; margin: 26px 0 8px; }
+    p, li { font-size: 0.92rem; color: #d5d8e0; }
+    ul { margin: 8px 0 8px 20px; }
+    li { margin-bottom: 5px; }
+    a { color: #4f83ff; }
+    .box {
+        background: #1c1c1f; border: 1px solid #33343a; border-radius: 12px;
+        padding: 16px 18px; margin: 16px 0;
+    }
+    .lang { display: flex; gap: 8px; margin-bottom: 22px; }
+    .lang button {
+        background: #232327; border: 1px solid #33343a; color: #e6e7eb;
+        border-radius: 8px; padding: 7px 16px; font-size: 0.84rem; font-weight: 700;
+        cursor: pointer; font-family: inherit;
+    }
+    .lang button.activ { background: #1d4fd7; border-color: #1d4fd7; color: #fff; }
+    .sec-en { display: none; }
+    body.en .sec-ro { display: none; }
+    body.en .sec-en { display: block; }
+    footer { margin-top: 34px; padding-top: 18px; border-top: 1px solid #33343a; font-size: 0.8rem; color: #9ca0ab; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <div class="top">
+        <img src="icon-192.png" alt="METEO NOW">
+        <div>
+            <h1>METEO NOW</h1>
+            <div class="data">Politica de confidențialitate · Privacy Policy</div>
+        </div>
+    </div>
+
+    <div class="lang">
+        <button id="bRo" class="activ">Română</button>
+        <button id="bEn">English</button>
+    </div>
+
+    <!-- ══════════════ ROMÂNĂ ══════════════ -->
+    <div class="sec-ro">
+        <p><b>Ultima actualizare:</b> 28 iulie 2026</p>
+
+        <div class="box">
+            <p><b>Pe scurt:</b> METEO NOW nu creează conturi, nu cere date personale și nu vinde informații
+            nimănui. Locația ta este folosită doar ca să îți arătăm vremea de la tine și nu este stocată
+            pe serverele noastre.</p>
+        </div>
+
+        <h2>1. Cine suntem</h2>
+        <p>METEO NOW este o aplicație meteo dezvoltată de Eduard-Emanuel Badea.
+        Contact: <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a></p>
+
+        <h2>2. Ce date folosim</h2>
+        <ul>
+            <li><b>Locația aproximativă sau precisă</b> — doar dacă îți dai acordul. O folosim exclusiv
+            pentru a determina localitatea și a afișa vremea pentru ea. Coordonatele sunt trimise
+            către serviciile meteo (vezi secțiunea 5) pentru a obține prognoza și nu sunt salvate de noi.
+            Poți refuza accesul și poți căuta manual orice oraș — aplicația funcționează normal.</li>
+            <li><b>Preferințele tale</b> (orașul ales, tema, limba, locațiile recente) — se salvează
+            <b>local, pe dispozitivul tău</b>, în memoria aplicației. Nu ajung la noi și dispar dacă
+            dezinstalezi aplicația sau ștergi datele acesteia.</li>
+            <li><b>Notificări</b> — dacă le activezi, dispozitivul tău generează o adresă tehnică de
+            livrare (fără nume, e-mail sau alte date personale), pe care o păstrăm pentru a-ți putea
+            trimite alertele meteo. Se șterge automat când dezactivezi notificările sau dezinstalezi aplicația.</li>
+            <li><b>Întrebările către asistentul AI</b> — sunt trimise pentru procesare către Anthropic
+            (Claude) împreună cu vremea afișată în acel moment. Nu le asociem cu identitatea ta și nu le
+            folosim pentru altceva.</li>
+        </ul>
+
+        <h2>3. Ce NU facem</h2>
+        <ul>
+            <li>Nu îți cerem cont, nume, e-mail sau număr de telefon.</li>
+            <li>Nu urmărim locația în fundal.</li>
+            <li>Nu vindem și nu închiriem date către terți.</li>
+            <li>Nu afișăm reclame și nu folosim instrumente de publicitate sau profilare.</li>
+        </ul>
+
+        <h2>4. Copii</h2>
+        <p>Aplicația nu se adresează special copiilor și nu colectează cu bună știință date de la
+        persoane sub 13 ani.</p>
+
+        <h2>5. Servicii externe folosite</h2>
+        <p>Pentru a-ți oferi datele meteo, aplicația trimite coordonatele localității alese către:</p>
+        <ul>
+            <li><b>Open-Meteo</b> — prognoze, arhivă climatică, date hidrologice</li>
+            <li><b>OpenWeatherMap</b> — vremea curentă</li>
+            <li><b>RainViewer</b> — imagini radar și satelitare</li>
+            <li><b>NOAA SWPC</b> — date despre vremea spațială</li>
+            <li><b>DWD</b> — hărți sinoptice</li>
+            <li><b>ANM (meteoromania.ro)</b> — avertizări oficiale, doar pentru România</li>
+            <li><b>Anthropic (Claude)</b> — răspunsurile asistentului AI</li>
+            <li><b>Google Firebase</b> — stocarea măsurătorilor de la stațiile proprii din Târgoviște</li>
+        </ul>
+        <p>Fiecare serviciu are propria politică de confidențialitate.</p>
+
+        <h2>6. Drepturile tale</h2>
+        <p>Deoarece nu păstrăm date care să te identifice, nu există un „cont" de șters. Poți oricând:</p>
+        <ul>
+            <li>să retragi permisiunea de locație din setările telefonului;</li>
+            <li>să dezactivezi notificările din setările aplicației;</li>
+            <li>să ștergi toate preferințele dezinstalând aplicația sau ștergând datele ei.</li>
+        </ul>
+        <p>Pentru orice întrebare legată de datele tale, scrie-ne la
+        <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a>.</p>
+
+        <h2>7. Modificări</h2>
+        <p>Dacă vom schimba această politică, vom actualiza data de sus. Modificările importante vor fi
+        anunțate în aplicație.</p>
+    </div>
+
+    <!-- ══════════════ ENGLISH ══════════════ -->
+    <div class="sec-en">
+        <p><b>Last updated:</b> 28 July 2026</p>
+
+        <div class="box">
+            <p><b>In short:</b> METEO NOW does not create accounts, does not ask for personal data and
+            does not sell information to anyone. Your location is used only to show you the weather
+            where you are, and it is not stored on our servers.</p>
+        </div>
+
+        <h2>1. Who we are</h2>
+        <p>METEO NOW is a weather app developed by Eduard-Emanuel Badea.
+        Contact: <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a></p>
+
+        <h2>2. Data we use</h2>
+        <ul>
+            <li><b>Approximate or precise location</b> — only with your consent. It is used solely to
+            determine your locality and show its weather. Coordinates are sent to the weather services
+            listed in section 5 to retrieve the forecast and are not stored by us. You may decline and
+            search for any city manually — the app works normally.</li>
+            <li><b>Your preferences</b> (selected city, theme, language, recent locations) are stored
+            <b>locally on your device</b>. They never reach us and are removed if you uninstall the app
+            or clear its data.</li>
+            <li><b>Notifications</b> — if you enable them, your device generates a technical delivery
+            address (containing no name, e-mail or other personal data), which we keep in order to send
+            you weather alerts. It is deleted automatically when you turn notifications off or uninstall the app.</li>
+            <li><b>Questions to the AI assistant</b> — sent for processing to Anthropic (Claude) together
+            with the weather currently displayed. They are not linked to your identity and are not used
+            for anything else.</li>
+        </ul>
+
+        <h2>3. What we do NOT do</h2>
+        <ul>
+            <li>We do not ask for an account, name, e-mail or phone number.</li>
+            <li>We do not track your location in the background.</li>
+            <li>We do not sell or rent data to third parties.</li>
+            <li>We show no ads and use no advertising or profiling tools.</li>
+        </ul>
+
+        <h2>4. Children</h2>
+        <p>The app is not directed at children and does not knowingly collect data from persons under 13.</p>
+
+        <h2>5. Third-party services</h2>
+        <p>To provide weather data, the app sends the coordinates of the selected location to:</p>
+        <ul>
+            <li><b>Open-Meteo</b> — forecasts, climate archive, hydrological data</li>
+            <li><b>OpenWeatherMap</b> — current weather</li>
+            <li><b>RainViewer</b> — radar and satellite imagery</li>
+            <li><b>NOAA SWPC</b> — space weather data</li>
+            <li><b>DWD</b> — synoptic charts</li>
+            <li><b>ANM (meteoromania.ro)</b> — official warnings, for Romania only</li>
+            <li><b>Anthropic (Claude)</b> — AI assistant responses</li>
+            <li><b>Google Firebase</b> — storage of readings from our own stations in Târgoviște</li>
+        </ul>
+        <p>Each service has its own privacy policy.</p>
+
+        <h2>6. Your rights</h2>
+        <p>Because we keep no data that identifies you, there is no account to delete. At any time you can:</p>
+        <ul>
+            <li>revoke the location permission in your phone settings;</li>
+            <li>turn off notifications in the app settings;</li>
+            <li>delete all preferences by uninstalling the app or clearing its data.</li>
+        </ul>
+        <p>For any question about your data, write to
+        <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a>.</p>
+
+        <h2>7. Changes</h2>
+        <p>If we change this policy, we will update the date above. Significant changes will be announced
+        in the app.</p>
+    </div>
+
+    <footer>
+        © 2026 Eduard-Emanuel Badea · METEO NOW —
+        <a href="/">înapoi la aplicație / back to the app</a>
+    </footer>
+</div>
+
+<script>
+    var b = document.body, bRo = document.getElementById('bRo'), bEn = document.getElementById('bEn');
+    function set(en) {
+        b.classList.toggle('en', en);
+        bEn.classList.toggle('activ', en);
+        bRo.classList.toggle('activ', !en);
+        document.documentElement.lang = en ? 'en' : 'ro';
+    }
+    bRo.addEventListener('click', function () { set(false); });
+    bEn.addEventListener('click', function () { set(true); });
+    // limba implicită, după browser
+    if ((navigator.language || 'ro').toLowerCase().indexOf('ro') !== 0) set(true);
+</script>
+</body>
+</html>
