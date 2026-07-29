@@ -1027,9 +1027,14 @@
         .hero-band .pill-btn { color: #fff; border-color: rgba(255,255,255,0.5); }
         .hero-band .pill-btn:hover { background: rgba(255,255,255,0.14); }
         .hero-band, .hero-band .hero-sub, .hero-band .hero-extra, .hero-band .sm-title,
-        .hero-band .tile-sub, .hero-band .your-place, .hero-band .lora-info-bar { color: #dbe3f5; }
+        .hero-band .tile-sub, .hero-band .your-place, .hero-band .lora-info-bar,
+        .hero-band .sun-col, .hero-band .moon-col { color: #dbe3f5; }
         .hero-band h1, .hero-band .hero-temp, .hero-band .card-head h2, .hero-band .hero-feels { color: #ffffff; }
         .hero-band .gauge-label { color: #d7dcea; }
+        /* orele de răsărit/apus — trebuie să rămână deschise, tile-ul e închis în ambele teme */
+        .hero-band .sun-times, .hero-band .sun-times span { color: #dbe3f5; }
+        .hero-band .sun-times b { color: #ffffff; font-weight: 800; }
+        .hero-band .moon-col .tile-sub { color: #dbe3f5; }
 </style>
 </head>
 <body>
@@ -2992,13 +2997,31 @@ var ANM_COORD = {
 function anmKey(n) { return (n || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 // ── Hărți satelitare Esri (gratuite, fără cheie) — stil Google Earth ──
 function addSatelliteTiles(map, noLabels) {
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Imagini © Esri, Maxar, Earthstar Geographics', maxZoom: 19
-    }).addTo(map);
+    // Esri Clarity — aceleași imagini satelitare, dar de rezoluție mai bună.
+    // Dacă un tile lipsește, se trece automat pe World Imagery clasic.
+    var clarity = L.tileLayer(
+        'https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Imagini © Esri, Maxar, Earthstar Geographics',
+        maxZoom: 19, maxNativeZoom: 18,
+        detectRetina: true            // pe telefoane încarcă tile-uri de rezoluție dublă
+    });
+    var clasic = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Imagini © Esri, Maxar, Earthstar Geographics',
+        maxZoom: 19, maxNativeZoom: 18, detectRetina: true
+    });
+
+    clasic.addTo(map);               // fundal sigur
+    clarity.addTo(map);              // deasupra, mai clar
+    clarity.on('tileerror', function () {
+        // dacă sursa de calitate nu răspunde, o ascundem și rămâne cea clasică
+        if (map.hasLayer(clarity)) map.removeLayer(clarity);
+    });
+
     if (!noLabels) {
         // etichete de localități + granițe, transparent, deasupra imaginii satelitare
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 19, opacity: 0.95
+            maxZoom: 19, maxNativeZoom: 18, opacity: 0.95, detectRetina: true
         }).addTo(map);
     }
 }
@@ -3079,7 +3102,7 @@ function loadSynopStations() {
 var radarMapL = null, radarFrames = [], radarLayer = null, radarIdx = 0, radarTimer = null, rvHost = '';
 function initRadar() {
     if (radarMapL) return;
-    radarMapL = L.map('radarMap', { scrollWheelZoom: false, minZoom: 4, maxZoom: 11 }).setView([45.8, 25.0], 6);
+    radarMapL = L.map('radarMap', { scrollWheelZoom: false, minZoom: 3, maxZoom: 9 }).setView([45.8, 25.0], 6);
     // fundal satelitar (markere proprii, fără etichetele Esri)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(radarMapL);
     // graticulă lat/lon la 1°
@@ -3134,7 +3157,7 @@ function initRadar() {
 function showRadarFrame(i) {
     if (!radarFrames[i]) return;
     if (radarLayer) radarMapL.removeLayer(radarLayer);
-    radarLayer = L.tileLayer(rvHost + radarFrames[i].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75, maxNativeZoom: 10, maxZoom: 14 }).addTo(radarMapL);
+    radarLayer = L.tileLayer(rvHost + radarFrames[i].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(radarMapL);
     var t = new Date(radarFrames[i].time * 1000);
     document.getElementById('radarLabel').innerText = t.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
     document.getElementById('radarTime').innerText = t.toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
@@ -3771,7 +3794,7 @@ var animSatMapL = null, animSatLayer = null, animSatIdx = 0, animSatTimer = null
 function showSatFrame(i) {
     if (!satFrames[i]) return;
     if (animSatLayer) animSatMapL.removeLayer(animSatLayer);
-    animSatLayer = L.tileLayer(rvHost + satFrames[i].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.7, maxNativeZoom: 8, maxZoom: 14 }).addTo(animSatMapL);
+    animSatLayer = L.tileLayer(rvHost + satFrames[i].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.7, maxNativeZoom: 8, maxZoom: 8 }).addTo(animSatMapL);
     document.getElementById('animSatLabel').innerText = new Date(satFrames[i].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 }
 function initAnimSat() {
@@ -3787,7 +3810,7 @@ function initAnimSat() {
         if (radarFrames.length && animRadarMapL) {
             animRadarIdx = radarFrames.length - 1;
             if (animRadarLayer) animRadarMapL.removeLayer(animRadarLayer);
-            animRadarLayer = L.tileLayer(rvHost + radarFrames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 10, maxZoom: 14 }).addTo(animRadarMapL);
+            animRadarLayer = L.tileLayer(rvHost + radarFrames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(animRadarMapL);
             document.getElementById('animRadarLabel').innerText = new Date(radarFrames[animRadarIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
         }
     }).catch(function() {});
@@ -3800,7 +3823,7 @@ function initAnimSat() {
                 if (!satFrames.length) return;
                 animSatIdx = (animSatIdx + 1) % satFrames.length;
                 if (animSatLayer) animSatMapL.removeLayer(animSatLayer);
-                animSatLayer = L.tileLayer(rvHost + satFrames[animSatIdx].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.8, maxNativeZoom: 8, maxZoom: 14 }).addTo(animSatMapL);
+                animSatLayer = L.tileLayer(rvHost + satFrames[animSatIdx].path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: 0.8, maxNativeZoom: 8, maxZoom: 8 }).addTo(animSatMapL);
                 document.getElementById('animSatLabel').innerText = new Date(satFrames[animSatIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
             }, 700);
         };
@@ -3877,7 +3900,7 @@ function initAnimRadar() {
             animRadarTimer = setInterval(function() {
                 animRadarIdx = (animRadarIdx + 1) % frames.length;
                 if (animRadarLayer) animRadarMapL.removeLayer(animRadarLayer);
-                animRadarLayer = L.tileLayer(host + frames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 10, maxZoom: 14 }).addTo(animRadarMapL);
+                animRadarLayer = L.tileLayer(host + frames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(animRadarMapL);
                 document.getElementById('animRadarLabel').innerText = new Date(frames[animRadarIdx].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
             }, 700);
         };
@@ -4802,7 +4825,8 @@ function puneMarcajLocatie() {
               '<circle cx="15" cy="15" r="5" fill="#fff"/></svg></div>'
     });
 
-    [['synopMapL', 9], ['radarMapL', 8], ['precipMapL', 7], ['forecastMapL', 9]].forEach(function(p) {
+    // zoom potrivit fiecărei hărți: radarul rămâne LARG, ca să se vadă reflectivitatea
+    [['synopMapL', 8], ['radarMapL', 7], ['precipMapL', 6], ['forecastMapL', 10]].forEach(function(p) {
         try {
             var m = window[p[0]];
             if (!m || !m.setView) return;
