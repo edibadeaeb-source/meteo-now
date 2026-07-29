@@ -28,7 +28,40 @@
         try { return (I18N[LANG] && I18N[LANG][k]) || (I18N.ro && I18N.ro[k]) || k; }
         catch (e) { return k; }
     }
-    </script>
+
+    // ── UNITĂȚI DE TEMPERATURĂ (°C / °F) ──
+    // Implicit: °F pentru SUA, Bahamas, Belize, Insulele Cayman, Palau,
+    // Micronezia, Insulele Marshall, Liberia; °C în rest.
+    var UNIT = (function () {
+        try {
+            var s = localStorage.getItem('meteo-unit');
+            if (s === 'C' || s === 'F') return s;
+        } catch (e) {}
+        var l = (navigator.language || '').toUpperCase();
+        var tariF = ['-US', '-BS', '-BZ', '-KY', '-PW', '-FM', '-MH', '-LR'];
+        for (var i = 0; i < tariF.length; i++) if (l.indexOf(tariF[i]) !== -1) return 'F';
+        return 'C';
+    })();
+
+    /** Convertește o valoare din °C în unitatea aleasă. */
+    function cv(c) {
+        if (c === null || c === undefined || isNaN(c)) return c;
+        return UNIT === 'F' ? (c * 9 / 5 + 32) : c;
+    }
+    /** Formatează o temperatură dată în °C, cu unitatea curentă. */
+    function fT(c, zecimale, faraUnitate) {
+        if (c === null || c === undefined || isNaN(c)) return '--';
+        var v = cv(c);
+        var s = (zecimale === undefined ? Math.round(v) : v.toFixed(zecimale));
+        return s + (faraUnitate ? '°' : '°' + UNIT);
+    }
+    /** Diferență de temperatură (interval), nu valoare absolută. */
+    function fDif(dc, zecimale) {
+        if (dc === null || dc === undefined || isNaN(dc)) return '--';
+        var v = UNIT === 'F' ? dc * 9 / 5 : dc;
+        return (v >= 0 ? '+' : '') + v.toFixed(zecimale === undefined ? 1 : zecimale) + '°' + UNIT;
+    }
+</script>
     <script>
     // Tema se aplică ÎNAINTE de randare, ca să nu clipească.
     // Implicit: urmează setarea telefonului; utilizatorul o poate schimba din Setări.
@@ -1066,7 +1099,16 @@
             </div>
 
             <div class="set-group">
-                <div class="set-label">Notificări</div>
+                <div class="set-label" data-i18n="setUnitati">Unități de temperatură</div>
+                <div class="seg" id="unitSeg">
+                    <button data-unit="C">°C Celsius</button>
+                    <button data-unit="F">°F Fahrenheit</button>
+                </div>
+                <div class="set-note" data-i18n="setUnitatiNota">Implicit după țara telefonului tău.</div>
+            </div>
+
+            <div class="set-group">
+                <div class="set-label" data-i18n="setNotificari">Notificări</div>
                 <div class="set-row">
                     <div>Alerte meteo<small id="pushHint">Primești notificare la avertizări ANM pentru Dâmbovița</small></div>
                     <label class="switch"><input type="checkbox" id="setPush"><span></span></label>
@@ -2188,9 +2230,9 @@ function fetchWeather() {
             document.getElementById('weatherInfo').innerHTML =
                 '<div class="hero-temp-row">' +
                     iconHtml +
-                    '<span class="hero-temp">' + d.main.temp.toFixed(1) + '<span class="hero-temp-unit">°C</span></span>' +
+                    '<span class="hero-temp">' + cv(d.main.temp).toFixed(1) + '<span class="hero-temp-unit">°' + UNIT + '</span></span>' +
                 '</div>' +
-                '<div class="hero-feels">' + (typeof T === 'function' ? T('resimtit') : 'Temperatura resimțită') + ': <b>' + d.main.feels_like.toFixed(1) + '°C</b></div>' +
+                '<div class="hero-feels">' + (typeof T === 'function' ? T('resimtit') : 'Temperatura resimțită') + ': <b>' + fT(d.main.feels_like, 1) + '</b></div>' +
                 '<div class="hero-extra">' + desc +
                     ' · ' + T('umiditate') + ' <b>' + d.main.humidity + '%</b>' +
                     ' · ' + T('vant') + ' <b>' + d.wind.speed + ' m/s</b>' +
@@ -3019,13 +3061,13 @@ function loadSynopStations() {
                 if (t < tmin) { tmin = t; cmin = s.nume; }
                 var col = t >= 32 ? '#f97316' : t >= 25 ? '#f5c500' : t >= 18 ? '#d9e021' : t >= 10 ? '#a8d321' : t >= 0 ? '#7ec8e3' : '#3b82f6';
                 L.marker([s.lat, s.lon], { icon: L.divIcon({ className: '', iconSize: [30, 30], html:
-                    '<div style="background:' + col + ';border:2px solid #fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#1c2434;box-shadow:0 2px 5px rgba(0,0,0,0.55);">' + t.toFixed(0) + '</div>' })
-                }).addTo(synopStationsLayer).bindPopup('<b>' + s.nume + '</b><br>🌡️ ' + t.toFixed(1) + '°C · 💧 ' + (s.umezeala || '--') + '%<br>' + (s.presiunetext || '') + '<br>💨 ' + (s.vant || ''));
+                    '<div style="background:' + col + ';border:2px solid #fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#1c2434;box-shadow:0 2px 5px rgba(0,0,0,0.55);">' + Math.round(cv(t)) + '</div>' })
+                }).addTo(synopStationsLayer).bindPopup('<b>' + s.nume + '</b><br>🌡️ ' + fT(t,1) + ' · 💧 ' + (s.umezeala || '--') + '%<br>' + (s.presiunetext || '') + '<br>💨 ' + (s.vant || ''));
                 if (s.actualizat) lastUpd = String(s.actualizat).replace(/&nbsp;/g, ' ');
             });
             if (placed) {
-                document.getElementById('synopMax').innerHTML = tmax.toFixed(1) + '°C<small>' + cmax + '</small>';
-                document.getElementById('synopMin').innerHTML = tmin.toFixed(1) + '°C<small>' + cmin + '</small>';
+                document.getElementById('synopMax').innerHTML = fT(tmax,1) + '<small>' + cmax + '</small>';
+                document.getElementById('synopMin').innerHTML = fT(tmin,1) + '<small>' + cmin + '</small>';
                 if (lastUpd) document.getElementById('synopTime').innerText = lastUpd;
             } else {
                 document.getElementById('synopTime').innerText = 'date ANM indisponibile';
@@ -3484,9 +3526,9 @@ function renderForecastDay() {
             '<div style="text-align:center;line-height:1;">' +
             '<div style="font-size:8.5px;color:#6d7593;font-weight:600;">' + wind + ' km/h <span style="display:inline-block;transform:rotate(' + (wdir + 180) + 'deg);">↑</span></div>' +
             wmoSvg(code, night, 30) +
-            '<div style="font-size:15px;font-weight:800;color:' + tempColor(temp) + ';text-shadow:0 0 3px #fff,0 0 3px #fff;">' + Math.round(temp) + '</div>' +
+            '<div style="font-size:15px;font-weight:800;color:' + tempColor(temp) + ';text-shadow:0 0 3px #fff,0 0 3px #fff;">' + Math.round(cv(temp)) + '</div>' +
             '</div>' })
-        }).addTo(forecastMapL).bindPopup('<b>' + t.n + '</b><br>' + wmoText(code) + ' · ' + Math.round(temp) + '°C<br>vânt max ' + wind + ' km/h');
+        }).addTo(forecastMapL).bindPopup('<b>' + t.n + '</b><br>' + wmoText(code) + ' · ' + fT(temp) + '<br>vânt max ' + wind + ' km/h');
         fcMarkers.push(m);
     });
     var dt = new Date(fcData[0].daily.time[di] + 'T12:00');
@@ -3547,8 +3589,8 @@ function loadTenDay() {
                 var dt = new Date(t + 'T12:00');
                 cards += '<div class="day-card"><div class="dc-name">' + dt.toLocaleDateString('ro-RO', { weekday: 'short', day: '2-digit' }) + '</div>' +
                     '<div class="dc-ico">' + wmoSvg(d.daily.weathercode[i], false, 30) + '</div>' +
-                    '<div class="dc-max">' + Math.round(d.daily.temperature_2m_max[i]) + '°</div>' +
-                    '<div class="dc-min">' + Math.round(d.daily.temperature_2m_min[i]) + '°</div>' +
+                    '<div class="dc-max">' + Math.round(cv(d.daily.temperature_2m_max[i])) + '°</div>' +
+                    '<div class="dc-min">' + Math.round(cv(d.daily.temperature_2m_min[i])) + '°</div>' +
                     '<div style="color:#38bdf8;">' + d.daily.precipitation_sum[i].toFixed(1) + 'mm</div></div>';
             });
             document.getElementById('dayCards').innerHTML = cards;
@@ -3556,8 +3598,8 @@ function loadTenDay() {
             tenDayChartJs = new Chart(document.getElementById('tenDayChart').getContext('2d'), {
                 data: { labels: d.daily.time.map(function(t) { return t.slice(8, 10) + '.' + t.slice(5, 7); }),
                     datasets: [
-                        { type: 'line', label: T('grTempMax'), data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.35, pointRadius: 3 },
-                        { type: 'line', label: T('grTempMin'), data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.35, pointRadius: 3 },
+                        { type: 'line', label: T('grTempMax'), data: d.daily.temperature_2m_max.map(cv), borderColor: '#f97316', tension: 0.35, pointRadius: 3 },
+                        { type: 'line', label: T('grTempMin'), data: d.daily.temperature_2m_min.map(cv), borderColor: '#38bdf8', tension: 0.35, pointRadius: 3 },
                         { type: 'bar', label: T('grPrecip'), data: d.daily.precipitation_sum, backgroundColor: 'rgba(29,79,215,0.55)', yAxisID: 'y1' }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
@@ -3582,15 +3624,15 @@ function loadLongRange(mode) {
             }
             wc.innerHTML = weeks.map(function(w) {
                 return '<div class="day-card" style="min-width:140px;"><div class="dc-name">' + w.label + '</div>' +
-                    '<div class="dc-max">' + w.tmax.toFixed(1) + '°</div><div class="dc-min">' + w.tmin.toFixed(1) + '°</div>' +
+                    '<div class="dc-max">' + cv(w.tmax).toFixed(1) + '°</div><div class="dc-min">' + cv(w.tmin).toFixed(1) + '°</div>' +
                     '<div style="color:#38bdf8;">' + w.pr.toFixed(0) + ' mm</div></div>';
             }).join('');
             longChartJs = new Chart(document.getElementById('longChart').getContext('2d'), {
                 type: 'bar',
                 data: { labels: weeks.map(function(w) { return w.label; }),
                     datasets: [
-                        { label: T('grMediaMax'), data: weeks.map(function(w) { return w.tmax; }), backgroundColor: '#f97316' },
-                        { label: T('grMediaMin'), data: weeks.map(function(w) { return w.tmin; }), backgroundColor: '#38bdf8' }
+                        { label: T('grMediaMax'), data: weeks.map(function(w) { return cv(w.tmax); }), backgroundColor: '#f97316' },
+                        { label: T('grMediaMin'), data: weeks.map(function(w) { return cv(w.tmin); }), backgroundColor: '#38bdf8' }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555' } }, y: { ticks: { color: '#555' } } },
@@ -3602,8 +3644,8 @@ function loadLongRange(mode) {
                 type: 'line',
                 data: { labels: d.daily.time.map(function(t) { return t.slice(8, 10) + '.' + t.slice(5, 7); }),
                     datasets: [
-                        { label: T('grTempMax'), data: d.daily.temperature_2m_max, borderColor: '#f97316', tension: 0.3, pointRadius: 2 },
-                        { label: T('grTempMin'), data: d.daily.temperature_2m_min, borderColor: '#38bdf8', tension: 0.3, pointRadius: 2 }
+                        { label: T('grTempMax'), data: d.daily.temperature_2m_max.map(cv), borderColor: '#f97316', tension: 0.3, pointRadius: 2 },
+                        { label: T('grTempMin'), data: d.daily.temperature_2m_min.map(cv), borderColor: '#38bdf8', tension: 0.3, pointRadius: 2 }
                     ] },
                 options: { responsive: true, maintainAspectRatio: false,
                     scales: { x: { ticks: { color: '#555' } }, y: { ticks: { color: '#555' } } },
@@ -3656,14 +3698,14 @@ function showPlaceForecast(p) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var html = '<h4>Prognoză — ' + p.name + (p.admin1 ? ' (' + p.admin1 + ')' : '') + '</h4>';
-            if (d.current_weather) html += '<p style="font-size:0.9rem;margin:6px 0;">Acum: <b>' + d.current_weather.temperature.toFixed(1) + '°C</b> · ' + wmoText(d.current_weather.weathercode) + ' ' + wmoIcon(d.current_weather.weathercode) + '</p>';
+            if (d.current_weather) html += '<p style="font-size:0.9rem;margin:6px 0;">Acum: <b>' + fT(d.current_weather.temperature, 1) + '</b> · ' + wmoText(d.current_weather.weathercode) + ' ' + wmoIcon(d.current_weather.weathercode) + '</p>';
             html += '<div class="day-cards">';
             d.daily.time.forEach(function(t, i) {
                 var dt = new Date(t + 'T12:00');
                 html += '<div class="day-card" style="background:#f4f6fb;border-color:#dfe4ef;color:#333;"><div class="dc-name">' + dt.toLocaleDateString('ro-RO', { weekday: 'short', day: '2-digit' }) + '</div>' +
                     '<div class="dc-ico">' + wmoSvg(d.daily.weathercode[i], false, 30) + '</div>' +
-                    '<div class="dc-max" style="color:#1c2434;">' + Math.round(d.daily.temperature_2m_max[i]) + '°</div>' +
-                    '<div class="dc-min" style="color:#888;">' + Math.round(d.daily.temperature_2m_min[i]) + '°</div></div>';
+                    '<div class="dc-max" style="color:#1c2434;">' + Math.round(cv(d.daily.temperature_2m_max[i])) + '°</div>' +
+                    '<div class="dc-min" style="color:#888;">' + Math.round(cv(d.daily.temperature_2m_min[i])) + '°</div></div>';
             });
             html += '</div>';
             box.innerHTML = html;
@@ -3739,7 +3781,7 @@ function updateHeroTemp() {
     var badge = document.getElementById('espBadge');
     var online = badge && badge.className.indexOf('online') !== -1;
     if (!isNaN(t) && online) {
-        el.innerHTML = t.toFixed(1) + '<span class="hero-temp-unit">°C</span>';
+        el.innerHTML = cv(t).toFixed(1) + '<span class="hero-temp-unit">°' + UNIT + '</span>';
         var extra = document.querySelector('#weatherInfo .hero-extra');
         if (extra && extra.innerHTML.indexOf('stația proprie') === -1)
             extra.innerHTML += ' · <b style="color:#7ec8e3;" data-i18n-skip>' +
@@ -4008,6 +4050,30 @@ document.querySelectorAll('#themeSeg button').forEach(function(b) {
     b.addEventListener('click', function() { applyTheme(b.getAttribute('data-theme-mode')); });
 });
 
+// ── UNITĂȚI DE TEMPERATURĂ ──
+function aplicaUnitate(u) {
+    UNIT = (u === 'F') ? 'F' : 'C';
+    try { localStorage.setItem('meteo-unit', UNIT); } catch (e) {}
+    document.querySelectorAll('#unitSeg button').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-unit') === UNIT);
+    });
+    // reîmprospătăm tot ce afișează temperaturi
+    try { fetchWeather(); } catch (e) {}
+    try { updateHeroTemp(); } catch (e) {}
+    try { loadTenDay(); } catch (e) {}
+    try { longData = null; loadLongRange('weeks'); } catch (e) {}
+    try { loadSynopStations(); } catch (e) {}
+    try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
+    try { _ccUltimaLoc = null; analizeazaZiua(); } catch (e) {}
+}
+document.querySelectorAll('#unitSeg button').forEach(function(b) {
+    b.addEventListener('click', function() { aplicaUnitate(b.getAttribute('data-unit')); });
+});
+// marcăm unitatea curentă la pornire (fără să reîncărcăm nimic)
+document.querySelectorAll('#unitSeg button').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-unit') === UNIT);
+});
+
 // ── SETĂRI: deschidere / închidere ──
 var sheet = document.getElementById('settingsSheet');
 document.getElementById('settingsBtn').addEventListener('click', function() { sheet.classList.add('open'); });
@@ -4077,20 +4143,35 @@ setTimeout(hideSplash, 4000);   // plasă de siguranță: nu rămâne blocat nic
 function enableSwipe(container, selector) {
     var el = document.querySelector(container);
     if (!el) return;
-    var x0 = null, y0 = null;
+    var x0 = null, y0 = null, anulat = false;
+
     el.addEventListener('touchstart', function(e) {
-        if (e.touches.length !== 1) return;
+        // Nu interpretăm gesturi pornite pe hărți sau pe zone derulabile —
+        // acolo utilizatorul face zoom/pan, nu schimbă tab-ul.
+        if (e.target.closest('.leaflet-container, canvas, input, select, textarea, .loc-panel, .sheet')) {
+            anulat = true; x0 = null; return;
+        }
+        if (e.touches.length !== 1) { anulat = true; x0 = null; return; }   // pinch cu 2 degete
+        anulat = false;
         x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
     }, { passive: true });
+
+    // dacă apare un al doilea deget în timpul gestului (pinch), anulăm
+    el.addEventListener('touchmove', function(e) {
+        if (e.touches.length > 1) { anulat = true; x0 = null; }
+    }, { passive: true });
+
     el.addEventListener('touchend', function(e) {
-        if (x0 === null) return;
+        if (anulat || x0 === null) { x0 = null; return; }
         var t = e.changedTouches[0];
         var dx = t.clientX - x0, dy = t.clientY - y0;
         x0 = null;
-        if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6) return;   // doar orizontal clar
+        // gest orizontal clar: lung, și mult mai orizontal decât vertical
+        if (Math.abs(dx) < 90 || Math.abs(dx) < Math.abs(dy) * 2.2) return;
         var tabs = Array.prototype.slice.call(document.querySelectorAll(selector));
         if (tabs.length < 2) return;
-        var i = tabs.findIndex(function(t2) { return t2.classList.contains('active'); });
+        var i = -1;
+        for (var k = 0; k < tabs.length; k++) if (tabs[k].classList.contains('active')) { i = k; break; }
         if (i < 0) return;
         var next = dx < 0 ? i + 1 : i - 1;
         if (next >= 0 && next < tabs.length) tabs[next].click();
@@ -4330,6 +4411,7 @@ var I18N = {
         ccRecord: 'Record de căldură', ccInAnul: 'în',
         ccMultMaiRece: 'mult mai rece', ccNormalScala: 'normal', ccMultMaiCald: 'mult mai cald',
         ccNota: 'Calculat din {ani} de observații pentru aceeași zi calendaristică ({start}–{end}), arhiva ERA5 (Open-Meteo).',
+        setUnitati: 'Unități de temperatură', setUnitatiNota: 'Implicit după țara telefonului tău.', setNotificari: 'Notificări',
         ftPrivacy: 'Politica de confidențialitate',
         ftAplicatie: 'Aplicația METEO NOW',
         ftDescriere: 'Vremea în timp real oriunde în lume: alerte, radar, prognoze pe 10 zile și asistent AI — toate într-un singur loc. Scanează codul pentru a deschide aplicația pe telefon.',
@@ -4401,6 +4483,7 @@ var I18N = {
         ccRecord: 'Record high', ccInAnul: 'in',
         ccMultMaiRece: 'much colder', ccNormalScala: 'normal', ccMultMaiCald: 'much warmer',
         ccNota: 'Computed from {ani} observations for the same calendar day ({start}–{end}), ERA5 archive (Open-Meteo).',
+        setUnitati: 'Temperature units', setUnitatiNota: 'Defaults to your phone\'s country.', setNotificari: 'Notifications',
         ftPrivacy: 'Privacy policy',
         ftAplicatie: 'The METEO NOW app',
         ftDescriere: 'Real-time weather anywhere in the world: alerts, radar, 10-day forecasts and an AI assistant — all in one place. Scan the code to open the app on your phone.',
@@ -4889,7 +4972,7 @@ function deseneazaAnaliza(d) {
     var data = new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'long' });
     var semn = caldut ? T('ccPeste') : T('ccSub2');
     var fraza = T('ccFraza')
-        .replace('{abatere}', '<b>' + abs.toFixed(1) + '°C</b>')
+        .replace('{abatere}', '<b>' + (UNIT === 'F' ? (abs * 9 / 5).toFixed(1) : abs.toFixed(1)) + '°' + UNIT + '</b>')
         .replace('{semn}', semn)
         .replace('{data}', '<b>' + data + '</b>')
         .replace('{rang}', '<b>' + ordinal(caldut ? d.rang : d.rangRece) + '</b>')
@@ -4902,10 +4985,10 @@ function deseneazaAnaliza(d) {
     var html =
         '<div class="cc-fraza">' + fraza + '</div>' +
         '<div class="cc-grid">' +
-            box(T('ccMaximaAzi'), d.maxAzi.toFixed(1) + '°C', T('ccPrognozata')) +
-            box(T('ccNormala'), d.media.toFixed(1) + '°C', T('ccMedia') + ' ' + d.anStart + '–' + d.anEnd) +
-            box(T('ccAbatere'), (ab >= 0 ? '+' : '') + ab.toFixed(1) + '°C', T('ccFataDeNormal')) +
-            box(T('ccRecord'), d.recordCald.max.toFixed(1) + '°C', T('ccInAnul') + ' ' + d.recordCald.an) +
+            box(T('ccMaximaAzi'), fT(d.maxAzi, 1), T('ccPrognozata')) +
+            box(T('ccNormala'), fT(d.media, 1), T('ccMedia') + ' ' + d.anStart + '–' + d.anEnd) +
+            box(T('ccAbatere'), fDif(ab, 1), T('ccFataDeNormal')) +
+            box(T('ccRecord'), fT(d.recordCald.max, 1), T('ccInAnul') + ' ' + d.recordCald.an) +
         '</div>' +
         '<div class="cc-scala">' +
             '<div class="cc-bara"><div class="cc-ac" style="left:' + poz + '%"></div></div>' +
