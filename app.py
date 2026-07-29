@@ -378,18 +378,26 @@ def _send_push(subscription, payload):
 
 
 def broadcast_push(payload):
-    """Trimite tuturor abonaților; curăță abonamentele expirate."""
+    """
+    Trimite tuturor abonaților; curăță abonamentele expirate.
+    O eroare la un abonament nu oprește restul.
+    """
     subs = _fb('push_subs') or {}
     trimise, sterse = 0, 0
-    for key, sub in (subs.items() if isinstance(subs, dict) else []):
-        if not isinstance(sub, dict) or not sub.get('endpoint'):
-            continue
-        ok, code = _send_push(sub, payload)
-        if ok:
-            trimise += 1
-        elif code in (404, 410):        # abonament expirat / dezinstalat
-            _fb(f'push_subs/{key}', 'DELETE')
-            sterse += 1
+    if not isinstance(subs, dict):
+        return 0, 0
+    for key, sub in list(subs.items()):
+        try:
+            if not isinstance(sub, dict) or not sub.get('endpoint'):
+                continue
+            ok, code = _send_push(sub, payload)
+            if ok:
+                trimise += 1
+            elif code in (404, 410):        # abonament expirat / dezinstalat
+                _fb(f'push_subs/{key}', 'DELETE')
+                sterse += 1
+        except Exception as e:
+            print(f"⚠️  push către {key}: {e}", flush=True)
     return trimise, sterse
 
 
@@ -412,17 +420,29 @@ def push_check():
     Verifică avertizările ANM pentru județul monitorizat și trimite notificare
     DOAR când apare ceva nou (nu la fiecare verificare).
     Se apelează periodic dintr-un serviciu de cron.
+
+    Important: returnează MEREU 200, chiar și când ANM nu răspunde, ca serviciul
+    de cron să nu raporteze erori pentru probleme temporare din exterior.
     """
     if request.args.get('secret') != PUSH_CRON_SECRET:
         return jsonify({'error': 'acces interzis'}), 403
+    try:
+        return _push_check_intern()
+    except Exception as e:
+        import traceback
+        print("❌ push_check:", traceback.format_exc(), flush=True)
+        return jsonify({'ok': False, 'eroare': str(e)[:200]}), 200
 
+
+def _push_check_intern():
     try:
         r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
-                         timeout=20, headers={'User-Agent': 'StatiaMeteoTargoviste/1.0'})
+                         timeout=25, headers={'User-Agent': 'MeteoNow/1.0'})
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return jsonify({'error': f'ANM indisponibil: {e}'}), 502
+        # nu e vina noastră — raportăm ca „ok, dar sursa e indisponibilă"
+        return jsonify({'ok': True, 'sursaIndisponibila': str(e)[:120], 'schimbare': False}), 200
 
     def unwrap(o):
         if not isinstance(o, dict):
