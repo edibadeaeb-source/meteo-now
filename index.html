@@ -720,11 +720,16 @@
 
             .container, .band-inner, .hero-inner { padding-left: 12px; padding-right: 12px; }
             .topbar-inner { padding-left: 10px; padding-right: 10px; gap: 8px; }
-            .loc-chip { max-width: 118px; font-size: 0.76rem; padding: 7px 8px; }
-            /* butonul „Servicii" devine doar pictogramă, ca să încapă pe ecran */
-            .services-btn { padding: 8px 10px; font-size: 0.9rem; }
-            .services-btn span[data-i18n] { display: none; }
-            .lang-chip { width: 32px; height: 32px; font-size: 0.72rem; border-radius: 8px; }
+            /* bara de sus: totul pe un singur rând, fără înghesuială */
+            .topbar-inner { gap: 6px; }
+            .brand-text small { display: none; }          /* subtitlul ocupă prea mult */
+            .brand-text b { font-size: 0.92rem; white-space: nowrap; }
+            .brand { gap: 8px; flex-shrink: 0; }
+            .topbar-right { gap: 5px; flex-shrink: 0; }
+            .loc-chip { max-width: 108px; font-size: 0.74rem; padding: 6px 8px; gap: 4px; }
+            .services-btn { display: none; }              /* serviciile sunt la un scroll distanță */
+            .lang-chip { width: 30px; height: 30px; font-size: 0.68rem; border-radius: 8px; }
+            #settingsBtn { font-size: 1rem !important; }
             .brand-text b { font-size: 0.98rem; }
             .brand-text small { font-size: 0.62rem; }
             .brand-logo { width: 36px; height: 36px; }
@@ -3027,7 +3032,7 @@ function addSatelliteTiles(map, noLabels) {
 }
 var synopMapL = null, synopStationsLayer = null;
 function initSynopMap() {
-    synopMapL = L.map('synopMap', { scrollWheelZoom: false }).setView([45.9, 25.0], 6);
+    synopMapL = L.map('synopMap', { scrollWheelZoom: false }).setView([LOC.lat, LOC.lon], 8);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(synopMapL);
     synopStationsLayer = L.layerGroup().addTo(synopMapL);
     // stația proprie — temperatura în timp real la Târgoviște (marker fix)
@@ -3102,7 +3107,7 @@ function loadSynopStations() {
 var radarMapL = null, radarFrames = [], radarLayer = null, radarIdx = 0, radarTimer = null, rvHost = '';
 function initRadar() {
     if (radarMapL) return;
-    radarMapL = L.map('radarMap', { scrollWheelZoom: false, minZoom: 3, maxZoom: 9 }).setView([45.8, 25.0], 6);
+    radarMapL = L.map('radarMap', { scrollWheelZoom: false, minZoom: 3, maxZoom: 9 }).setView([LOC.lat, LOC.lon], 7);
     // fundal satelitar (markere proprii, fără etichetele Esri)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(radarMapL);
     // graticulă lat/lon la 1°
@@ -3174,7 +3179,7 @@ function mmColor(v) {
 }
 function initPrecipMap() {
     if (precipMapL) return;
-    precipMapL = L.map('precipMap', { scrollWheelZoom: false }).setView([45.8, 25.0], 6);
+    precipMapL = L.map('precipMap', { scrollWheelZoom: false }).setView([LOC.lat, LOC.lon], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(precipMapL);
     for (var la = 43; la <= 49; la++) L.polyline([[la, 19], [la, 31]], { color: '#999', weight: 0.6, dashArray: '2 3' }).addTo(precipMapL);
     for (var lo = 20; lo <= 30; lo++) L.polyline([[43, lo], [49, lo]], { color: '#999', weight: 0.6, dashArray: '2 3' }).addTo(precipMapL);
@@ -3798,7 +3803,7 @@ function showSatFrame(i) {
     document.getElementById('animSatLabel').innerText = new Date(satFrames[i].time * 1000).toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit' });
 }
 function initAnimSat() {
-    animSatMapL = L.map('animSat', { scrollWheelZoom: false, zoomControl: false }).setView([45.5, 25.0], 5);
+    animSatMapL = L.map('animSat', { scrollWheelZoom: false, zoomControl: false, maxZoom: 8 }).setView([LOC.lat, LOC.lon], 5);
     addSatelliteTiles(animSatMapL, true);
     // încarcă și afișează imediat ultimul cadru, fără să aștepte Redă
     fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
@@ -3891,7 +3896,7 @@ document.getElementById('onThisDayBtn').addEventListener('click', function() {
         }).catch(function() { panel.innerHTML = '<h4>În această zi</h4><div class="panel-note">Arhiva nu a putut fi încărcată.</div>'; });
 });
 function initAnimRadar() {
-    animRadarMapL = L.map('animRadar', { scrollWheelZoom: false, zoomControl: false }).setView([45.5, 25.0], 5);
+    animRadarMapL = L.map('animRadar', { scrollWheelZoom: false, zoomControl: false, maxZoom: 9 }).setView([LOC.lat, LOC.lon], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(animRadarMapL);
     document.getElementById('animRadarPlay').addEventListener('click', function() {
         if (animRadarTimer) { clearInterval(animRadarTimer); animRadarTimer = null; this.innerText = '▶ Redă'; return; }
@@ -3983,6 +3988,8 @@ function initWhenVisible(elementId, initFn) {
                 done = true; io.disconnect();
                 try { initFn(); } catch (e) {}
                 setTimeout(invalidateAllMaps, 250);
+                // harta tocmai creată primește marcajul locației curente
+                setTimeout(function() { try { puneMarcajLocatie(); } catch (e) {} }, 400);
             }
         });
     }, { rootMargin: '350px' });   // pornește puțin înainte să ajungă pe ecran
@@ -3992,9 +3999,12 @@ function initWhenVisible(elementId, initFn) {
 window.addEventListener('load', function() {
     // — imediat: ce se vede la deschidere —
     try { updateHeroTemp(); } catch (e) {}
+    try { aflaFusOrar(); } catch (e) {}          // ora locală corectă imediat după reîncărcare
     try { analizeazaZiua(); } catch (e) {}
     try { initSynopMap(); } catch (e) {}
     try { initWarnMap(); } catch (e) {}
+    // marcajul locației pe hărțile create acum
+    setTimeout(function() { try { puneMarcajLocatie(); } catch (e) {} }, 600);
     try { loadFlood(); } catch (e) {}
 
     // — amânat: se încarcă la derulare —
@@ -4731,12 +4741,21 @@ function incarcaLoc() {
 
 /** Aplică locația: actualizează titlul, coordonatele globale și reîncarcă datele. */
 function seteazaLocatie(loc, reincarca) {
+    var latNou = +(loc.lat != null ? loc.lat : loc.latitude);
+    var lonNou = +(loc.lon != null ? loc.lon : loc.longitude);
+    // păstrăm fusul orar dacă îl știm deja pentru aceste coordonate
+    // (altfel, la reîncărcarea paginii ora ar sări înapoi pe fusul implicit)
+    var tzVechi = (loc.tz) ? loc.tz
+                 : (LOC && Math.abs(LOC.lat - latNou) < 0.01 && Math.abs(LOC.lon - lonNou) < 0.01 ? LOC.tz : null);
+
     LOC = {
         nume: loc.nume || loc.name || 'Locația mea',
         tara: (loc.tara || loc.country_code || '').toUpperCase(),
         admin: loc.admin || loc.admin1 || '',
-        lat: +(loc.lat != null ? loc.lat : loc.latitude),
-        lon: +(loc.lon != null ? loc.lon : loc.longitude)
+        lat: latNou,
+        lon: lonNou,
+        tz: tzVechi || null,
+        tzAbrev: loc.tzAbrev || (LOC && LOC.tzAbrev) || ''
     };
     salveazaLoc();
 
@@ -4826,7 +4845,8 @@ function puneMarcajLocatie() {
     });
 
     // zoom potrivit fiecărei hărți: radarul rămâne LARG, ca să se vadă reflectivitatea
-    [['synopMapL', 8], ['radarMapL', 7], ['precipMapL', 6], ['forecastMapL', 10]].forEach(function(p) {
+    [['synopMapL', 8], ['radarMapL', 7], ['precipMapL', 6], ['forecastMapL', 10],
+     ['animSatMapL', 5], ['animRadarMapL', 6]].forEach(function(p) {
         try {
             var m = window[p[0]];
             if (!m || !m.setView) return;
