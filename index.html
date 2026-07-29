@@ -2239,8 +2239,8 @@ function fetchWeather() {
                     ' · ' + T('presiune') + ' <b>' + d.main.pressure + ' hPa</b></div>';
             try {
                 if (d.sys && d.sys.sunrise) {
-                    document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', { hour: '2-digit', minute: '2-digit' });
-                    document.getElementById('sunsetVal').innerText  = new Date(d.sys.sunset  * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', { hour: '2-digit', minute: '2-digit' });
+                    document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', optOra());
+                    document.getElementById('sunsetVal').innerText  = new Date(d.sys.sunset  * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', optOra());
                     sunTimes = { rise: d.sys.sunrise * 1000, set: d.sys.sunset * 1000 };
                     updateSunArc();
                 }
@@ -3162,7 +3162,7 @@ function initPrecipMap() {
     // API-ul Open-Meteo acceptă liste de coordonate
     var latQ = pts.map(function(p) { return p[0].toFixed(2); }).join(',');
     var lonQ = pts.map(function(p) { return p[1].toFixed(2); }).join(',');
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + latQ + '&longitude=' + lonQ + '&daily=precipitation_sum&forecast_days=1&timezone=Europe%2FBucharest')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + latQ + '&longitude=' + lonQ + '&daily=precipitation_sum&forecast_days=1&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var arr = Array.isArray(d) ? d : [d];
@@ -3206,7 +3206,7 @@ document.getElementById('precipTimelineBtn').addEventListener('click', function(
 // ── PRECIPITAȚII 48H (Open-Meteo) ──
 var precipChartJs = null;
 function loadPrecip() {
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&hourly=precipitation&forecast_days=2&timezone=Europe%2FBucharest')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&hourly=precipitation&forecast_days=2&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var labels = d.hourly.time.map(function(t) { return t.slice(11, 16) + ' ' + t.slice(8, 10) + '.' + t.slice(5, 7); });
@@ -3475,24 +3475,60 @@ function loadFlood() {
 }
 
 // ── PROGNOZA SINOPTICĂ (hartă localități) ──
-var forecastMapL = null, fcTowns = [
-    { n: 'Târgoviște', lat: 44.9266, lon: 25.4566 }, { n: 'București', lat: 44.4268, lon: 26.1025 },
-    { n: 'Ploiești', lat: 44.9419, lon: 26.0225 }, { n: 'Pitești', lat: 44.8565, lon: 24.8692 },
-    { n: 'Brașov', lat: 45.6579, lon: 25.6012 }, { n: 'Sinaia', lat: 45.35, lon: 25.55 },
-    { n: 'Câmpulung', lat: 45.2652, lon: 25.0448 }, { n: 'Găești', lat: 44.7186, lon: 25.3199 },
-    { n: 'Moreni', lat: 44.9784, lon: 25.6438 }, { n: 'Pucioasa', lat: 45.0752, lon: 25.4349 },
-    { n: 'Titu', lat: 44.6633, lon: 25.5322 }, { n: 'Buftea', lat: 44.5613, lon: 25.9497 }
-], fcData = null, fcMarkers = [];
+var forecastMapL = null, fcTowns = [], fcData = null, fcMarkers = [];
+
+/**
+ * Construiește o rețea de puncte în jurul locației alese (funcționează oriunde
+ * în lume) și le află numele prin geocodare inversă. Așa harta arată localitățile
+ * din zona New York-ului la fel de bine ca pe cele din jurul Târgoviștei.
+ */
+function construiestePuncteZona() {
+    var pas = 0.42;                                   // ~45 km
+    var lat = LOC.lat, lon = LOC.lon;
+    var cosLat = Math.max(0.25, Math.cos(lat * Math.PI / 180));
+    var pasLon = pas / cosLat;                        // corecție pentru latitudine
+    var puncte = [{ n: LOC.nume, lat: lat, lon: lon, centru: true }];
+    [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1],
+     [0, -2], [0, 2], [-2, 0], [2, 0]].forEach(function(d) {
+        puncte.push({ n: '', lat: +(lat + d[1] * pas).toFixed(4), lon: +(lon + d[0] * pasLon).toFixed(4) });
+    });
+    return puncte;
+}
+
+/** Află numele localităților pentru punctele generate (gratuit, fără cheie). */
+function numesteePuncte(puncte) {
+    var cereri = puncte.map(function(p) {
+        if (p.centru) return Promise.resolve(p);
+        return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + p.lat +
+                     '&longitude=' + p.lon + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
+            .then(function(r) { return r.json(); })
+            .then(function(g) { p.n = g.city || g.locality || g.principalSubdivision || ''; return p; })
+            .catch(function() { return p; });
+    });
+    return Promise.all(cereri);
+}
+
 function initForecastMap() {
-    forecastMapL = L.map('forecastMap', { scrollWheelZoom: false }).setView([45.0, 25.5], 8);
+    forecastMapL = L.map('forecastMap', { scrollWheelZoom: false }).setView([LOC.lat, LOC.lon], 8);
     addSatelliteTiles(forecastMapL);
+    incarcaPrognozaZona();
+}
+
+/** (Re)încarcă prognoza pentru zona locației curente. */
+function incarcaPrognozaZona() {
+    if (!forecastMapL) return;
+    fcTowns = construiestePuncteZona();
+    forecastMapL.setView([LOC.lat, LOC.lon], 8);
     var lats = fcTowns.map(function(t) { return t.lat; }).join(',');
     var lons = fcTowns.map(function(t) { return t.lon; }).join(',');
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,winddirection_10m_dominant&forecast_days=7&timezone=Europe%2FBucharest')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons +
+          '&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,winddirection_10m_dominant' +
+          '&forecast_days=7&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             fcData = Array.isArray(d) ? d : [d];
             var sel = document.getElementById('fcDaySelect');
+            var idxAnterior = sel.selectedIndex;
             sel.innerHTML = '';
             fcData[0].daily.time.forEach(function(t, i) {
                 var dt = new Date(t + 'T12:00');
@@ -3504,10 +3540,16 @@ function initForecastMap() {
                     sel.appendChild(o);
                 });
             });
-            sel.addEventListener('change', renderForecastDay);
-            document.getElementById('fcPrev').addEventListener('click', function() { if (sel.selectedIndex > 0) { sel.selectedIndex--; renderForecastDay(); } });
-            document.getElementById('fcNext').addEventListener('click', function() { if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; renderForecastDay(); } });
+            if (idxAnterior > 0 && idxAnterior < sel.options.length) sel.selectedIndex = idxAnterior;
+            if (!sel._legat) {
+                sel.addEventListener('change', renderForecastDay);
+                document.getElementById('fcPrev').addEventListener('click', function() { if (sel.selectedIndex > 0) { sel.selectedIndex--; renderForecastDay(); } });
+                document.getElementById('fcNext').addEventListener('click', function() { if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; renderForecastDay(); } });
+                sel._legat = true;
+            }
             renderForecastDay();
+            // numele localităților vin separat (nu blocăm afișarea temperaturilor)
+            numesteePuncte(fcTowns).then(function() { renderForecastDay(); });
         }).catch(function() {});
 }
 function renderForecastDay() {
@@ -3527,12 +3569,13 @@ function renderForecastDay() {
             '<div style="font-size:8.5px;color:#6d7593;font-weight:600;">' + wind + ' km/h <span style="display:inline-block;transform:rotate(' + (wdir + 180) + 'deg);">↑</span></div>' +
             wmoSvg(code, night, 30) +
             '<div style="font-size:15px;font-weight:800;color:' + tempColor(temp) + ';text-shadow:0 0 3px #fff,0 0 3px #fff;">' + Math.round(cv(temp)) + '</div>' +
+            (t.n ? '<div style="font-size:8px;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + t.n + '</div>' : '') +
             '</div>' })
-        }).addTo(forecastMapL).bindPopup('<b>' + t.n + '</b><br>' + wmoText(code) + ' · ' + fT(temp) + '<br>vânt max ' + wind + ' km/h');
+        }).addTo(forecastMapL).bindPopup('<b>' + (t.n || (t.lat.toFixed(2) + ', ' + t.lon.toFixed(2))) + '</b><br>' + wmoText(code) + ' · ' + fT(temp) + '<br>' + (LANG === 'en' ? 'max wind ' : 'vânt max ') + wind + ' km/h');
         fcMarkers.push(m);
     });
     var dt = new Date(fcData[0].daily.time[di] + 'T12:00');
-    document.getElementById('fcMapTitle').innerText = 'Prognoză — ' + dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (' + T('noaptea') + ')' : ' (' + T('ziua') + ')');
+    document.getElementById('fcMapTitle').innerText = (LANG === 'en' ? 'Forecast — ' : 'Prognoză — ') + dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) + (night ? ' (' + T('noaptea') + ')' : ' (' + T('ziua') + ')');
 }
 
 // ── HARTA SINOPTICĂ: imagine de analiză DWD, cu fallback pe straturi de presiune ──
@@ -3581,7 +3624,7 @@ function setPressureLayer(name) {
 // ── PREDICȚIE 10 ZILE + TERMEN LUNG ──
 var tenDayChartJs = null, longChartJs = null, longData = null;
 function loadTenDay() {
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max&forecast_days=10&timezone=Europe%2FBucharest')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode,windspeed_10m_max&forecast_days=10&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var cards = '';
@@ -3654,7 +3697,7 @@ function loadLongRange(mode) {
         }
     };
     if (longData) { render(); return; }
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&forecast_days=16&timezone=Europe%2FBucharest')
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&forecast_days=16&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) { longData = d; render(); }).catch(function() {});
 }
@@ -3800,7 +3843,7 @@ document.getElementById('onThisDayBtn').addEventListener('click', function() {
     var now = new Date(), mmdd = ('0' + (now.getMonth() + 1)).slice(-2) + '-' + ('0' + now.getDate()).slice(-2);
     var y0 = now.getFullYear() - 10, y1 = now.getFullYear() - 1;
     fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + TGV.lat + '&longitude=' + TGV.lon +
-          '&start_date=' + y0 + '-01-01&end_date=' + y1 + '-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FBucharest')
+          '&start_date=' + y0 + '-01-01&end_date=' + y1 + '-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var rows = [];
@@ -3976,13 +4019,53 @@ window.addEventListener('orientationchange', function() { setTimeout(invalidateA
 //  Ceasul ticăie, iar datele externe se reîmprospătează pe timere.
 //  (Senzorii proprii sunt deja live prin Firebase .on('value'))
 // ═══════════════════════════════════════════════════════════
+/** Opțiuni de formatare a orei, în fusul orașului selectat. */
+function optOra() {
+    var o = { hour: '2-digit', minute: '2-digit' };
+    if (LOC && LOC.tz) o.timeZone = LOC.tz;
+    return o;
+}
 function liveClock() {
+    var loc = (LANG === 'en') ? 'en-GB' : 'ro-RO';
+    var acum = new Date();
+    // ora LOCALĂ a orașului selectat (fusul vine de la Open-Meteo)
+    var opt = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
+    var optD = { weekday: 'long', day: '2-digit', month: '2-digit' };
+    if (LOC && LOC.tz) { opt.timeZone = LOC.tz; optD.timeZone = LOC.tz; }
+
     var el = document.getElementById('heroDate');
-    if (el) el.textContent =
-        new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'long', day: '2-digit', month: '2-digit' }) +
-        ' (' + new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ')';
+    if (el) {
+        var txt;
+        try {
+            txt = acum.toLocaleDateString(loc, optD) + ' (' + acum.toLocaleTimeString(loc, opt) + ')';
+        } catch (e) {                                   // fus necunoscut → ora dispozitivului
+            txt = acum.toLocaleDateString(loc, { weekday: 'long', day: '2-digit', month: '2-digit' }) +
+                  ' (' + acum.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ')';
+        }
+        el.textContent = txt;
+    }
     var pl = document.getElementById('pageLoadTime');
-    if (pl) pl.textContent = new Date().toLocaleTimeString('ro-RO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    if (pl) {
+        try { pl.textContent = acum.toLocaleTimeString(loc, opt); }
+        catch (e) { pl.textContent = acum.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+    }
+}
+
+/** Află fusul orar al locației selectate (de la Open-Meteo) și actualizează ceasul. */
+function aflaFusOrar() {
+    var lat = LOC.lat, lon = LOC.lon;
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+          '&current_weather=true&timezone=auto&forecast_days=1')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d && d.timezone && LOC.lat === lat && LOC.lon === lon) {
+                LOC.tz = d.timezone;                    // ex. "America/New_York"
+                LOC.tzAbrev = d.timezone_abbreviation || '';
+                salveazaLoc();
+                liveClock();
+                try { fetchWeather(); } catch (e) {}    // răsărit/apus în ora locală
+            }
+        }).catch(function() {});
 }
 function refreshRadarFrames() {
     if (!radarMapL && !animRadarMapL && !animSatMapL) return;
@@ -4064,7 +4147,7 @@ function aplicaUnitate(u) {
     try { longData = null; loadLongRange('weeks'); } catch (e) {}
     try { loadSynopStations(); } catch (e) {}
     try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
-    try { _ccUltimaLoc = null; analizeazaZiua(); } catch (e) {}
+    try { analizeazaZiua(); } catch (e) {}
 }
 document.querySelectorAll('#unitSeg button').forEach(function(b) {
     b.addEventListener('click', function() { aplicaUnitate(b.getAttribute('data-unit')); });
@@ -4589,7 +4672,7 @@ function aplicaLimba(l) {
     try { longData = null; loadLongRange('weeks'); } catch (e) {}
     try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
     try { deseneazaRecente(); } catch (e) {}
-    try { _ccUltimaLoc = null; analizeazaZiua(); } catch (e) {}
+    try { analizeazaZiua(); } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
@@ -4697,6 +4780,8 @@ function reincarcaTot() {
         try { refreshWarnings(); } catch (e) {}
     }
     puneMarcajLocatie();
+    try { aflaFusOrar(); } catch (e) {}
+    try { incarcaPrognozaZona(); } catch (e) {}
     try { analizeazaZiua(); } catch (e) {}
     try { actualizeazaChat(); } catch (e) {}
 }
@@ -4882,12 +4967,16 @@ function actualizeazaChat() {
 //  Nicio aplicație meteo obișnuită nu face asta.
 // ═══════════════════════════════════════════════════════════
 var _ccUltimaLoc = null;
+var _ccDate = null;          // rezultatul calculat (în °C) — refolosit la schimbarea unității/limbii
 
 function analizeazaZiua() {
     var card = document.getElementById('climateCard');
     if (!card) return;
-    var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2) + ',' + LANG;
-    if (_ccUltimaLoc === cheie) return;          // deja calculat pentru locația asta
+    var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
+    if (_ccUltimaLoc === cheie && _ccDate) {     // aceeași locație → doar redesenăm
+        deseneazaAnaliza(_ccDate);
+        return;
+    }
     _ccUltimaLoc = cheie;
 
     document.getElementById('ccCorp').innerHTML =
@@ -4939,13 +5028,15 @@ function analizeazaZiua() {
         var sigma = Math.sqrt(varianta) || 1;
         var z = abatere / sigma;
 
-        deseneazaAnaliza({
+        _ccDate = {
             maxAzi: maxAzi, minAzi: minAzi, media: media, abatere: abatere, z: z,
             rang: rang, rangRece: rangRece, ani: maxime.length,
             recordCald: recordCald, recordRece: recordRece,
             anStart: ist[0].an, anEnd: ist[ist.length - 1].an, mmdd: mmdd
-        });
+        };
+        deseneazaAnaliza(_ccDate);
     }).catch(function(e) {
+        _ccUltimaLoc = null;                     // permitem reîncercarea
         document.getElementById('ccCorp').innerHTML =
             '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
     });
