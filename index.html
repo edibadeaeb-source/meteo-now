@@ -83,8 +83,8 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>METEO Târgoviște | Stație meteo — monitorizare în timp real</title>
-    <meta name="description" content="Stație meteo Târgoviște — date în timp real de la senzori ESP32-C6 și LoRaWAN (BME680): temperatură, umiditate, presiune și calitatea aerului.">
+    <title>METEO NOW | Vremea în timp real, radar și avertizări</title>
+    <meta name="description" content="METEO NOW — vremea în timp real pentru orice loc din lume: temperatură, radar de precipitații, prognoze pe 10 zile, avertizări oficiale ANM pentru România și stații meteo proprii la Târgoviște.">
     <meta name="theme-color" content="#071031">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -93,7 +93,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="METEO Tgv">
+    <meta name="apple-mobile-web-app-title" content="METEO NOW">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -167,6 +167,20 @@
             background: var(--topbar-bg);
             border-bottom: 1px solid var(--border);
             box-shadow: 0 1px 10px rgba(30, 40, 90, 0.06);
+            /* Pe iPhone aplicația instalată se întinde sub bara de stare și sub
+               „insulă" (viewport-fit=cover). Împingem conținutul barei sub ele,
+               dar lăsăm fundalul să urce, ca zona de sus să nu rămână goală. */
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+        }
+        /* Bara de stare a iPhone-ului scrie cu alb („black-translucent"), deci
+           fâșia de sub ea trebuie să rămână închisă la culoare și pe tema albă,
+           altfel ora și bateria ar fi alb pe alb. */
+        .topbar::before {
+            content: ''; position: fixed; top: 0; left: 0; right: 0;
+            height: env(safe-area-inset-top, 0px);
+            background: #071031; z-index: 1; pointer-events: none;
         }
         .topbar-inner {
             max-width: 1280px; margin: 0 auto;
@@ -596,7 +610,10 @@
         .warn-body h4 { font-size: 1rem; color: #1c2434; }
         .warn-asof { color: #d02c3a; font-size: 0.78rem; font-weight: 700; margin: 3px 0 6px; }
         .warn-issued { font-size: 0.82rem; color: #333; }
-        .warn-types { display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0; font-size: 0.78rem; color: #333; }
+        /* fiecare avertizare pe rândul ei — înșirate pe același rând erau ilizibile */
+        .warn-types { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; font-size: 0.78rem; color: #333; }
+        .warn-types div { display: flex; gap: 6px; align-items: baseline; line-height: 1.4; }
+        .warn-types .wt-bulina { flex-shrink: 0; font-size: 0.9em; }
         .warn-legend { display: flex; gap: 14px; font-size: 0.72rem; font-weight: 700; margin-top: 6px; }
         .warn-legend .l1 { color: #b98d00; } .warn-legend .l2 { color: #f97316; } .warn-legend .l3 { color: #d02c3a; }
         .warn-footer { display: flex; gap: 10px; padding: 12px 16px; border-top: 1px solid #eef1f7; align-items: center; }
@@ -1067,6 +1084,24 @@
         .hero-band .sun-times, .hero-band .sun-times span { color: #dbe3f5; }
         .hero-band .sun-times b { color: #ffffff; font-weight: 800; }
         .hero-band .moon-col .tile-sub { color: #dbe3f5; }
+
+        /* ══════════════════════════════════════════════════════
+           ZONE SIGURE iPhone (insula, bara de stare, bara de jos)
+           Aplicația instalată se întinde pe tot ecranul, deci fără
+           regulile astea conținutul intră sub insulă și sub bara
+           gestuală de jos.
+           ══════════════════════════════════════════════════════ */
+        .chat-fab { bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: calc(24px + env(safe-area-inset-right, 0px)); }
+        .side-nav { right: env(safe-area-inset-right, 0px); }
+        .site-footer, .footer-cols { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+        #splash, #welcome {
+            padding-top: max(28px, env(safe-area-inset-top, 0px));
+            padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
+        }
+        .loc-panel { margin-top: env(safe-area-inset-top, 0px); }
+        @media (max-width: 760px) {
+            .chat-fab { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); }
+        }
 
         /* ══════════════════════════════════════════════════════
            BARA DE SUS PE TELEFON — totul încape pe un singur rând
@@ -3391,9 +3426,12 @@ function getWarns(av) {
 }
 var _judeteGeo = null;
 function initWarnMap() {
-    warnMapL = L.map('warnMap', { scrollWheelZoom: false, zoomControl: false }).setView([45.9, 25.0], 6);
+    // zoomSnap: 0.1 → „fitBounds" umple containerul. Cu valoarea implicită (1)
+    // Leaflet cobora la zoom întreg și pe telefon România rămânea mică de tot,
+    // cu prescurtările județelor ascunse.
+    warnMapL = L.map('warnMap', { scrollWheelZoom: false, zoomControl: false, zoomSnap: 0.1, zoomDelta: 0.5 }).setView([45.9, 25.0], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(warnMapL);
-    warnMapL.on('zoomend', comutaEticheteJudete);
+    warnMapL.on('zoomend resize', comutaEticheteJudete);
     loadJudeteGeo().then(function(geo) { _judeteGeo = geo; refreshWarnings(); }).catch(function(e) { console.error('GeoJSON judete:', e); refreshWarnings(); });
 }
 function refreshWarnings() {
@@ -3411,7 +3449,12 @@ function refreshWarnings() {
         document.getElementById('warnDate').innerText = latest || new Date().toLocaleDateString('ro-RO');
         document.getElementById('warnCount').innerText = warns.length;
         var tkeys = Object.keys(types);
-        document.getElementById('warnTypes').innerHTML = tkeys.length ? tkeys.map(function(x) { return '• ' + x; }).join(' &nbsp; ') : '• nicio avertizare în vigoare';
+        // fiecare avertizare pe rândul ei, cu bulina aliniată frumos
+        document.getElementById('warnTypes').innerHTML = tkeys.length
+            ? tkeys.map(function(x) {
+                  return '<div><span class="wt-bulina">•</span><span>' + stripHtml(x).replace(/;\s*$/, '') + '</span></div>';
+              }).join('')
+            : '<div><span class="wt-bulina">•</span><span>' + T('niciunaAvert') + '</span></div>';
         var CODNAME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
         var listHtml = warns.map(function(w) {
             var lvW = Math.max.apply(null, judArr(w).map(function(j) { return culNum(j.culoare); }).concat([culNum(w.culoare), 1]));
@@ -3664,10 +3707,18 @@ function deseneazaEticheteJudete() {
     });
     comutaEticheteJudete();
 }
-// sub un anumit zoom prescurtările s-ar călca una pe alta
+// Prescurtările se ascund doar dacă România chiar e desenată prea mic ca ele
+// să încapă. Un prag pe nivelul de zoom nu mergea: pe ecran îngust harta se
+// încadrează la un zoom mai mic, deși țara ocupă tot spațiul disponibil.
 function comutaEticheteJudete() {
-    if (!judEtichete || !warnMapL) return;
-    var vizibil = warnMapL.getZoom() >= 6;
+    if (!judEtichete || !warnMapL || !judLayer) return;
+    var vizibil = false;
+    try {
+        var b = judLayer.getBounds();
+        var st = warnMapL.latLngToContainerPoint(b.getNorthWest());
+        var dr = warnMapL.latLngToContainerPoint(b.getSouthEast());
+        vizibil = Math.abs(dr.x - st.x) >= 240;      // ~6 px pe județ pe orizontală
+    } catch (e) { vizibil = warnMapL.getZoom() >= 6; }
     if (vizibil && !warnMapL.hasLayer(judEtichete)) warnMapL.addLayer(judEtichete);
     else if (!vizibil && warnMapL.hasLayer(judEtichete)) warnMapL.removeLayer(judEtichete);
 }
@@ -4798,6 +4849,7 @@ var I18N = {
         cautaLoc: 'Introdu numele localității', intreaba: 'Întreabă-mă orice...',
         avertMeteo: 'Avertizări meteorologice', meteorologice: 'Meteorologice', hidrologice: 'Hidrologice',
         avToate: 'Toate', avertizare: 'Avertizare', faraAvert: 'fără avertizări',
+        niciunaAvert: 'nicio avertizare în vigoare',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -4874,6 +4926,7 @@ var I18N = {
         cautaLoc: 'Enter a place name', intreaba: 'Ask me anything...',
         avertMeteo: 'Meteorological warnings', meteorologice: 'Meteorological', hidrologice: 'Hydrological',
         avToate: 'All', avertizare: 'Warning', faraAvert: 'no warnings',
+        niciunaAvert: 'no warnings in force',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
