@@ -607,6 +607,33 @@
         .warn-card #alertList { max-height: 150px; margin: 8px 16px 14px; }
         .warn-card #alertList li { background: #f4f6fb; color: #333; font-size: 0.76rem; }
 
+        /* ── prescurtările județelor pe harta ANM (ca pe harta oficială) ── */
+        .jud-eticheta {
+            font-weight: 800; font-size: 10px; line-height: 1;
+            color: #1c2434; text-align: center; white-space: nowrap;
+            text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff, 0 0 2px #fff;
+            pointer-events: none; letter-spacing: 0.2px;
+        }
+        .leaflet-marker-icon.jud-eticheta { background: none; border: none; }
+
+        /* ── selectorul de avertizări (ANM face câte o hartă pentru fiecare) ── */
+        .av-chips {
+            display: flex; gap: 6px; padding: 9px 12px; overflow-x: auto;
+            background: #f4f6fb; border-bottom: 1px solid #e3e8f2;
+            scrollbar-width: thin;
+        }
+        .av-chips:empty { display: none; }
+        .av-chip {
+            flex: 0 0 auto; cursor: pointer; border: 1px solid #cfd6e6; background: #fff;
+            border-radius: 999px; padding: 5px 11px; font-size: 0.73rem; font-weight: 700;
+            color: #33405c; font-family: inherit; display: flex; align-items: center; gap: 6px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .av-chip:hover { background: #e9eefa; }
+        .av-chip.activ { background: #1d4fd7; border-color: #1d4fd7; color: #fff; }
+        .av-chip .av-bulina { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .av-chip.activ .av-bulina { box-shadow: 0 0 0 1.5px rgba(255,255,255,0.85); }
+
         /* banda prognoze */
         .band-section { background: var(--card-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 0 30px; margin-top: 40px; }
         .band-inner { max-width: 1280px; margin: 0 auto; padding: 0 20px; }
@@ -1464,6 +1491,7 @@
                     <span class="warn-tab" data-warn="warnHidro" data-i18n="hidrologice">Hidrologice</span>
                 </div>
                 <div class="warn-panel active" id="warnMet">
+                    <div class="av-chips" id="avChips"></div>
                     <div id="warnMap"></div>
                     <div class="warn-body">
                         <h4><span data-i18n="avertMeteo">Avertizări meteorologice</span> <span style="float:right;font-size:0.7rem;color:#888;font-weight:600;">sursa: ANM · meteoromania.ro</span></h4>
@@ -3365,6 +3393,7 @@ var _judeteGeo = null;
 function initWarnMap() {
     warnMapL = L.map('warnMap', { scrollWheelZoom: false, zoomControl: false }).setView([45.9, 25.0], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(warnMapL);
+    warnMapL.on('zoomend', comutaEticheteJudete);
     loadJudeteGeo().then(function(geo) { _judeteGeo = geo; refreshWarnings(); }).catch(function(e) { console.error('GeoJSON judete:', e); refreshWarnings(); });
 }
 function refreshWarnings() {
@@ -3383,7 +3412,7 @@ function refreshWarnings() {
         document.getElementById('warnCount').innerText = warns.length;
         var tkeys = Object.keys(types);
         document.getElementById('warnTypes').innerHTML = tkeys.length ? tkeys.map(function(x) { return '• ' + x; }).join(' &nbsp; ') : '• nicio avertizare în vigoare';
-        var CODNAME = ['', 'cod galben', 'cod portocaliu', 'cod roșu'];
+        var CODNAME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
         var listHtml = warns.map(function(w) {
             var lvW = Math.max.apply(null, judArr(w).map(function(j) { return culNum(j.culoare); }).concat([culNum(w.culoare), 1]));
             var titlu = w.numeTipMesaj || w.tipMesaj || w.titlu || 'Avertizare meteorologică';
@@ -3413,67 +3442,234 @@ function refreshWarnings() {
     // 2) harta: județe verzi ca fundal + zonele exact afectate (poligoanele ANM) deasupra
     avP.then(function(av) {
         if (!_judeteGeo) return;
-        var warns = getWarns(av);
+        _avWarns = getWarns(av);
+        if (_avSel >= _avWarns.length) _avSel = -1;      // selecția veche nu mai există
 
         // fundal: toate județele verzi (fără avertizare)
         if (judLayer) { warnMapL.removeLayer(judLayer); judLayer = null; }
         judLayer = L.geoJSON(_judeteGeo, {
             style: function() { return { color: '#ffffff', weight: 1.3, fillColor: '#3fbf5a', fillOpacity: 0.32 }; },
-            onEachFeature: function(f, layer) { layer.bindPopup('<b>' + f.properties.NAME_1 + '</b><br>fără avertizări'); }
+            onEachFeature: function(f, layer) { layer.bindPopup('<b>' + f.properties.NAME_1 + '</b><br>' + T('faraAvert')); }
         }).addTo(warnMapL);
         warnMapL.fitBounds(judLayer.getBounds(), { padding: [8, 8] });
 
-        // deasupra: EXACT zonele afectate trimise de ANM.
-        // O avertizare poate conține SIMULTAN:
-        //   • „zona"  — arii precise (ex. „BZ_munte" = zona montană a Buzăului)
-        //   • „judet" — județe întregi (ex. „BT" = tot Botoșaniul)
-        // Le desenăm pe AMÂNDOUĂ, ca pe harta oficială. Dacă un județ are deja
-        // zone precise active, nu-l mai colorăm integral (ar acoperi zonele).
-        if (warnZonesLayer) { warnMapL.removeLayer(warnZonesLayer); }
-        warnZonesLayer = L.layerGroup().addTo(warnMapL);
-        var CODNAME = ['', 'cod galben', 'cod portocaliu', 'cod roșu'];
-        var drawn = 0;
-
-        warns.forEach(function(w) {
-            var titlu = w.numeTipMesaj || 'Avertizare meteorologică';
-            var fen = (w.fenomeneVizate && w.fenomeneVizate !== 'conform textelor') ? stripHtml(w.fenomeneVizate) : '';
-            var interval = (w.intervalul && w.intervalul !== 'conform textelor') ? w.intervalul : '';
-            var zonaTxt = stripHtml(w.zonaAfectata || '');
-
-            var zones = zonaArr(w).filter(function(z) { return culNum(z.culoare) > 0; });
-            var jud   = judArr(w).filter(function(z) { return culNum(z.culoare) > 0; });
-
-            // județele care au deja zone precise active — nu le colorăm integral
-            var cuZone = {};
-            zones.forEach(function(z) {
-                var m = String(z.cod || '').match(/^([A-Za-z]{1,2})/);
-                if (m) cuZone[m[1].toUpperCase()] = true;
-            });
-            jud = jud.filter(function(j) { return !cuZone[String(j.cod || '').toUpperCase()]; });
-
-            zones.concat(jud).forEach(function(z) {
-                var lv = culNum(z.culoare);
-                if (lv < 1) return;                       // culoare 0 = zona NU e sub avertizare
-                var rings = parseWkt(z.coordGis);
-                if (!rings.length) return;
-                var cod = String(z.cod || '').trim();
-                var nume = JUD_NAME[cod.toUpperCase()] || zoneName(cod);
-                rings.forEach(function(ring) {
-                    if (ring.length < 3) return;
-                    drawn++;
-                    L.polygon(ring, {
-                        color: '#ffffff', weight: 1, fillColor: WARN_COLS[lv] || '#f5c500', fillOpacity: 0.8
-                    }).addTo(warnZonesLayer).bindPopup(
-                        '<b>' + nume + '</b> — ' + (CODNAME[lv] || 'avertizare') + '<br>' + titlu +
-                        (fen ? '<br><span style="color:#444;">' + fen + '</span>' : '') +
-                        (interval ? '<br><span style="color:#666;">' + interval + '</span>' : '') +
-                        (zonaTxt ? '<br><span style="color:#666;font-size:0.9em;">' + zonaTxt + '</span>' : '')
-                    );
-                });
-            });
-        });
-        if (window.console) console.log('ANM: zone afectate desenate =', drawn);
+        deseneazaEticheteJudete();
+        construiesteChipsAvert();
+        deseneazaZoneAvert();
     }).catch(function(e) { console.error('ANM zone:', e); });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HARTA DE AVERTIZĂRI — desenare
+   ANM face câte o hartă separată pentru fiecare avertizare emisă.
+   Noi avem o singură hartă, așa că:
+     • implicit arătăm TOATE avertizările suprapuse, fiecare arie
+       colorată cu codul cel mai grav care o atinge;
+     • cu butoanele de deasupra hărții se poate izola o singură
+       avertizare, exact ca pe harta lor.
+   ══════════════════════════════════════════════════════════════ */
+var _avWarns = [];      // avertizările curente
+var _avSel = -1;        // -1 = toate, altfel indicele avertizării
+
+// nivelul unei avertizări = cel mai grav cod din județele/zonele ei
+function nivelAvert(w) {
+    var lv = culNum(w.culoare);
+    zonaArr(w).concat(judArr(w)).forEach(function(z) {
+        var n = culNum(z.culoare); if (n > lv) lv = n;
+    });
+    return lv || 1;
+}
+
+// „val de căldură persistent, caniculă…" → „🌡️ Caniculă"
+function etichetaFenomen(w) {
+    var f = stripHtml(w.fenomeneVizate || '').toLowerCase();
+    var reguli = [
+        [/canicul|val de c[ăa]ldur|disconfort termic/, '🌡️', 'canicula'],
+        [/vijeli|instabilitate|desc[ăa]rc[ăa]ri|furtun/, '⛈️', 'furtuni'],
+        [/ninsoar|z[ăa]pad|viscol/,                     '❄️', 'ninsoare'],
+        [/polei|ghe[ațt]/,                              '🧊', 'polei'],
+        [/ger|frig/,                                    '🥶', 'ger'],
+        [/cea[țt]/,                                     '🌫️', 'ceata'],
+        [/ploi|averse|precipita[țt]|cantit/,            '🌧️', 'ploi'],
+        [/v[âa]nt/,                                     '💨', 'vant']
+    ];
+    for (var i = 0; i < reguli.length; i++) {
+        if (reguli[i][0].test(f)) return reguli[i][1] + ' ' + T('fen_' + reguli[i][2]);
+    }
+    var prim = f.split(/[,;]/)[0].trim();
+    if (!prim) return T('avertizare');
+    prim = prim.charAt(0).toUpperCase() + prim.slice(1);
+    return prim.length > 24 ? prim.slice(0, 23) + '…' : prim;
+}
+
+function construiesteChipsAvert() {
+    var box = document.getElementById('avChips');
+    if (!box) return;
+    if (_avWarns.length < 2) { box.innerHTML = ''; return; }   // o singură avertizare → nu are rost selectorul
+    var h = '<button class="av-chip' + (_avSel < 0 ? ' activ' : '') + '" data-av="-1">' +
+            T('avToate') + ' (' + _avWarns.length + ')</button>';
+    _avWarns.forEach(function(w, i) {
+        var lv = nivelAvert(w);
+        h += '<button class="av-chip' + (_avSel === i ? ' activ' : '') + '" data-av="' + i + '" title="' +
+             stripHtml(w.fenomeneVizate || '').replace(/"/g, '') + '">' +
+             '<span class="av-bulina" style="background:' + (WARN_COLS[lv] || '#f5c500') + '"></span>' +
+             etichetaFenomen(w) + '</button>';
+    });
+    box.innerHTML = h;
+    Array.prototype.forEach.call(box.querySelectorAll('.av-chip'), function(b) {
+        b.addEventListener('click', function() {
+            _avSel = parseInt(b.getAttribute('data-av'));
+            construiesteChipsAvert();
+            deseneazaZoneAvert();
+        });
+    });
+}
+
+/* Adună ariile din avertizările alese și le dă câte O SINGURĂ dată.
+   Fără pasul ăsta, două avertizări care ating același județ desenau două
+   poligoane galbene suprapuse, iar transparența lor se aduna → al doilea
+   galben ieșea vizibil mai închis. De aici veneau „două nuanțe de galben". */
+function ariiDeDesenat(warns) {
+    var caz = {};
+    warns.forEach(function(w, i) {
+        zonaArr(w).concat(judArr(w)).forEach(function(z) {
+            var cod = String(z.cod || '').trim();
+            if (!cod) return;
+            var lv = culNum(z.culoare);
+            var k = cod.toUpperCase();
+            if (!caz[k]) caz[k] = { cod: cod, lv: 0, gis: null, av: [], gauri: [] };
+            if (!caz[k].gis && z.coordGis) caz[k].gis = z.coordGis;
+            if (lv > caz[k].lv) caz[k].lv = lv;
+            if (lv > 0 && caz[k].av.indexOf(i) < 0) caz[k].av.push(i);
+        });
+    });
+
+    var parinte = function(cod) {
+        var p = cod.search(/[_-]/);
+        return p > 0 ? cod.slice(0, p).toUpperCase() : null;
+    };
+    var subzona = function(a) { return parinte(a.cod) ? 1 : 0; };
+    var lista = Object.keys(caz).map(function(k) { return caz[k]; });
+
+    // ── EXCLUDERI ──
+    // ANM marchează uneori o sub-zonă cu culoarea 0 în interiorul unui județ
+    // colorat: „tot Neamțul, mai puțin zona montană". Zona aceea trebuie
+    // decupată din județ, nu colorată. O păstrăm ca gaură în poligon.
+    lista.forEach(function(a) {
+        if (a.lv !== 0) return;
+        var p = parinte(a.cod);
+        if (p && caz[p] && caz[p].lv > 0 && a.gis) caz[p].gauri.push(a.gis);
+    });
+
+    lista = lista.filter(function(a) {
+        if (a.lv < 1) return false;                        // culoare 0 = aria NU e sub avertizare
+        if (!subzona(a)) return true;
+        // județ întreg + sub-zonă a lui: județul o acoperă deja, deci o desenăm
+        // doar dacă are un cod mai grav (ex. județ galben, munte portocaliu)
+        var p = caz[parinte(a.cod)];
+        return !p || a.lv > p.lv;
+    });
+
+    // întâi codurile mici și județele întregi, ca cele grave să rămână deasupra
+    lista.sort(function(a, b) { return (a.lv - b.lv) || (subzona(a) - subzona(b)); });
+    return lista;
+}
+
+function deseneazaZoneAvert() {
+    if (!warnMapL) return;
+    if (warnZonesLayer) { warnMapL.removeLayer(warnZonesLayer); }
+    warnZonesLayer = L.layerGroup().addTo(warnMapL);
+
+    var alese = (_avSel >= 0 && _avWarns[_avSel]) ? [_avWarns[_avSel]] : _avWarns;
+    var arii = ariiDeDesenat(alese);
+    var CODNAME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
+    var desenate = 0;
+
+    arii.forEach(function(a) {
+        var rings = parseWkt(a.gis).filter(function(r) { return r.length >= 3; });
+        if (!rings.length) return;
+        // zonele excluse devin găuri în poligon (regula „evenodd”)
+        (a.gauri || []).forEach(function(g) {
+            parseWkt(g).forEach(function(r) { if (r.length >= 3) rings.push(r); });
+        });
+
+        var nume = JUD_NAME[a.cod.toUpperCase()] || zoneName(a.cod);
+        var det = a.av.map(function(i) {
+            var w = alese[i]; if (!w) return '';
+            var fen = stripHtml(w.fenomeneVizate || '');
+            return '<div style="margin-top:3px;">• <b>' + (w.numeTipMesaj || T('avertizare')) + '</b>' +
+                   (fen ? '<br><span style="color:#555;">' + fen + '</span>' : '') + '</div>';
+        }).join('');
+        var popup = '<b>' + nume + '</b> — ' + (CODNAME[a.lv] || T('avertizare')) + det;
+
+        desenate++;
+        L.polygon(rings, {
+            color: '#ffffff', weight: 1, fillRule: 'evenodd',
+            fillColor: WARN_COLS[a.lv] || '#f5c500',
+            fillOpacity: 1            // opac: suprapunerile nu mai schimbă nuanța
+        }).addTo(warnZonesLayer).bindPopup(popup);
+    });
+    if (window.console) console.log('ANM: arii desenate =', desenate, '| avertizare selectată =', _avSel);
+}
+
+/* ── prescurtările județelor, ca pe harta oficială ANM ── */
+var judEtichete = null;
+var NUME_LA_COD = (function() {
+    var m = {}, k;
+    for (k in JUD_NAME) m[normName(JUD_NAME[k])] = k;
+    m[normName('Bucuresti')] = 'B';
+    m[normName('Municipiul Bucuresti')] = 'B';
+    return m;
+})();
+function codDinFeature(f) {
+    var p = (f && f.properties) || {};
+    return NUME_LA_COD[normName(p.NAME_1)] || NUME_LA_COD[normName(p.VARNAME_1)] || '';
+}
+// centrul de greutate al celui mai mare inel — mai bun decât mijlocul dreptunghiului
+function centruPoligon(layer) {
+    try {
+        var ll = layer.getLatLngs();
+        while (ll.length && Array.isArray(ll[0])) {
+            var max = ll[0];
+            for (var j = 1; j < ll.length; j++) if (ll[j].length > max.length) max = ll[j];
+            ll = max;
+        }
+        var A = 0, cx = 0, cy = 0, n = ll.length, i, p1, p2, f;
+        for (i = 0; i < n; i++) {
+            p1 = ll[i]; p2 = ll[(i + 1) % n];
+            f = p1.lng * p2.lat - p2.lng * p1.lat;
+            A += f; cx += (p1.lng + p2.lng) * f; cy += (p1.lat + p2.lat) * f;
+        }
+        if (Math.abs(A) < 1e-9) return layer.getBounds().getCenter();
+        A *= 3;
+        return L.latLng(cy / A, cx / A);
+    } catch (e) { return layer.getBounds().getCenter(); }
+}
+// Ilfov înconjoară Bucureștiul, deci au practic același centru — împingem
+// eticheta Ilfovului spre nordul județului ca să nu se calce una pe alta.
+var OFFSET_ETICHETA = { IF: [0.22, 0.06] };
+function deseneazaEticheteJudete() {
+    if (!warnMapL || !judLayer) return;
+    if (judEtichete) { warnMapL.removeLayer(judEtichete); judEtichete = null; }
+    judEtichete = L.layerGroup();
+    judLayer.eachLayer(function(l) {
+        var cod = codDinFeature(l.feature);
+        if (!cod) return;
+        var c = centruPoligon(l), d = OFFSET_ETICHETA[cod];
+        if (d) c = L.latLng(c.lat + d[0], c.lng + d[1]);
+        L.marker(c, {
+            interactive: false, keyboard: false,
+            icon: L.divIcon({ className: 'jud-eticheta', html: cod, iconSize: [26, 12], iconAnchor: [13, 6] })
+        }).addTo(judEtichete);
+    });
+    comutaEticheteJudete();
+}
+// sub un anumit zoom prescurtările s-ar călca una pe alta
+function comutaEticheteJudete() {
+    if (!judEtichete || !warnMapL) return;
+    var vizibil = warnMapL.getZoom() >= 6;
+    if (vizibil && !warnMapL.hasLayer(judEtichete)) warnMapL.addLayer(judEtichete);
+    else if (!vizibil && warnMapL.hasLayer(judEtichete)) warnMapL.removeLayer(judEtichete);
 }
 
 // zonele precise ANM (câmpul „zona"), normalizate la listă
@@ -4601,6 +4797,10 @@ var I18N = {
         saptamana: 'Săptămâna', ziua: 'zi', noaptea: 'noapte',
         cautaLoc: 'Introdu numele localității', intreaba: 'Întreabă-mă orice...',
         avertMeteo: 'Avertizări meteorologice', meteorologice: 'Meteorologice', hidrologice: 'Hidrologice',
+        avToate: 'Toate', avertizare: 'Avertizare', faraAvert: 'fără avertizări',
+        codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
+        fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
+        fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
         fcSinoptic: 'Prognoză sinoptică', fcNumeric: 'Predicție numerică pentru 10 zile',
         fcLung: 'Prognoze pe termen lung', produseSpeciale: 'Descoperă produsele noastre speciale',
         serviciiSpec: 'Servicii specializate ale stației', analizaClim: 'Analiză meteorologică și climatică',
@@ -4673,6 +4873,10 @@ var I18N = {
         saptamana: 'Week', ziua: 'day', noaptea: 'night',
         cautaLoc: 'Enter a place name', intreaba: 'Ask me anything...',
         avertMeteo: 'Meteorological warnings', meteorologice: 'Meteorological', hidrologice: 'Hydrological',
+        avToate: 'All', avertizare: 'Warning', faraAvert: 'no warnings',
+        codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
+        fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
+        fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
         fcSinoptic: 'Synoptic forecast', fcNumeric: 'Numerical forecast for 10 days',
         fcLung: 'Long-range forecasts', produseSpeciale: 'Discover our special products',
         serviciiSpec: 'Specialized services', analizaClim: 'Meteorological and climate analysis',
