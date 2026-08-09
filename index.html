@@ -279,6 +279,81 @@
         .sfat-banda.nv3 { background: rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.5); }
         .sfat-banda.nv4 { background: rgba(229,72,77,0.20); border-color: rgba(229,72,77,0.55); }
         @media (max-width: 760px) { .sfat-banda { font-size: 0.82rem; padding: 9px 10px; } }
+
+        /* ══════════════════════════════════════════════════════
+           POPUP-UL DE ÎNTÂMPINARE — sticlă mată, ca pe iPhone
+           Apare la deschiderea aplicației, cu mesajul potrivit
+           vremii de acum (și de zilele trecute).
+           ══════════════════════════════════════════════════════ */
+        #sfatPop {
+            position: fixed; inset: 0; z-index: 99000;
+            display: none; align-items: flex-end; justify-content: center;
+            padding: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+            background: rgba(4, 8, 22, 0.45);
+            -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        #sfatPop.deschis { display: flex; opacity: 1; }
+        .sp-card {
+            width: min(430px, 100%); border-radius: 26px; padding: 20px 20px 16px;
+            position: relative; overflow: hidden;
+            background: rgba(255, 255, 255, 0.14);
+            -webkit-backdrop-filter: blur(30px) saturate(180%);
+            backdrop-filter: blur(30px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.30);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.42);
+            color: #fff;
+            transform: translateY(22px) scale(0.97);
+            transition: transform 0.38s cubic-bezier(0.2, 0.9, 0.25, 1);
+        }
+        #sfatPop.deschis .sp-card { transform: translateY(0) scale(1); }
+        /* lumina care alunecă peste sticlă */
+        .sp-card::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 42%);
+        }
+        .sp-sus { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .sp-ico {
+            width: 48px; height: 48px; border-radius: 16px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+            background: rgba(255,255,255,0.20); border: 1px solid rgba(255,255,255,0.28);
+        }
+        .sp-et { font-size: 0.68rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: rgba(255,255,255,0.72); }
+        .sp-loc { font-size: 1.02rem; font-weight: 700; line-height: 1.2; }
+        .sp-text { font-size: 0.97rem; line-height: 1.55; color: #f2f5ff; position: relative; z-index: 1; }
+        .sp-text b { color: #fff; font-weight: 800; }
+        .sp-jos { display: flex; align-items: center; gap: 10px; margin-top: 16px; position: relative; z-index: 1; }
+        .sp-puncte { display: flex; gap: 6px; flex: 1; }
+        .sp-punct { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.32); transition: background 0.2s, width 0.2s; }
+        .sp-punct.activ { background: #fff; width: 18px; border-radius: 3px; }
+        .sp-btn {
+            border: none; border-radius: 14px; padding: 10px 18px; cursor: pointer;
+            font-family: inherit; font-size: 0.86rem; font-weight: 700;
+            background: rgba(255,255,255,0.22); color: #fff;
+            border: 1px solid rgba(255,255,255,0.28);
+        }
+        .sp-btn:hover { background: rgba(255,255,255,0.32); }
+        .sp-btn.principal { background: #fff; color: #0d1836; border-color: #fff; }
+        .sp-x {
+            position: absolute; top: 12px; right: 12px; z-index: 2;
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.26); background: rgba(255,255,255,0.16);
+            color: #fff; font-size: 0.95rem; line-height: 1; font-family: inherit;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sp-x:hover { background: rgba(255,255,255,0.3); }
+        /* nuanța cardului urmează gravitatea mesajului */
+        .sp-card.nv2 { background: rgba(245,197,0,0.20); border-color: rgba(255,224,120,0.42); }
+        .sp-card.nv3 { background: rgba(249,115,22,0.24); border-color: rgba(255,178,120,0.46); }
+        .sp-card.nv4 { background: rgba(229,72,77,0.28); border-color: rgba(255,150,155,0.50); }
+        @media (min-width: 761px) { #sfatPop { align-items: center; } }
+        /* dacă browserul nu știe backdrop-filter, punem un fundal opac */
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .sp-card { background: rgba(16, 26, 56, 0.94); }
+            .sp-card.nv2 { background: rgba(120, 92, 0, 0.94); }
+            .sp-card.nv3 { background: rgba(140, 62, 10, 0.94); }
+            .sp-card.nv4 { background: rgba(130, 34, 38, 0.94); }
+        }
         .hero-extra { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
         .hero-tiles { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
         .navy-tile {
@@ -894,6 +969,28 @@
         .cc-nota { font-size: 0.7rem; color: var(--muted); margin-top: 12px; line-height: 1.45; }
         @media (max-width: 560px) { .cc-badge { align-self: flex-start; } }
 
+        /* Pe telefon cardul climatic ocupa prea mult. Păstrăm ce contează —
+           fraza, abaterea și termometrul — și strângem restul. */
+        @media (max-width: 760px) {
+            .climate-card { margin-bottom: 14px; }
+            .cc-ico { font-size: 1.25rem; }
+            .cc-head h3 { font-size: 0.98rem; }
+            .cc-sub { display: none; }
+            .cc-corp { margin-top: 10px; }
+            .cc-fraza { font-size: 0.92rem; line-height: 1.45; margin-bottom: 10px; }
+            /* două casete pe rând, compacte */
+            .cc-grid { grid-template-columns: 1fr 1fr; gap: 7px; }
+            .cc-box { padding: 8px 10px; border-radius: 9px; }
+            .cc-box .ccb-et { font-size: 0.6rem; letter-spacing: 0.4px; }
+            .cc-box .ccb-val { font-size: 1.02rem; margin-top: 1px; }
+            .cc-box .ccb-info { font-size: 0.63rem; }
+            /* din cele patru casete rămân cele două care spun povestea:
+               maxima de azi și abaterea de la normal */
+            .cc-grid .cc-box:nth-child(2), .cc-grid .cc-box:nth-child(4) { display: none; }
+            .cc-scala { margin-top: 12px; }
+            .cc-nota { display: none; }
+        }
+
         /* panoul de locație (se deschide sub săgeata din bara de sus) */
         .loc-panel {
             position: fixed; z-index: 9500; display: none;
@@ -1308,6 +1405,26 @@
     </div>
 </header>
 
+<!-- ═══ POPUP DE ÎNTÂMPINARE — sfatul potrivit vremii de acum ═══ -->
+<div id="sfatPop" role="dialog" aria-modal="true" aria-labelledby="spText">
+    <div class="sp-card" id="spCard">
+        <button class="sp-x" id="spX" aria-label="Închide">✕</button>
+        <div class="sp-sus">
+            <div class="sp-ico" id="spIco">💡</div>
+            <div>
+                <div class="sp-et" id="spEt">Vremea la tine</div>
+                <div class="sp-loc" id="spLoc">Târgoviște</div>
+            </div>
+        </div>
+        <div class="sp-text" id="spText"></div>
+        <div class="sp-jos">
+            <div class="sp-puncte" id="spPuncte"></div>
+            <button class="sp-btn" id="spUrm" style="display:none;">Următorul</button>
+            <button class="sp-btn principal" id="spOk">Am înțeles</button>
+        </div>
+    </div>
+</div>
+
 <!-- ═══ BUTOANE FLOTANTE LATERALE (stil IMGW) ═══ -->
 <nav class="side-nav" aria-label="Navigare rapidă">
     <a class="side-btn warn" href="#warnings-section"><span class="side-ico">⚠️</span><span data-i18n-html="sideAvertizari">Avertizări<br>emise</span></a>
@@ -1325,13 +1442,6 @@
                 <p class="hero-sub">municipiu: Târgoviște, județ: Dâmbovița</p>
                 <p class="hero-date"><span data-i18n="vremeaCurenta">Vremea curentă</span>: <span id="heroDate" class="red"></span></p>
                 <div id="weatherInfo" class="hero-weather">Încărcare date meteo...</div>
-
-                <!-- ═══ SFATUL ZILEI — se schimbă singur după vremea reală ═══ -->
-                <div class="sfat-banda" id="sfatBanda" style="display:none;">
-                    <span class="sfat-ico" id="sfatIco">💡</span>
-                    <span class="sfat-text" id="sfatText"></span>
-                    <button class="sfat-nav" id="sfatNext" title="Alt sfat" aria-label="Alt sfat">›</button>
-                </div>
 
                 <hr class="hero-divider">
                 <div class="your-place">
@@ -2470,6 +2580,28 @@ function codANMLocal() {
 // ── regulile ──
 // nivel: 1 informativ · 2 atenție · 3 serios · 4 periculos
 var REGULI_SFAT = [
+    /* ── mesaje care țin cont de ce a fost înainte ──
+       Astea sunt cele care fac aplicația să pară că înțelege, nu doar să
+       raporteze. Au nivel 2 ca să apară înaintea celor pur informative. */
+    { id: 'racorire', nivel: 2, ico: '😮‍💨', cand: function(c) {
+          return c.valCald >= 2 && c.media5 != null && c.max != null && c.max <= c.media5 - 5; },
+      ro: function(c) { return 'Ce răcoare, după atâtea zile de foc! <b>' + fT(c.max, 0) + '</b> azi, față de ' + fT(c.media5, 0) + ' cât ne obișnuisem. Bucură-te de ea.'; },
+      en: function(c) { return 'What a relief after all that heat! <b>' + fT(c.max, 0) + '</b> today, down from ' + fT(c.media5, 0) + '. Enjoy it while it lasts.'; } },
+
+    { id: 'seIncalzeste', nivel: 2, ico: '🌞', cand: function(c) {
+          return c.valFrig >= 2 && c.media5 != null && c.max != null && c.max >= c.media5 + 6; },
+      ro: function(c) { return 'În sfârșit! <b>' + fT(c.max, 0) + '</b> după zilele reci de dinainte. Scoate haina groasă din ecuație.'; },
+      en: function(c) { return 'Finally! <b>' + fT(c.max, 0) + '</b> after those cold days. You can leave the heavy coat at home.'; } },
+
+    { id: 'ploaieDupaSeceta', nivel: 2, ico: '🌦️', cand: function(c) {
+          return c.valUscat >= 4 && c.ploaieAzi != null && c.ploaieAzi >= 1; },
+      ro: function() { return 'Plouă, după atâtea zile uscate. Plantele de pe balcon îți mulțumesc.'; },
+      en: function() { return 'Rain at last, after all those dry days. Your balcony plants say thanks.'; } },
+
+    { id: 'valPrelungit', nivel: 3, ico: '🔥', cand: function(c) { return c.valCald >= 4 && c.max != null && c.max >= 31; },
+      ro: function(c) { return 'A ' + (c.valCald + 1) + '-a zi consecutivă de peste 31°. Corpul obosește chiar dacă te-ai obișnuit — bea apă și ia-o mai încet.'; },
+      en: function(c) { return 'Day ' + (c.valCald + 1) + ' in a row above 31°C. Your body tires even if you got used to it — drink up and take it easy.'; } },
+
     { id: 'anm4', nivel: 4, ico: '🚨', cand: function(c) { return c.anm >= 3; },
       ro: function() { return '<b>Cod roșu ANM</b> pentru zona ta. Nu e momentul pentru drumuri neapărate — stai în siguranță și urmărește anunțurile.'; },
       en: function() { return '<b>ANM red warning</b> for your area. Not a good time for unnecessary trips — stay safe and follow the updates.'; } },
@@ -2609,54 +2741,73 @@ function calculeazaSfaturi() {
     return out.slice(0, 5);
 }
 
+/* Popup-ul apare O SINGURĂ dată per deschidere a aplicației. Îl pregătim
+   când avem destule date, dar îl arătăm doar după ce s-a terminat splash-ul,
+   ca să nu se suprapună două ferestre. */
+var _popAratat = false;
+
 function randeazaSfaturi() {
-    var banda = document.getElementById('sfatBanda');
-    if (!banda) return;
     _sfaturi = calculeazaSfaturi();
-    if (!_sfaturi.length) { banda.style.display = 'none'; return; }
-    banda.style.display = 'flex';
-    if (_sfatIdx >= _sfaturi.length) _sfatIdx = 0;
-    aplicaSfat(_sfatIdx);
-    document.getElementById('sfatNext').style.display = _sfaturi.length > 1 ? 'flex' : 'none';
-    porneșteRotatia();
+    if (!_sfaturi.length) return;
+    if (_popAratat) { if (document.getElementById('sfatPop').classList.contains('deschis')) aplicaSfat(_sfatIdx); return; }
+    // așteptăm să avem și datele extinse (UV, istoric), ca mesajul să fie cel bun
+    if (CTX.uv === undefined && CTX.media5 === undefined) return;
+    _popAratat = true;
+    setTimeout(deschideSfatPop, 900);
+}
+
+function deschideSfatPop() {
+    var pop = document.getElementById('sfatPop');
+    if (!pop || !_sfaturi.length) return;
+    _sfatIdx = 0;
+    aplicaSfat(0);
+    document.getElementById('spLoc').textContent = (typeof LOC !== 'undefined' && LOC.nume) ? LOC.nume : '';
+    document.getElementById('spEt').textContent = T('spEticheta');
+    document.getElementById('spOk').textContent = T('spOk');
+    document.getElementById('spUrm').textContent = T('spUrmator');
+    document.getElementById('spUrm').style.display = _sfaturi.length > 1 ? 'block' : 'none';
+    pop.classList.add('deschis');
+}
+
+function inchideSfatPop() {
+    var pop = document.getElementById('sfatPop');
+    if (pop) pop.classList.remove('deschis');
+    if (_sfatTimer) { clearInterval(_sfatTimer); _sfatTimer = null; }
 }
 
 function aplicaSfat(i) {
-    var s = _sfaturi[i], banda = document.getElementById('sfatBanda');
-    if (!s || !banda) return;
-    document.getElementById('sfatIco').textContent = s.ico;
-    document.getElementById('sfatText').innerHTML = s.text;
-    banda.className = 'sfat-banda nv' + s.nivel;
+    var s = _sfaturi[i];
+    if (!s) return;
+    document.getElementById('spIco').textContent = s.ico;
+    document.getElementById('spText').innerHTML = s.text;
+    document.getElementById('spCard').className = 'sp-card nv' + s.nivel;
+    var p = '';
+    for (var k = 0; k < _sfaturi.length; k++) p += '<span class="sp-punct' + (k === i ? ' activ' : '') + '"></span>';
+    document.getElementById('spPuncte').innerHTML = _sfaturi.length > 1 ? p : '';
 }
 
 function schimbaSfat(pas) {
     if (_sfaturi.length < 2) return;
-    var banda = document.getElementById('sfatBanda');
-    banda.classList.add('schimb');
-    setTimeout(function() {
-        _sfatIdx = (_sfatIdx + pas + _sfaturi.length) % _sfaturi.length;
-        aplicaSfat(_sfatIdx);
-        banda.classList.remove('schimb');
-    }, 250);
+    _sfatIdx = (_sfatIdx + pas + _sfaturi.length) % _sfaturi.length;
+    aplicaSfat(_sfatIdx);
 }
 
-function porneșteRotatia() {
-    if (_sfatTimer) clearInterval(_sfatTimer);
-    if (_sfaturi.length < 2) return;
-    _sfatTimer = setInterval(function() { schimbaSfat(1); }, 9000);
-}
+function porneșteRotatia() { /* păstrată pentru compatibilitate — popup-ul nu se rotește singur */ }
 
-// datele suplimentare (UV, rafale, probabilitate de ploaie) — de la Open-Meteo
+// Datele suplimentare (UV, rafale, ploaie) PLUS ultimele 5 zile.
+// Trecutul contează: fără el aplicația n-ar putea spune „ce răcoare, după
+// atâta caniculă" — ar ști doar că azi sunt 24 de grade.
 function incarcaContextExtins() {
     var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon +
             '&current=uv_index,precipitation,wind_gusts_10m,apparent_temperature' +
             '&hourly=precipitation_probability' +
-            '&daily=temperature_2m_max,temperature_2m_min&forecast_days=2&timezone=auto';
+            '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum' +
+            '&past_days=5&forecast_days=2&timezone=auto';
     fetch(u).then(function(r) { return r.json(); }).then(function(d) {
         var cur = d.current || {}, zi = d.daily || {}, ore = d.hourly || {};
         var prob = 0;
         try {
-            var acum = new Date(), h = 0;
+            var acum = new Date();
             for (var i = 0; i < ore.time.length; i++) {
                 if (new Date(ore.time[i]) >= acum) {
                     for (var j = i; j < Math.min(i + 6, ore.time.length); j++) {
@@ -2666,11 +2817,30 @@ function incarcaContextExtins() {
                 }
             }
         } catch (e) {}
+
+        // past_days=5 → indicii 0..4 sunt zilele trecute, 5 e azi, 6 e mâine
+        var mx = zi.temperature_2m_max || [], mn = zi.temperature_2m_min || [], pp = zi.precipitation_sum || [];
+        var iAzi = Math.min(5, mx.length - 2);
+        if (iAzi < 0) iAzi = 0;
+        var trecut = mx.slice(Math.max(0, iAzi - 5), iAzi).filter(function(v) { return v != null; });
+        var media5 = trecut.length ? trecut.reduce(function(a, b) { return a + b; }, 0) / trecut.length : null;
+
+        // câte zile la rând au fost calde / reci / ploioase înainte de azi
+        var valCald = 0, valFrig = 0, valUscat = 0;
+        for (var k = trecut.length - 1; k >= 0; k--) { if (trecut[k] >= 31) valCald++; else break; }
+        for (var k2 = trecut.length - 1; k2 >= 0; k2--) { if (trecut[k2] <= 3) valFrig++; else break; }
+        var ppTrecut = pp.slice(Math.max(0, iAzi - 5), iAzi);
+        for (var k3 = ppTrecut.length - 1; k3 >= 0; k3--) { if ((ppTrecut[k3] || 0) < 0.5) valUscat++; else break; }
+
         actualizeazaContext({
             uv: cur.uv_index, rafale: cur.wind_gusts_10m != null ? cur.wind_gusts_10m / 3.6 : null,
             precipAcum: cur.precipitation, probUrm: prob,
-            max: zi.temperature_2m_max ? zi.temperature_2m_max[0] : null,
-            min: zi.temperature_2m_min ? zi.temperature_2m_min[0] : null
+            max: mx[iAzi] != null ? mx[iAzi] : null,
+            min: mn[iAzi] != null ? mn[iAzi] : null,
+            maxIeri: iAzi > 0 ? mx[iAzi - 1] : null,
+            difIeri: (iAzi > 0 && mx[iAzi] != null && mx[iAzi - 1] != null) ? (mx[iAzi] - mx[iAzi - 1]) : null,
+            media5: media5, valCald: valCald, valFrig: valFrig, valUscat: valUscat,
+            ploaieAzi: pp[iAzi]
         });
     }).catch(function() {});
 }
@@ -5181,6 +5351,7 @@ var I18N = {
         avertMeteo: 'Avertizări meteorologice', meteorologice: 'Meteorologice', hidrologice: 'Hidrologice',
         avToate: 'Toate', avertizare: 'Avertizare', faraAvert: 'fără avertizări',
         niciunaAvert: 'nicio avertizare în vigoare',
+        spEticheta: 'Vremea la tine', spOk: 'Am înțeles', spUrmator: 'Următorul', spGata: 'Gata',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -5258,6 +5429,7 @@ var I18N = {
         avertMeteo: 'Meteorological warnings', meteorologice: 'Meteorological', hidrologice: 'Hydrological',
         avToate: 'All', avertizare: 'Warning', faraAvert: 'no warnings',
         niciunaAvert: 'no warnings in force',
+        spEticheta: 'Your weather', spOk: 'Got it', spUrmator: 'Next', spGata: 'Done',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
@@ -5345,14 +5517,20 @@ function aplicaLimba(l) {
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
 
-// butonul „alt sfat" + pauză la trecerea cu mouse-ul peste bandă
+// butoanele popup-ului de întâmpinare
 (function() {
-    var b = document.getElementById('sfatNext'), banda = document.getElementById('sfatBanda');
-    if (b) b.addEventListener('click', function() { schimbaSfat(1); porneșteRotatia(); });
-    if (banda) {
-        banda.addEventListener('mouseenter', function() { if (_sfatTimer) clearInterval(_sfatTimer); });
-        banda.addEventListener('mouseleave', porneșteRotatia);
-    }
+    var pop = document.getElementById('sfatPop');
+    if (!pop) return;
+    document.getElementById('spX').addEventListener('click', inchideSfatPop);
+    document.getElementById('spOk').addEventListener('click', inchideSfatPop);
+    document.getElementById('spUrm').addEventListener('click', function() {
+        if (_sfatIdx >= _sfaturi.length - 1) { inchideSfatPop(); return; }
+        schimbaSfat(1);
+        if (_sfatIdx === _sfaturi.length - 1) document.getElementById('spUrm').textContent = T('spGata');
+    });
+    // clic pe fundal = închidere
+    pop.addEventListener('click', function(e) { if (e.target === pop) inchideSfatPop(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSfatPop(); });
 })();
 
 // ═══════════════════════════════════════════════════════════
