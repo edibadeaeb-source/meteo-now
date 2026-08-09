@@ -254,6 +254,31 @@
         .hero-temp { font-size: 2.7rem; font-weight: 800; color: var(--heading); letter-spacing: -1px; }
         .hero-temp-unit { font-size: 1.5rem; font-weight: 700; vertical-align: super; }
         .hero-feels { font-size: 0.85rem; color: var(--text); margin-top: 1px; }
+
+        /* ── sfatul zilei, sub temperatură ── */
+        .sfat-banda {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 12px; padding: 10px 12px; border-radius: 12px;
+            background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.18);
+            font-size: 0.86rem; line-height: 1.45; color: #eef2fb;
+            transition: opacity 0.25s ease, background 0.3s ease, border-color 0.3s ease;
+        }
+        .sfat-banda.schimb { opacity: 0; }
+        .sfat-ico { font-size: 1.3rem; line-height: 1; flex-shrink: 0; }
+        .sfat-text { flex: 1; min-width: 0; }
+        .sfat-text b { color: #fff; }
+        .sfat-nav {
+            flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.28); background: transparent;
+            color: #dbe3f5; font-size: 1.05rem; line-height: 1; cursor: pointer;
+            font-family: inherit; display: flex; align-items: center; justify-content: center;
+        }
+        .sfat-nav:hover { background: rgba(255,255,255,0.16); color: #fff; }
+        /* culoarea benzii spune cât de serios e sfatul */
+        .sfat-banda.nv2 { background: rgba(245,197,0,0.16); border-color: rgba(245,197,0,0.45); }
+        .sfat-banda.nv3 { background: rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.5); }
+        .sfat-banda.nv4 { background: rgba(229,72,77,0.20); border-color: rgba(229,72,77,0.55); }
+        @media (max-width: 760px) { .sfat-banda { font-size: 0.82rem; padding: 9px 10px; } }
         .hero-extra { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
         .hero-tiles { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
         .navy-tile {
@@ -1300,6 +1325,14 @@
                 <p class="hero-sub">municipiu: Târgoviște, județ: Dâmbovița</p>
                 <p class="hero-date"><span data-i18n="vremeaCurenta">Vremea curentă</span>: <span id="heroDate" class="red"></span></p>
                 <div id="weatherInfo" class="hero-weather">Încărcare date meteo...</div>
+
+                <!-- ═══ SFATUL ZILEI — se schimbă singur după vremea reală ═══ -->
+                <div class="sfat-banda" id="sfatBanda" style="display:none;">
+                    <span class="sfat-ico" id="sfatIco">💡</span>
+                    <span class="sfat-text" id="sfatText"></span>
+                    <button class="sfat-nav" id="sfatNext" title="Alt sfat" aria-label="Alt sfat">›</button>
+                </div>
+
                 <hr class="hero-divider">
                 <div class="your-place">
                     <span data-i18n="vremeaLocalitate">Vremea pentru localitatea ta</span>
@@ -2364,9 +2397,282 @@ function fetchWeather() {
                     updateSunArc();
                 }
             } catch (e) {}
+            // hrănim sfatul zilei cu ce tocmai am aflat
+            try {
+                actualizeazaContext({
+                    temp: d.main.temp, resimtit: d.main.feels_like,
+                    umiditate: d.main.humidity, presiune: d.main.pressure,
+                    vant: d.wind && d.wind.speed, cod: owmLaWmo(d.weather[0].id)
+                });
+                incarcaContextExtins();
+            } catch (e) {}
         }).catch(function() {
             document.getElementById('weatherInfo').innerHTML = '⚠️ Date meteo indisponibile.';
         });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SFATUL ZILEI
+   Citim vremea reală și scoatem mesaje scurte, prietenoase — de la
+   „bea apă" până la „nu ieși acum, e cod portocaliu". Nivelul (1–4)
+   dă și culoarea benzii, iar mesajele se rotesc unul după altul.
+   ═══════════════════════════════════════════════════════════════════ */
+var CTX = {};                 // contextul meteo curent, completat din mai multe surse
+var _sfaturi = [], _sfatIdx = 0, _sfatTimer = null;
+
+// codurile OpenWeatherMap → codurile WMO folosite în reguli
+function owmLaWmo(id) {
+    if (id >= 200 && id < 300) return 95;      // furtună
+    if (id >= 300 && id < 400) return 53;      // burniță
+    if (id >= 500 && id < 600) return 63;      // ploaie
+    if (id >= 600 && id < 700) return 73;      // ninsoare
+    if (id === 741 || id === 701) return 45;   // ceață
+    if (id < 800) return 45;
+    if (id === 800) return 0;                  // senin
+    if (id === 801 || id === 802) return 2;
+    return 3;                                  // acoperit
+}
+
+// ── în ce județ suntem? (pentru codul ANM local) ──
+function _inPoligon(lat, lon, inel) {
+    var da = false, i, j, xi, yi, xj, yj;
+    for (i = 0, j = inel.length - 1; i < inel.length; j = i++) {
+        xi = inel[i][0]; yi = inel[i][1]; xj = inel[j][0]; yj = inel[j][1];
+        if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) da = !da;
+    }
+    return da;
+}
+function judetulLocatiei() {
+    if (!_judeteGeo || !esteRomania()) return null;
+    for (var i = 0; i < _judeteGeo.features.length; i++) {
+        var f = _judeteGeo.features[i], g = f.geometry;
+        var poli = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+        for (var p = 0; p < poli.length; p++) {
+            if (_inPoligon(LOC.lat, LOC.lon, poli[p][0])) return codDinFeature(f);
+        }
+    }
+    return null;
+}
+// cel mai grav cod ANM care atinge județul nostru
+function codANMLocal() {
+    var jud = judetulLocatiei();
+    if (!jud || !window._anmWarns) return 0;
+    var lv = 0;
+    window._anmWarns.forEach(function(w) {
+        zonaArr(w).concat(judArr(w)).forEach(function(z) {
+            var cod = String(z.cod || '').toUpperCase();
+            if (cod === jud || cod.indexOf(jud + '_') === 0) lv = Math.max(lv, culNum(z.culoare));
+        });
+    });
+    return lv;
+}
+
+// ── regulile ──
+// nivel: 1 informativ · 2 atenție · 3 serios · 4 periculos
+var REGULI_SFAT = [
+    { id: 'anm4', nivel: 4, ico: '🚨', cand: function(c) { return c.anm >= 3; },
+      ro: function() { return '<b>Cod roșu ANM</b> pentru zona ta. Nu e momentul pentru drumuri neapărate — stai în siguranță și urmărește anunțurile.'; },
+      en: function() { return '<b>ANM red warning</b> for your area. Not a good time for unnecessary trips — stay safe and follow the updates.'; } },
+
+    { id: 'anm3', nivel: 3, ico: '⚠️', cand: function(c) { return c.anm === 2; },
+      ro: function() { return '<b>Cod portocaliu</b> în zona ta. Dacă poți amâna ieșirea, amân-o. Dacă nu, ai grijă pe drum.'; },
+      en: function() { return '<b>Orange warning</b> in your area. Postpone going out if you can. If not, take care out there.'; } },
+
+    { id: 'anm2', nivel: 2, ico: '💛', cand: function(c) { return c.anm === 1; },
+      ro: function() { return '<b>Cod galben</b> în zona ta. Nimic dramatic, dar merită o privire pe hartă înainte să pleci.'; },
+      en: function() { return '<b>Yellow warning</b> in your area. Nothing dramatic, but worth a look at the map before you head out.'; } },
+
+    { id: 'arsita', nivel: 4, ico: '🥵', cand: function(c) { return c.resimtit >= 38; },
+      ro: function(c) { return 'Se resimt <b>' + fT(c.resimtit, 0) + '</b>. Asta nu mai e vară, e cuptor. Stai în casă între 11 și 17 dacă poți și bea apă des.'; },
+      en: function(c) { return 'It feels like <b>' + fT(c.resimtit, 0) + '</b>. That is oven territory. Stay indoors between 11am and 5pm if you can, and drink often.'; } },
+
+    { id: 'canicula', nivel: 3, ico: '🌡️', cand: function(c) { return c.resimtit >= 34 && c.resimtit < 38; },
+      ro: function(c) { return '<b>' + fT(c.resimtit, 0) + '</b> resimțiți. Ziua perfectă pentru o limonadă rece la umbră — și pentru zero eroism la soare.'; },
+      en: function(c) { return 'Feels like <b>' + fT(c.resimtit, 0) + '</b>. A perfect day for cold lemonade in the shade — and zero heroics in the sun.'; } },
+
+    { id: 'hidratare', nivel: 2, ico: '💧', cand: function(c) { return c.resimtit >= 29 && c.resimtit < 34; },
+      ro: function() { return 'E cald. Bea apă <b>înainte</b> să-ți fie sete — setea apare deja când corpul a rămas în urmă.'; },
+      en: function() { return 'It is hot. Drink water <b>before</b> you feel thirsty — thirst shows up once your body is already behind.'; } },
+
+    { id: 'uvExtrem', nivel: 3, ico: '🧴', cand: function(c) { return c.uv >= 8; },
+      ro: function(c) { return 'Indice UV <b>' + Math.round(c.uv) + '</b> — foarte mare. Pielea se arde în sub 20 de minute. Cremă, pălărie, umbră.'; },
+      en: function(c) { return 'UV index <b>' + Math.round(c.uv) + '</b> — very high. Skin burns in under 20 minutes. Sunscreen, hat, shade.'; } },
+
+    { id: 'uvMare', nivel: 2, ico: '😎', cand: function(c) { return c.uv >= 6 && c.uv < 8; },
+      ro: function(c) { return 'UV <b>' + Math.round(c.uv) + '</b>. Ochelarii de soare nu sunt doar de fițe azi, iar crema chiar ajută.'; },
+      en: function(c) { return 'UV <b>' + Math.round(c.uv) + '</b>. Sunglasses are not just a look today, and sunscreen actually helps.'; } },
+
+    { id: 'ger', nivel: 4, ico: '🥶', cand: function(c) { return c.resimtit <= -12; },
+      ro: function(c) { return 'Se resimt <b>' + fT(c.resimtit, 0) + '</b>. Pielea descoperită degeră în câteva minute. Mănuși, fes, și stai afară cât mai puțin.'; },
+      en: function(c) { return 'It feels like <b>' + fT(c.resimtit, 0) + '</b>. Exposed skin freezes in minutes. Gloves, hat, and keep it short outside.'; } },
+
+    { id: 'frigTare', nivel: 3, ico: '🧣', cand: function(c) { return c.resimtit <= -5 && c.resimtit > -12; },
+      ro: function(c) { return '<b>' + fT(c.resimtit, 0) + '</b> resimțiți. Îmbracă-te în straturi — se scot mai ușor decât se adaugă.'; },
+      en: function(c) { return 'Feels like <b>' + fT(c.resimtit, 0) + '</b>. Dress in layers — easier to take off than to conjure up.'; } },
+
+    { id: 'inghet', nivel: 2, ico: '🧊', cand: function(c) { return c.min != null && c.min <= 0 && c.temp > -5; },
+      ro: function() { return 'Se coboară sub zero azi. Atenție la polei dimineața — asfaltul umed devine patinoar fără avertisment.'; },
+      en: function() { return 'Below freezing today. Watch for black ice in the morning — wet tarmac turns into a rink without warning.'; } },
+
+    { id: 'furtuna', nivel: 4, ico: '⛈️', cand: function(c) { return c.cod >= 95; },
+      ro: function() { return '<b>Furtună cu descărcări electrice.</b> Departe de copaci și de câmp deschis. Cel mai bun loc e înăuntru.'; },
+      en: function() { return '<b>Thunderstorm with lightning.</b> Away from trees and open fields. The best place is indoors.'; } },
+
+    { id: 'vantPuternic', nivel: 3, ico: '🌬️', cand: function(c) { return c.rafale >= 17; },
+      ro: function(c) { return 'Rafale de <b>' + Math.round(c.rafale * 3.6) + ' km/h</b>. Ține-ți pălăria, umbrela și orice nu e prins bine în balcon.'; },
+      en: function(c) { return 'Gusts of <b>' + Math.round(c.rafale * 3.6) + ' km/h</b>. Hold on to your hat, umbrella, and anything loose on the balcony.'; } },
+
+    { id: 'vant', nivel: 2, ico: '💨', cand: function(c) { return c.vant >= 9 && c.rafale < 17; },
+      ro: function(c) { return 'Bate vântul cu <b>' + Math.round(c.vant * 3.6) + ' km/h</b>. Umbrela s-ar putea să nu supraviețuiască — mai bine gluga.'; },
+      en: function(c) { return 'Wind at <b>' + Math.round(c.vant * 3.6) + ' km/h</b>. Your umbrella may not survive — a hood is the safer bet.'; } },
+
+    { id: 'ploaieAcum', nivel: 2, ico: '☔', cand: function(c) { return c.precipAcum > 0.1; },
+      ro: function() { return 'Plouă chiar acum. Dacă tocmai ieși pe ușă, întoarce-te după umbrelă — merită cei zece pași.'; },
+      en: function() { return 'It is raining right now. If you are heading out, go back for the umbrella — worth those ten steps.'; } },
+
+    { id: 'ploaieCurand', nivel: 2, ico: '🌂', cand: function(c) { return c.precipAcum <= 0.1 && c.probUrm >= 60; },
+      ro: function(c) { return '<b>' + c.probUrm + '%</b> șanse de ploaie în următoarele ore. Umbrela stă mai bine în rucsac decât în hol.'; },
+      en: function(c) { return '<b>' + c.probUrm + '%</b> chance of rain in the next few hours. The umbrella belongs in your bag, not in the hallway.'; } },
+
+    { id: 'ninsoare', nivel: 2, ico: '❄️', cand: function(c) { return c.cod >= 71 && c.cod <= 77; },
+      ro: function() { return 'Ninge. Drumurile devin alunecoase mai repede decât pare — lasă-ți cu cinci minute mai mult pentru orice drum.'; },
+      en: function() { return 'It is snowing. Roads get slippery faster than they look — give yourself five extra minutes for any trip.'; } },
+
+    { id: 'ceata', nivel: 2, ico: '🌫️', cand: function(c) { return c.cod === 45 || c.cod === 48; },
+      ro: function() { return 'Ceață. Dacă conduci: lumini de întâlnire, nu faza lungă — lumina puternică se întoarce în ochii tăi.'; },
+      en: function() { return 'Fog. If you are driving: low beams, not high — strong light bounces straight back at you.'; } },
+
+    { id: 'zapuseala', nivel: 2, ico: '🥤', cand: function(c) { return c.temp >= 27 && c.umiditate >= 65; },
+      ro: function() { return 'Cald și umed — transpirația nu se mai evaporă, deci corpul se răcorește greu. Ia-o încet și bea des.'; },
+      en: function() { return 'Hot and humid — sweat cannot evaporate, so your body struggles to cool down. Take it slow and sip often.'; } },
+
+    { id: 'diffIeri', nivel: 1, ico: '📉', cand: function(c) { return c.difIeri != null && Math.abs(c.difIeri) >= 6; },
+      ro: function(c) { return 'Azi e cu <b>' + fDif(Math.abs(c.difIeri), 0) + '</b> mai ' + (c.difIeri > 0 ? 'cald' : 'rece') + ' decât ieri. Verifică ce ai pus pe tine înainte să ieși.'; },
+      en: function(c) { return 'Today is <b>' + fDif(Math.abs(c.difIeri), 0) + '</b> ' + (c.difIeri > 0 ? 'warmer' : 'colder') + ' than yesterday. Double-check what you are wearing.'; } },
+
+    { id: 'anomalie', nivel: 1, ico: '📊', cand: function(c) { return c.abatere != null && Math.abs(c.abatere) >= 5; },
+      ro: function(c) { return 'Ziua asta e cu <b>' + fDif(Math.abs(c.abatere), 1) + '</b> ' + (c.abatere > 0 ? 'peste' : 'sub') + ' normalul ultimilor 30 de ani. Nu e o zi obișnuită de ' + c.ziLuna + '.'; },
+      en: function(c) { return 'Today is <b>' + fDif(Math.abs(c.abatere), 1) + '</b> ' + (c.abatere > 0 ? 'above' : 'below') + ' the 30-year normal. Not your average ' + c.ziLuna + '.'; } },
+
+    { id: 'apusCurand', nivel: 1, ico: '🌇', cand: function(c) { return c.minPanaApus != null && c.minPanaApus > 0 && c.minPanaApus <= 60; },
+      ro: function(c) { return 'Apusul e peste <b>' + c.minPanaApus + ' de minute</b>. Dacă voiai o plimbare, acum e lumina bună.'; },
+      en: function(c) { return 'Sunset in <b>' + c.minPanaApus + ' minutes</b>. If you wanted a walk, this is the good light.'; } },
+
+    { id: 'ziPerfecta', nivel: 1, ico: '🌤️', cand: function(c) {
+          return c.temp >= 18 && c.temp <= 27 && c.cod <= 3 && c.vant < 7 && c.precipAcum <= 0.05 && c.probUrm < 30 && !c.noapte; },
+      ro: function(c) { return '<b>' + fT(c.temp, 0) + '</b>, cer bun și vânt blând. Vremea asta nu ține o veșnicie — ieși un pic afară.'; },
+      en: function(c) { return '<b>' + fT(c.temp, 0) + '</b>, clear-ish sky and gentle wind. This will not last forever — go outside for a bit.'; } },
+
+    { id: 'noapteSenina', nivel: 1, ico: '🌙', cand: function(c) { return c.noapte && c.cod <= 1 && c.vant < 6; },
+      ro: function() { return 'Noapte senină și liniștită. Dacă ai un balcon și cinci minute, cerul merită privit.'; },
+      en: function() { return 'A clear, calm night. If you have a balcony and five minutes, the sky is worth a look.'; } },
+
+    // plasă de siguranță: dacă nimic altceva nu s-a potrivit, banda nu rămâne goală
+    { id: 'neutru', nivel: 0, ico: '🙂', cand: function() { return true; },
+      ro: function(c) { return 'Vremea e cuminte azi: <b>' + fT(c.temp, 0) + '</b>, fără nimic de semnalat. Zi bună!'; },
+      en: function(c) { return 'Quiet weather today: <b>' + fT(c.temp, 0) + '</b>, nothing to report. Have a good one!'; } }
+];
+
+// ── strânge tot ce știm despre vremea de acum ──
+function actualizeazaContext(partial) {
+    for (var k in partial) CTX[k] = partial[k];
+    CTX.anm = codANMLocal();
+    try {
+        if (sunTimes && sunTimes.set) {
+            var d = (sunTimes.set - Date.now()) / 60000;
+            CTX.minPanaApus = (d > 0 && d < 600) ? Math.round(d) : null;
+            CTX.noapte = Date.now() > sunTimes.set || Date.now() < sunTimes.rise;
+        }
+    } catch (e) {}
+    try {
+        CTX.ziLuna = new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO',
+                                                   { day: 'numeric', month: 'long' });
+    } catch (e) { CTX.ziLuna = ''; }
+    randeazaSfaturi();
+}
+
+function calculeazaSfaturi() {
+    var c = CTX, out = [];
+    if (c.temp === undefined || c.temp === null) return out;
+    if (c.resimtit === undefined || c.resimtit === null) c.resimtit = c.temp;
+    REGULI_SFAT.forEach(function(r) {
+        var ok = false;
+        try { ok = !!r.cand(c); } catch (e) { ok = false; }
+        if (!ok) return;
+        var txt = '';
+        try { txt = (LANG === 'en' ? r.en : r.ro)(c); } catch (e) { return; }
+        if (txt) out.push({ id: r.id, nivel: r.nivel, ico: r.ico, text: txt });
+    });
+    out.sort(function(a, b) { return b.nivel - a.nivel; });
+    // sfatul neutru apare doar când chiar nu s-a potrivit nimic altceva
+    if (out.length > 1) out = out.filter(function(s) { return s.id !== 'neutru'; });
+    return out.slice(0, 5);
+}
+
+function randeazaSfaturi() {
+    var banda = document.getElementById('sfatBanda');
+    if (!banda) return;
+    _sfaturi = calculeazaSfaturi();
+    if (!_sfaturi.length) { banda.style.display = 'none'; return; }
+    banda.style.display = 'flex';
+    if (_sfatIdx >= _sfaturi.length) _sfatIdx = 0;
+    aplicaSfat(_sfatIdx);
+    document.getElementById('sfatNext').style.display = _sfaturi.length > 1 ? 'flex' : 'none';
+    porneșteRotatia();
+}
+
+function aplicaSfat(i) {
+    var s = _sfaturi[i], banda = document.getElementById('sfatBanda');
+    if (!s || !banda) return;
+    document.getElementById('sfatIco').textContent = s.ico;
+    document.getElementById('sfatText').innerHTML = s.text;
+    banda.className = 'sfat-banda nv' + s.nivel;
+}
+
+function schimbaSfat(pas) {
+    if (_sfaturi.length < 2) return;
+    var banda = document.getElementById('sfatBanda');
+    banda.classList.add('schimb');
+    setTimeout(function() {
+        _sfatIdx = (_sfatIdx + pas + _sfaturi.length) % _sfaturi.length;
+        aplicaSfat(_sfatIdx);
+        banda.classList.remove('schimb');
+    }, 250);
+}
+
+function porneșteRotatia() {
+    if (_sfatTimer) clearInterval(_sfatTimer);
+    if (_sfaturi.length < 2) return;
+    _sfatTimer = setInterval(function() { schimbaSfat(1); }, 9000);
+}
+
+// datele suplimentare (UV, rafale, probabilitate de ploaie) — de la Open-Meteo
+function incarcaContextExtins() {
+    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon +
+            '&current=uv_index,precipitation,wind_gusts_10m,apparent_temperature' +
+            '&hourly=precipitation_probability' +
+            '&daily=temperature_2m_max,temperature_2m_min&forecast_days=2&timezone=auto';
+    fetch(u).then(function(r) { return r.json(); }).then(function(d) {
+        var cur = d.current || {}, zi = d.daily || {}, ore = d.hourly || {};
+        var prob = 0;
+        try {
+            var acum = new Date(), h = 0;
+            for (var i = 0; i < ore.time.length; i++) {
+                if (new Date(ore.time[i]) >= acum) {
+                    for (var j = i; j < Math.min(i + 6, ore.time.length); j++) {
+                        prob = Math.max(prob, ore.precipitation_probability[j] || 0);
+                    }
+                    break;
+                }
+            }
+        } catch (e) {}
+        actualizeazaContext({
+            uv: cur.uv_index, rafale: cur.wind_gusts_10m != null ? cur.wind_gusts_10m / 3.6 : null,
+            precipAcum: cur.precipitation, probUrm: prob,
+            max: zi.temperature_2m_max ? zi.temperature_2m_max[0] : null,
+            min: zi.temperature_2m_min ? zi.temperature_2m_min[0] : null
+        });
+    }).catch(function() {});
 }
 
 // ═══════════════════════════════════════
@@ -4662,12 +4968,37 @@ async function pushSubscribe() {
             applicationServerKey: b64ToUint8(key)
         });
     }
+    await trimiteAbonament(sub);
+    pushNote(LANG === 'en'
+        ? '✅ On. Daily brief plus alerts for ' + (LOC.nume || 'your location') + '.'
+        : '✅ Activat. Primești rezumatul zilei și alertele pentru ' + (LOC.nume || 'locația ta') + '.', 'var(--green)');
+    return true;
+}
+
+/* Trimitem serverului și LOCAȚIA, nu doar adresa de livrare — altfel toți
+   utilizatorii ar primi vremea din Târgoviște, oriunde s-ar afla. */
+async function trimiteAbonament(sub) {
+    var corp = JSON.parse(JSON.stringify(sub));
+    corp.lat = LOC.lat; corp.lon = LOC.lon;
+    corp.nume = LOC.nume || ''; corp.tara = LOC.tara || '';
+    corp.judet = (typeof judetulLocatiei === 'function' ? judetulLocatiei() : null) || '';
+    corp.limba = LANG; corp.unitate = UNIT;
+    corp.fus = (LOC.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
     await fetch('api/push/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub)
+        body: JSON.stringify(corp)
     });
-    pushNote('✅ Activat. Vei primi alerte la avertizările ANM pentru Dâmbovița.', 'var(--green)');
-    return true;
+}
+
+/* Când utilizatorul schimbă orașul, actualizăm și abonamentul,
+   ca notificările să vină pentru locul nou. */
+async function actualizeazaLocatiaPush() {
+    try {
+        if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+        var reg = await navigator.serviceWorker.ready;
+        var sub = await reg.pushManager.getSubscription();
+        if (sub) await trimiteAbonament(sub.toJSON ? sub.toJSON() : sub);
+    } catch (e) {}
 }
 async function pushUnsubscribe() {
     try {
@@ -5009,9 +5340,20 @@ function aplicaLimba(l) {
     try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
     try { deseneazaRecente(); } catch (e) {}
     try { analizeazaZiua(); } catch (e) {}
+    try { randeazaSfaturi(); } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
+
+// butonul „alt sfat" + pauză la trecerea cu mouse-ul peste bandă
+(function() {
+    var b = document.getElementById('sfatNext'), banda = document.getElementById('sfatBanda');
+    if (b) b.addEventListener('click', function() { schimbaSfat(1); porneșteRotatia(); });
+    if (banda) {
+        banda.addEventListener('mouseenter', function() { if (_sfatTimer) clearInterval(_sfatTimer); });
+        banda.addEventListener('mouseleave', porneșteRotatia);
+    }
+})();
 
 // ═══════════════════════════════════════════════════════════
 //  METEO NOW — LOCAȚIE MONDIALĂ
@@ -5076,6 +5418,7 @@ function seteazaLocatie(loc, reincarca) {
 
     aplicaVizibilitateSectiuni();
     try { adaugaRecent(LOC); } catch (e) {}
+    try { actualizeazaLocatiaPush(); } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
 
@@ -5382,6 +5725,7 @@ function analizeazaZiua() {
             anStart: ist[0].an, anEnd: ist[ist.length - 1].an, mmdd: mmdd
         };
         deseneazaAnaliza(_ccDate);
+        try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
     }).catch(function(e) {
         _ccUltimaLoc = null;                     // permitem reîncercarea
         document.getElementById('ccCorp').innerHTML =

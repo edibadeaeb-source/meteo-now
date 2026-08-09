@@ -337,11 +337,22 @@ def push_subscribe():
     endpoint = sub.get('endpoint')
     if not endpoint:
         return jsonify({'error': 'abonament invalid'}), 400
-    _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', {
+    inreg = {
         'endpoint': endpoint,
         'keys': sub.get('keys', {}),
         'creat': now_ro().isoformat(timespec='seconds')
-    })
+    }
+    # locația aleasă de utilizator — fără ea toți ar primi vremea din Târgoviște
+    try:
+        if sub.get('lat') is not None and sub.get('lon') is not None:
+            inreg['lat'] = round(float(sub['lat']), 3)
+            inreg['lon'] = round(float(sub['lon']), 3)
+    except (TypeError, ValueError):
+        pass
+    for camp in ('nume', 'tara', 'judet', 'limba', 'unitate', 'fus'):
+        if sub.get(camp):
+            inreg[camp] = str(sub[camp])[:60]
+    _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', inreg)
     return jsonify({'ok': True})
 
 
@@ -505,6 +516,195 @@ def _push_check_intern():
                            'tag': 'anm-avertizare', 'nivel': top['nivel']})
     return jsonify({'schimbare': True, 'active': len(active), 'trimise': t, 'sterse': s,
                     'titlu': titlu, 'corp': corp})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  REZUMATUL ZILEI + SFATURI (notificări personalizate pe locație)
+#
+#  Fiecare abonat are propriile coordonate, deci propriul mesaj.
+#  Grupăm abonații pe coordonate rotunjite ca să nu cerem de zece ori
+#  aceeași prognoză de la Open-Meteo.
+# ═══════════════════════════════════════════════════════════════
+
+def _prognoza_scurta(lat, lon):
+    """Datele de care avem nevoie pentru un rezumat: azi, mâine, UV, vânt."""
+    url = ('https://api.open-meteo.com/v1/forecast'
+           f'?latitude={lat}&longitude={lon}'
+           '&current=temperature_2m,apparent_temperature,weather_code,wind_gusts_10m,uv_index'
+           '&daily=temperature_2m_max,temperature_2m_min,weather_code,'
+           'precipitation_probability_max,uv_index_max,wind_gusts_10m_max'
+           '&forecast_days=3&past_days=1&timezone=auto')
+    r = requests.get(url, timeout=20, headers={'User-Agent': 'MeteoNow/1.0'})
+    r.raise_for_status()
+    return r.json()
+
+
+_WMO_RO = {
+    0: 'senin', 1: 'în mare parte senin', 2: 'parțial noros', 3: 'înnorat',
+    45: 'ceață', 48: 'ceață cu chiciură', 51: 'burniță', 53: 'burniță', 55: 'burniță deasă',
+    61: 'ploaie slabă', 63: 'ploaie', 65: 'ploaie puternică',
+    71: 'ninsoare slabă', 73: 'ninsoare', 75: 'ninsoare puternică',
+    80: 'averse', 81: 'averse', 82: 'averse puternice',
+    95: 'furtună', 96: 'furtună cu grindină', 99: 'furtună cu grindină',
+}
+_WMO_EN = {
+    0: 'clear', 1: 'mostly clear', 2: 'partly cloudy', 3: 'overcast',
+    45: 'fog', 48: 'freezing fog', 51: 'drizzle', 53: 'drizzle', 55: 'heavy drizzle',
+    61: 'light rain', 63: 'rain', 65: 'heavy rain',
+    71: 'light snow', 73: 'snow', 75: 'heavy snow',
+    80: 'showers', 81: 'showers', 82: 'heavy showers',
+    95: 'thunderstorm', 96: 'thunderstorm with hail', 99: 'thunderstorm with hail',
+}
+
+
+def _grade(c, unitate):
+    """Temperatura în unitatea aleasă de utilizator, rotunjită."""
+    if c is None:
+        return '--°'
+    if unitate == 'F':
+        return f"{round(c * 9 / 5 + 32)}°F"
+    return f"{round(c)}°"
+
+
+def _sfat_zi(maxi, uv, prob, rafale, cod, limba):
+    """Un singur sfat scurt, ales după cel mai apăsător lucru al zilei."""
+    en = limba == 'en'
+    if maxi is not None and maxi >= 35:
+        return ('Bea apă des și stai la umbră între 11 și 17. Limonada rece e o idee bună.'
+                if not en else 'Drink often and stay in the shade between 11am and 5pm.')
+    if uv is not None and uv >= 8:
+        return (f'UV {round(uv)} — cremă de protecție și pălărie, pielea se arde repede.'
+                if not en else f'UV {round(uv)} — sunscreen and a hat, skin burns fast.')
+    if cod in (95, 96, 99):
+        return ('Se anunță furtună. Ține-te departe de copaci și de câmp deschis.'
+                if not en else 'Thunderstorms expected. Stay away from trees and open fields.')
+    if prob is not None and prob >= 60:
+        return (f'{round(prob)}% șanse de ploaie — ia umbrela cu tine.'
+                if not en else f'{round(prob)}% chance of rain — take an umbrella.')
+    if rafale is not None and rafale >= 60:
+        return (f'Rafale de {round(rafale)} km/h. Ține-ți pălăria și strânge ce e pe balcon.'
+                if not en else f'Gusts up to {round(rafale)} km/h. Secure loose things outside.')
+    if maxi is not None and maxi <= -8:
+        return ('Ger serios. Mănuși, fes și cât mai puțin timp afară.'
+                if not en else 'Serious cold. Gloves, hat, and keep it short outside.')
+    if maxi is not None and maxi <= 2:
+        return ('Atenție la polei dimineața — asfaltul umed înșală.'
+                if not en else 'Watch for black ice in the morning.')
+    return ('Zi liniștită. Profită de ea.' if not en else 'A calm day. Make the most of it.')
+
+
+def _compune_rezumat(p, moment, limba, unitate, nume):
+    """Construiește titlul și corpul notificării. Returnează (titlu, corp) sau None."""
+    zi = p.get('daily') or {}
+    en = limba == 'en'
+    tabel = _WMO_EN if en else _WMO_RO
+
+    # past_days=1 → indicele 0 e ieri, 1 e azi, 2 e mâine
+    try:
+        maxime = zi['temperature_2m_max']
+        minime = zi['temperature_2m_min']
+        coduri = zi.get('weather_code') or []
+        probs = zi.get('precipitation_probability_max') or []
+        uvs = zi.get('uv_index_max') or []
+        raf = zi.get('wind_gusts_10m_max') or []
+    except (KeyError, TypeError):
+        return None
+
+    seara = moment == 'seara'
+    i = 2 if seara else 1                       # seara vorbim despre mâine
+    ref = 1 if seara else 0                     # comparăm cu azi, respectiv cu ieri
+    if len(maxime) <= i:
+        return None
+
+    maxi, mini = maxime[i], minime[i]
+    cod = coduri[i] if len(coduri) > i else None
+    prob = probs[i] if len(probs) > i else None
+    uv = uvs[i] if len(uvs) > i else None
+    rafale = raf[i] if len(raf) > i else None
+    vreme = tabel.get(cod, '')
+
+    dif = None
+    if len(maxime) > ref and maxime[ref] is not None and maxi is not None:
+        dif = maxi - maxime[ref]
+
+    cand = ('Tomorrow' if en else 'Mâine') if seara else ('Today' if en else 'Azi')
+    titlu = f"{_grade(maxi, unitate)} {cand.lower()}"
+    if vreme:
+        titlu += f" · {vreme}"
+    if dif is not None and abs(dif) >= 3:
+        pas = abs(dif) * 9 / 5 if unitate == 'F' else abs(dif)
+        u = '°F' if unitate == 'F' else '°'
+        if en:
+            titlu += f" · {round(pas)}{u} {'warmer' if dif > 0 else 'colder'}"
+        else:
+            titlu += f" · cu {round(pas)}{u} mai {'cald' if dif > 0 else 'rece'}"
+
+    loc = nume or ('your area' if en else 'zona ta')
+    # săgeți în loc de cratimă: la temperaturi negative „-17°–-9°" era ilizibil
+    corp = f"{loc} · ↑{_grade(maxi, unitate)} ↓{_grade(mini, unitate)}. "
+    corp += _sfat_zi(maxi, uv, prob, rafale, cod, limba)
+    return titlu, corp
+
+
+@app.route('/api/push/rezumat')
+def push_rezumat():
+    """
+    Rezumatul zilei, personalizat pentru locația fiecărui abonat.
+    Se apelează din cron: dimineața (?moment=dimineata) și seara (?moment=seara).
+    Returnează mereu 200, ca serviciul de cron să nu semnaleze erori externe.
+    """
+    if request.args.get('secret') != PUSH_CRON_SECRET:
+        return jsonify({'error': 'acces interzis'}), 403
+    try:
+        return _rezumat_intern(request.args.get('moment', 'dimineata'))
+    except Exception as e:
+        import traceback
+        print("❌ push_rezumat:", traceback.format_exc(), flush=True)
+        return jsonify({'ok': False, 'eroare': str(e)[:200]}), 200
+
+
+def _rezumat_intern(moment):
+    subs = _fb('push_subs') or {}
+    if not isinstance(subs, dict):
+        return jsonify({'ok': True, 'abonati': 0})
+
+    # grupăm pe coordonate rotunjite (~1 km) ca să nu repetăm aceeași cerere
+    grupuri = {}
+    for cheie, sub in subs.items():
+        if not isinstance(sub, dict) or not sub.get('endpoint'):
+            continue
+        # abonații vechi (dinainte de salvarea locației) rămân pe Târgoviște
+        lat = sub.get('lat', 44.9266)
+        lon = sub.get('lon', 25.4566)
+        grupuri.setdefault((round(float(lat), 2), round(float(lon), 2)), []).append((cheie, sub))
+
+    trimise = sterse = fara_date = 0
+    for (lat, lon), lista in grupuri.items():
+        try:
+            p = _prognoza_scurta(lat, lon)
+        except Exception as e:
+            print(f"⚠️  prognoză {lat},{lon}: {e}", flush=True)
+            fara_date += len(lista)
+            continue
+        for cheie, sub in lista:
+            rez = _compune_rezumat(p, moment, sub.get('limba', 'ro'),
+                                   sub.get('unitate', 'C'), sub.get('nume'))
+            if not rez:
+                fara_date += 1
+                continue
+            titlu, corp = rez
+            ok, cod = _send_push(sub, {
+                'title': ('🌤️ ' + titlu), 'body': corp, 'url': '/',
+                'tag': 'rezumat-' + moment
+            })
+            if ok:
+                trimise += 1
+            elif cod in (404, 410):
+                _fb(f'push_subs/{cheie}', 'DELETE')
+                sterse += 1
+
+    return jsonify({'ok': True, 'moment': moment, 'grupuri': len(grupuri),
+                    'trimise': trimise, 'sterse': sterse, 'faraDate': fara_date})
 
 
 # ═══════════════════════════════════════════════════════════════
