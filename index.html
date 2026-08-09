@@ -281,78 +281,60 @@
         @media (max-width: 760px) { .sfat-banda { font-size: 0.82rem; padding: 9px 10px; } }
 
         /* ══════════════════════════════════════════════════════
-           POPUP-UL DE ÎNTÂMPINARE — sticlă mată, ca pe iPhone
-           Apare la deschiderea aplicației, cu mesajul potrivit
-           vremii de acum (și de zilele trecute).
+           MESAJUL DE ÎNTÂMPINARE — o fâșie mică, în colț
+           Apare după câteva secunde, nu blochează nimic: se poate
+           derula pagina în continuare, iar dacă nu-l atingi dispare
+           singur. Un singur mesaj, cel mai important.
+
+           Fără strat de fundal peste pagină: două suprafețe cu blur
+           una peste alta ies negre pe multe telefoane.
            ══════════════════════════════════════════════════════ */
-        #sfatPop {
-            position: fixed; inset: 0; z-index: 99000;
-            display: none; align-items: flex-end; justify-content: center;
-            padding: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-            background: rgba(4, 8, 22, 0.45);
-            -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-            opacity: 0; transition: opacity 0.3s ease;
+        #sfatToast {
+            position: fixed; z-index: 9700;
+            top: calc(16px + env(safe-area-inset-top, 0px));
+            right: 16px; width: min(340px, calc(100vw - 32px));
+            pointer-events: none;
+            opacity: 0; transform: translateY(-14px) scale(0.97);
+            transition: opacity 0.35s ease, transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1);
         }
-        #sfatPop.deschis { display: flex; opacity: 1; }
-        .sp-card {
-            width: min(430px, 100%); border-radius: 26px; padding: 20px 20px 16px;
-            position: relative; overflow: hidden;
-            background: rgba(255, 255, 255, 0.14);
-            -webkit-backdrop-filter: blur(30px) saturate(180%);
-            backdrop-filter: blur(30px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.30);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255,255,255,0.42);
-            color: #fff;
-            transform: translateY(22px) scale(0.97);
-            transition: transform 0.38s cubic-bezier(0.2, 0.9, 0.25, 1);
+        #sfatToast.vizibil { opacity: 1; transform: translateY(0) scale(1); }
+        .st-card {
+            pointer-events: auto; position: relative; overflow: hidden;
+            display: flex; align-items: flex-start; gap: 11px;
+            border-radius: 18px; padding: 13px 14px;
+            /* fundalul e destul de opac ca textul să se vadă și fără blur */
+            background: rgba(18, 26, 54, 0.86);
+            -webkit-backdrop-filter: blur(22px) saturate(170%);
+            backdrop-filter: blur(22px) saturate(170%);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.22);
+            color: #fff; cursor: pointer;
         }
-        #sfatPop.deschis .sp-card { transform: translateY(0) scale(1); }
-        /* lumina care alunecă peste sticlă */
-        .sp-card::after {
-            content: ''; position: absolute; inset: 0; pointer-events: none;
-            background: linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0) 42%);
-        }
-        .sp-sus { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-        .sp-ico {
-            width: 48px; height: 48px; border-radius: 16px; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
-            background: rgba(255,255,255,0.20); border: 1px solid rgba(255,255,255,0.28);
-        }
-        .sp-et { font-size: 0.68rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; color: rgba(255,255,255,0.72); }
-        .sp-loc { font-size: 1.02rem; font-weight: 700; line-height: 1.2; }
-        .sp-text { font-size: 0.97rem; line-height: 1.55; color: #f2f5ff; position: relative; z-index: 1; }
-        .sp-text b { color: #fff; font-weight: 800; }
-        .sp-jos { display: flex; align-items: center; gap: 10px; margin-top: 16px; position: relative; z-index: 1; }
-        .sp-puncte { display: flex; gap: 6px; flex: 1; }
-        .sp-punct { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.32); transition: background 0.2s, width 0.2s; }
-        .sp-punct.activ { background: #fff; width: 18px; border-radius: 3px; }
-        .sp-btn {
-            border: none; border-radius: 14px; padding: 10px 18px; cursor: pointer;
-            font-family: inherit; font-size: 0.86rem; font-weight: 700;
-            background: rgba(255,255,255,0.22); color: #fff;
-            border: 1px solid rgba(255,255,255,0.28);
-        }
-        .sp-btn:hover { background: rgba(255,255,255,0.32); }
-        .sp-btn.principal { background: #fff; color: #0d1836; border-color: #fff; }
-        .sp-x {
-            position: absolute; top: 12px; right: 12px; z-index: 2;
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
-            border: 1px solid rgba(255,255,255,0.26); background: rgba(255,255,255,0.16);
-            color: #fff; font-size: 0.95rem; line-height: 1; font-family: inherit;
+        .st-ico { font-size: 1.35rem; line-height: 1.25; flex-shrink: 0; }
+        .st-mij { flex: 1; min-width: 0; }
+        .st-et { font-size: 0.63rem; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;
+                 color: rgba(255,255,255,0.62); margin-bottom: 2px; }
+        .st-text { font-size: 0.86rem; line-height: 1.45; color: #eef2ff; }
+        .st-text b { color: #fff; font-weight: 800; }
+        .st-x {
+            flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
+            border: none; background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.8);
+            font-size: 0.7rem; line-height: 1; font-family: inherit;
             display: flex; align-items: center; justify-content: center;
         }
-        .sp-x:hover { background: rgba(255,255,255,0.3); }
-        /* nuanța cardului urmează gravitatea mesajului */
-        .sp-card.nv2 { background: rgba(245,197,0,0.20); border-color: rgba(255,224,120,0.42); }
-        .sp-card.nv3 { background: rgba(249,115,22,0.24); border-color: rgba(255,178,120,0.46); }
-        .sp-card.nv4 { background: rgba(229,72,77,0.28); border-color: rgba(255,150,155,0.50); }
-        @media (min-width: 761px) { #sfatPop { align-items: center; } }
-        /* dacă browserul nu știe backdrop-filter, punem un fundal opac */
-        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-            .sp-card { background: rgba(16, 26, 56, 0.94); }
-            .sp-card.nv2 { background: rgba(120, 92, 0, 0.94); }
-            .sp-card.nv3 { background: rgba(140, 62, 10, 0.94); }
-            .sp-card.nv4 { background: rgba(130, 34, 38, 0.94); }
+        .st-x:hover { background: rgba(255,255,255,0.26); color: #fff; }
+        /* firul de timp care arată cât mai stă */
+        .st-timp { position: absolute; left: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.55); width: 100%; }
+        #sfatToast.vizibil .st-timp { animation: stScurge 11s linear forwards; }
+        @keyframes stScurge { from { width: 100%; } to { width: 0; } }
+        /* nuanța urmează gravitatea */
+        .st-card.nv2 { background: rgba(94, 74, 8, 0.90); border-color: rgba(245,197,0,0.45); }
+        .st-card.nv3 { background: rgba(104, 50, 12, 0.90); border-color: rgba(249,115,22,0.50); }
+        .st-card.nv4 { background: rgba(102, 28, 32, 0.92); border-color: rgba(229,72,77,0.55); }
+        @media (max-width: 760px) {
+            /* pe telefon îl coborâm sub bara care apare la derulare */
+            #sfatToast { top: calc(60px + env(safe-area-inset-top, 0px)); right: 12px; left: 12px; width: auto; }
+            .st-text { font-size: 0.84rem; }
         }
         .hero-extra { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
         .hero-tiles { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
@@ -1405,23 +1387,16 @@
     </div>
 </header>
 
-<!-- ═══ POPUP DE ÎNTÂMPINARE — sfatul potrivit vremii de acum ═══ -->
-<div id="sfatPop" role="dialog" aria-modal="true" aria-labelledby="spText">
-    <div class="sp-card" id="spCard">
-        <button class="sp-x" id="spX" aria-label="Închide">✕</button>
-        <div class="sp-sus">
-            <div class="sp-ico" id="spIco">💡</div>
-            <div>
-                <div class="sp-et" id="spEt">Vremea la tine</div>
-                <div class="sp-loc" id="spLoc">Târgoviște</div>
-            </div>
+<!-- ═══ MESAJ DISCRET — sfatul potrivit vremii de acum ═══ -->
+<div id="sfatToast" role="status" aria-live="polite">
+    <div class="st-card" id="stCard">
+        <span class="st-ico" id="stIco">💡</span>
+        <div class="st-mij">
+            <div class="st-et" id="stEt">Vremea la tine</div>
+            <div class="st-text" id="stText"></div>
         </div>
-        <div class="sp-text" id="spText"></div>
-        <div class="sp-jos">
-            <div class="sp-puncte" id="spPuncte"></div>
-            <button class="sp-btn" id="spUrm" style="display:none;">Următorul</button>
-            <button class="sp-btn principal" id="spOk">Am înțeles</button>
-        </div>
+        <button class="st-x" id="stX" aria-label="Închide">✕</button>
+        <span class="st-timp"></span>
     </div>
 </div>
 
@@ -2741,58 +2716,44 @@ function calculeazaSfaturi() {
     return out.slice(0, 5);
 }
 
-/* Popup-ul apare O SINGURĂ dată per deschidere a aplicației. Îl pregătim
-   când avem destule date, dar îl arătăm doar după ce s-a terminat splash-ul,
-   ca să nu se suprapună două ferestre. */
+/* Un SINGUR mesaj, cel mai important, o singură dată per deschidere.
+   Apare după câteva secunde de la intrarea în aplicație, nu blochează
+   pagina și dispare singur dacă nu-l atingi. */
 var _popAratat = false;
 
 function randeazaSfaturi() {
     _sfaturi = calculeazaSfaturi();
-    if (!_sfaturi.length) return;
-    if (_popAratat) { if (document.getElementById('sfatPop').classList.contains('deschis')) aplicaSfat(_sfatIdx); return; }
-    // așteptăm să avem și datele extinse (UV, istoric), ca mesajul să fie cel bun
+    if (!_sfaturi.length || _popAratat) return;
+    // așteptăm datele extinse (UV, istoricul ultimelor zile) — altfel am arăta
+    // un mesaj generic în loc de cel potrivit
     if (CTX.uv === undefined && CTX.media5 === undefined) return;
     _popAratat = true;
-    setTimeout(deschideSfatPop, 900);
+    _sfatTimer = setTimeout(aratăToast, 6000);      // îl lăsăm pe om să se uite întâi
 }
 
-function deschideSfatPop() {
-    var pop = document.getElementById('sfatPop');
-    if (!pop || !_sfaturi.length) return;
-    _sfatIdx = 0;
-    aplicaSfat(0);
-    document.getElementById('spLoc').textContent = (typeof LOC !== 'undefined' && LOC.nume) ? LOC.nume : '';
-    document.getElementById('spEt').textContent = T('spEticheta');
-    document.getElementById('spOk').textContent = T('spOk');
-    document.getElementById('spUrm').textContent = T('spUrmator');
-    document.getElementById('spUrm').style.display = _sfaturi.length > 1 ? 'block' : 'none';
-    pop.classList.add('deschis');
+function aratăToast() {
+    var t = document.getElementById('sfatToast'), s = _sfaturi[0];
+    if (!t || !s) return;
+    document.getElementById('stIco').textContent = s.ico;
+    document.getElementById('stText').innerHTML = s.text;
+    document.getElementById('stEt').textContent =
+        ((typeof LOC !== 'undefined' && LOC.nume) ? LOC.nume : T('spEticheta'));
+    document.getElementById('stCard').className = 'st-card nv' + s.nivel;
+    t.classList.add('vizibil');
+    // dispare singur; avertizările grave stau ceva mai mult
+    _sfatTimer = setTimeout(inchideToast, s.nivel >= 3 ? 15000 : 11000);
 }
 
-function inchideSfatPop() {
-    var pop = document.getElementById('sfatPop');
-    if (pop) pop.classList.remove('deschis');
-    if (_sfatTimer) { clearInterval(_sfatTimer); _sfatTimer = null; }
+function inchideToast() {
+    var t = document.getElementById('sfatToast');
+    if (t) t.classList.remove('vizibil');
+    if (_sfatTimer) { clearTimeout(_sfatTimer); _sfatTimer = null; }
 }
 
-function aplicaSfat(i) {
-    var s = _sfaturi[i];
-    if (!s) return;
-    document.getElementById('spIco').textContent = s.ico;
-    document.getElementById('spText').innerHTML = s.text;
-    document.getElementById('spCard').className = 'sp-card nv' + s.nivel;
-    var p = '';
-    for (var k = 0; k < _sfaturi.length; k++) p += '<span class="sp-punct' + (k === i ? ' activ' : '') + '"></span>';
-    document.getElementById('spPuncte').innerHTML = _sfaturi.length > 1 ? p : '';
-}
-
-function schimbaSfat(pas) {
-    if (_sfaturi.length < 2) return;
-    _sfatIdx = (_sfatIdx + pas + _sfaturi.length) % _sfaturi.length;
-    aplicaSfat(_sfatIdx);
-}
-
-function porneșteRotatia() { /* păstrată pentru compatibilitate — popup-ul nu se rotește singur */ }
+/* păstrate pentru compatibilitate cu apelurile mai vechi din pagină */
+function aplicaSfat() {}
+function schimbaSfat() {}
+function porneșteRotatia() {}
 
 // Datele suplimentare (UV, rafale, ploaie) PLUS ultimele 5 zile.
 // Trecutul contează: fără el aplicația n-ar putea spune „ce răcoare, după
@@ -5565,20 +5526,19 @@ function aplicaLimba(l) {
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
 
-// butoanele popup-ului de întâmpinare
+// mesajul discret: se închide la apăsare, la X sau cu o glisare în sus
 (function() {
-    var pop = document.getElementById('sfatPop');
-    if (!pop) return;
-    document.getElementById('spX').addEventListener('click', inchideSfatPop);
-    document.getElementById('spOk').addEventListener('click', inchideSfatPop);
-    document.getElementById('spUrm').addEventListener('click', function() {
-        if (_sfatIdx >= _sfaturi.length - 1) { inchideSfatPop(); return; }
-        schimbaSfat(1);
-        if (_sfatIdx === _sfaturi.length - 1) document.getElementById('spUrm').textContent = T('spGata');
-    });
-    // clic pe fundal = închidere
-    pop.addEventListener('click', function(e) { if (e.target === pop) inchideSfatPop(); });
-    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSfatPop(); });
+    var t = document.getElementById('sfatToast');
+    if (!t) return;
+    document.getElementById('stX').addEventListener('click', function(e) { e.stopPropagation(); inchideToast(); });
+    document.getElementById('stCard').addEventListener('click', inchideToast);
+    var y0 = null;
+    t.addEventListener('touchstart', function(e) { y0 = e.touches[0].clientY; }, { passive: true });
+    t.addEventListener('touchend', function(e) {
+        if (y0 !== null && y0 - e.changedTouches[0].clientY > 30) inchideToast();
+        y0 = null;
+    }, { passive: true });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideToast(); });
 })();
 
 // ═══════════════════════════════════════════════════════════
