@@ -6325,7 +6325,9 @@ applyTheme(PREF.get('theme', 'system'));
         transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease;
         -webkit-tap-highlight-color: transparent;
     }
-    .chat-fab:active { transform: scale(1.12); background: rgba(255,255,255,0.32) !important; filter: contrast(1.14) brightness(1.1); }
+    .chat-fab.presat { transform: scale(1.10); background: rgba(255,255,255,0.30) !important;
+                       filter: contrast(1.10) brightness(1.07);
+                       box-shadow: 0 0 0 8px rgba(255,255,255,0.07), 0 12px 32px rgba(0,0,0,0.34) !important; }
 
     /* ── asistentul AI, în aceeași sticlă ── */
     .chat-window {
@@ -6685,29 +6687,64 @@ applyTheme(PREF.get('theme', 'system'));
     transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease,
                 box-shadow 0.18s ease, border-color 0.18s ease;
 }
-/* Apăsarea CREȘTE elementul și îi ridică puțin contrastul, ca pe iPhone —
-   sticla pare că se apropie de deget, nu că se afundă. */
-.mj-rot:active, .mo-sterge:active, .mr-btn:active, .sheet-close:active { transform: scale(1.12); }
-.mj-pilula:active, .mo-oras:active, .mb-card.apasabil:active { transform: scale(1.022); }
-.mb-seg button:active, .seg button:active, .mo-rez div:active, .mb-avchip:active { transform: scale(1.08); }
-.mj-rot:active, .mj-pilula:active, .mb-seg button:active, .mo-oras:active,
-.mr-btn:active, .sheet-close:active, .seg button:active, .mo-rez div:active,
-.mb-card.apasabil:active, .mb-avchip:active {
-    background: rgba(255,255,255,0.32);
-    border-color: rgba(255,255,255,0.50);
-    filter: contrast(1.14) brightness(1.10);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 8px 26px rgba(0,0,0,0.35);
+/* ══════════════════════════════════════════════════════════════
+   APĂSAREA — moale, ca o meduză
+   Nimic nu se declanșează brusc: strălucirea crește din punctul
+   atins, elementul se umflă puțin cu un mic recul, iar la ridicarea
+   degetului totul se stinge lent. Efectul e condus din JS, nu din
+   `:active`, tocmai ca să poată avea două viteze diferite —
+   intrare fermă, ieșire lină.
+   ══════════════════════════════════════════════════════════════ */
+.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn,
+.mb-seg button, .seg button, .mo-rez div, .mb-avchip, .mo-sterge,
+.sheet-close, .chat-suggestion, .lr-et {
+    position: relative;
+    /* ieșirea e mai lentă decât intrarea — asta dă senzația de moale */
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.3, 1),
+                box-shadow 0.55s ease, filter 0.55s ease,
+                background 0.45s ease, border-color 0.45s ease;
 }
-/* unda de lumină care traversează sticla la apăsare */
-.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn { position: relative; overflow: hidden; }
-.mj-rot::after, .mj-pilula::after, .mo-oras::after, .mb-card.apasabil::after, .mr-btn::after {
-    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+/* în timpul apăsării: creștere mică, cu un ușor recul */
+.presat {
+    transition: transform 0.19s cubic-bezier(0.34, 1.5, 0.5, 1),
+                box-shadow 0.22s ease, filter 0.22s ease,
+                background 0.22s ease, border-color 0.22s ease !important;
+    filter: contrast(1.10) brightness(1.07) saturate(1.05);
+    border-color: rgba(255,255,255,0.42) !important;
+}
+.mj-rot.presat, .mo-sterge.presat, .mr-btn.presat, .sheet-close.presat { transform: scale(1.10); }
+.mj-pilula.presat, .mo-oras.presat, .mb-card.apasabil.presat { transform: scale(1.018); }
+.mb-seg button.presat, .seg button.presat, .mo-rez div.presat,
+.mb-avchip.presat, .chat-suggestion.presat, .lr-et.presat { transform: scale(1.07); }
+
+/* aura care se aprinde sub deget şi se stinge singură */
+.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn,
+.mb-seg button, .seg button, .mo-rez div, .mb-avchip, .mo-sterge,
+.sheet-close, .chat-suggestion { overflow: hidden; }
+.mj-rot::after, .mj-pilula::after, .mo-oras::after, .mb-card.apasabil::after,
+.mr-btn::after, .mb-seg button::after, .seg button::after, .mo-rez div::after,
+.mb-avchip::after, .mo-sterge::after, .sheet-close::after, .chat-suggestion::after {
+    content: ''; position: absolute; inset: -40%; pointer-events: none;
+    opacity: 0; transform: scale(0.35);
     background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
-                rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 62%);
-    transition: opacity 0.45s ease;
+                rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.18) 34%, rgba(255,255,255,0) 68%);
+    /* aprindere blândă, stingere și mai blândă */
+    transition: opacity 0.55s ease, transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.mj-rot.unda::after, .mj-pilula.unda::after, .mo-oras.unda::after,
-.mb-card.apasabil.unda::after, .mr-btn.unda::after { opacity: 1; transition: opacity 0.05s; }
+.presat::after { opacity: 1; transform: scale(1); transition: opacity 0.16s ease, transform 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* halo moale în jurul elementului, cât e ținut apăsat */
+.mj-rot.presat, .mj-pilula.presat, .mr-btn.presat, .mo-sterge.presat, .sheet-close.presat {
+    box-shadow: 0 0 0 6px rgba(255,255,255,0.08), 0 10px 30px rgba(0,0,0,0.32),
+                inset 0 1px 0 rgba(255,255,255,0.55);
+}
+.mo-oras.presat, .mb-card.apasabil.presat, .mb-avchip.presat, .chat-suggestion.presat {
+    box-shadow: 0 0 0 4px rgba(255,255,255,0.07), 0 8px 24px rgba(0,0,0,0.26),
+                inset 0 1px 0 rgba(255,255,255,0.42);
+}
+@media (prefers-reduced-motion: reduce) {
+    .presat, .presat::after { transition: none !important; }
+}
 
 /* ══════════════════════════════════════════════════════════════
    HARTA DE PRECIPITAȚII PE TOT ECRANUL
@@ -7450,14 +7487,33 @@ function creeazaLuna3D(container, latura) {
     container.innerHTML = '';
     container.appendChild(rand.domElement);
 
+    /* Texturile se încarcă asincron. Fără randare după sosirea lor,
+       sfera rămâne neagră — exact ce se vedea în captura ta. */
     var incarcator = new THREE.TextureLoader();
-    var texCol = incarcator.load('moon_color.jpg');
-    var texRel = incarcator.load('moon_elev.jpg');
+    var sosite = 0, esuate = 0;
+    var candSoseste = function() {
+        sosite++;
+        mat.needsUpdate = true;
+        deseneazaCadru3D();
+        // câteva randări în plus, cât se așază texturile pe GPU
+        [60, 240, 700].forEach(function(t) { setTimeout(deseneazaCadru3D, t); });
+    };
+    var candEsueaza = function() {
+        esuate++;
+        if (esuate >= 2) {          // lipsesc hărțile → revenim la varianta 2D
+            L3.gata = false;
+            container.innerHTML = '';
+            try { deseneazaLuna(); } catch (e) {}
+        } else { deseneazaCadru3D(); }
+    };
+    var texCol = incarcator.load('moon_color.jpg', candSoseste, undefined, candEsueaza);
+    var texRel = incarcator.load('moon_elev.jpg', candSoseste, undefined, candEsueaza);
     texCol.anisotropy = 4;
 
     // 256×128 segmente → relieful se vede pe siluetă, nu doar în umbre
     var geo = new THREE.SphereGeometry(1, 256, 128);
     var mat = new THREE.MeshStandardMaterial({
+        color: 0xd8d4c8,                              // ca sfera să nu fie neagră până sosesc texturile
         map: texCol,
         bumpMap: texRel, bumpScale: 0.022,            // craterele
         displacementMap: texRel, displacementScale: 0.032, displacementBias: -0.016,
@@ -7474,6 +7530,8 @@ function creeazaLuna3D(container, latura) {
 
     L3.scena = scena; L3.cam = cam; L3.rand = rand; L3.luna = luna; L3.lumina = lumina;
     L3.gata = true;
+    // o randare imediată, ca să nu rămână gol până sosesc texturile
+    setTimeout(deseneazaCadru3D, 0);
 
     // rotire cu degetul
     var el = rand.domElement, apasat = false, px = 0, py = 0;
@@ -8377,16 +8435,45 @@ function mobHartaAnm(id) {
         if (_mrHarta) _mrHarta.flyTo([LOC.lat, LOC.lon], 6.5, { duration: 0.6 });
     });
 
-    /* unda de lumină sub deget, pentru toate butoanele de sticlă */
-    document.addEventListener('pointerdown', function(e) {
-        var el = e.target.closest('.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn');
-        if (!el) return;
+    /* ── apăsarea „de meduză" ──
+       Aura pornește exact din punctul atins și crește; la ridicare se
+       stinge lent. Ținem elementul apăsat cât stă degetul pe el, nu
+       doar câteva sute de milisecunde. */
+    var SELECTOR_APASABIL = '.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn,' +
+        '.mb-seg button, .seg button, .mo-rez div, .mb-avchip, .mo-sterge, .sheet-close,' +
+        '.chat-suggestion, .lr-et, .chat-fab, .sp-btn, .lp-btn';
+    var _elApasat = null;
+
+    function incepeApasarea(el, x, y) {
+        if (_elApasat) terminaApasarea();
         var r = el.getBoundingClientRect();
-        el.style.setProperty('--px', ((e.clientX - r.left) / r.width * 100) + '%');
-        el.style.setProperty('--py', ((e.clientY - r.top) / r.height * 100) + '%');
-        el.classList.add('unda');
-        setTimeout(function() { el.classList.remove('unda'); }, 420);
+        el.style.setProperty('--px', ((x - r.left) / r.width * 100) + '%');
+        el.style.setProperty('--py', ((y - r.top) / r.height * 100) + '%');
+        el.classList.add('presat');
+        _elApasat = el;
+        vibreaza(6);
+    }
+    function terminaApasarea() {
+        if (!_elApasat) return;
+        _elApasat.classList.remove('presat');
+        _elApasat = null;
+    }
+
+    document.addEventListener('pointerdown', function(e) {
+        var el = e.target.closest(SELECTOR_APASABIL);
+        if (el) incepeApasarea(el, e.clientX, e.clientY);
     }, { passive: true });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
+        document.addEventListener(ev, terminaApasarea, { passive: true });
+    });
+    // dacă degetul alunecă de pe element, lăsăm efectul să se stingă
+    document.addEventListener('pointermove', function(e) {
+        if (!_elApasat) return;
+        var r = _elApasat.getBoundingClientRect();
+        if (e.clientX < r.left - 18 || e.clientX > r.right + 18 ||
+            e.clientY < r.top - 18 || e.clientY > r.bottom + 18) terminaApasarea();
+    }, { passive: true });
+    document.addEventListener('scroll', terminaApasarea, { passive: true, capture: true });
     var bL = document.getElementById('mjLista');
     if (bL) bL.addEventListener('click', function() { try { document.getElementById('settingsBtn').click(); } catch (e) {} });
 })();
