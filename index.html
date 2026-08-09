@@ -1238,6 +1238,11 @@
             @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
                 .sheet { background: rgba(24, 33, 64, 0.98); }
             }
+            /* Orice câmp de text sub 16px face iPhone-ul să mărească pagina
+               la focus și să rămână așa. Le ridicăm pe toate la 16px. */
+            input[type="text"], input[type="search"], input:not([type]), textarea, select {
+                font-size: 16px !important;
+            }
         }
 
         /* ══════════════════════════════════════════════════════
@@ -4965,6 +4970,8 @@ function aplicaUnitate(u) {
     try { loadSynopStations(); } catch (e) {}
     try { if (typeof renderForecastDay === 'function' && fcData) renderForecastDay(); } catch (e) {}
     try { analizeazaZiua(); } catch (e) {}
+    // interfața de telefon se redesenează pe loc, fără să mai schimbi orașul
+    try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
 }
 document.querySelectorAll('#unitSeg button').forEach(function(b) {
     b.addEventListener('click', function() { aplicaUnitate(b.getAttribute('data-unit')); });
@@ -5398,6 +5405,8 @@ var I18N = {
         notifANM: 'Dacă orașul ales e din România, primești automat și avertizările oficiale ANM.',
         despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume',
         notifActiv: '✅ Activat pentru {oras}.',
+        legExtreme: 'Extreme', legAbundente: 'Abundente', legModerate: 'Moderate', legSlabe: 'Slabe',
+        locatiaTa: 'Locația ta',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -5507,6 +5516,8 @@ var I18N = {
         notifANM: 'If your city is in Romania, you also get the official ANM warnings automatically.',
         despre: 'About', despreSub: 'Real-time weather, anywhere in the world',
         notifActiv: '✅ Enabled for {oras}.',
+        legExtreme: 'Extreme', legAbundente: 'Heavy', legModerate: 'Moderate', legSlabe: 'Light',
+        locatiaTa: 'Your location',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
@@ -6400,7 +6411,10 @@ applyTheme(PREF.get('theme', 'system'));
 .mo-sterge:hover { background: rgba(229,72,77,0.45); color: #fff; }
 .mo-cauta { position: relative; margin-bottom: 12px; }
 .mo-cauta input {
-    width: 100%; padding: 13px 15px; border-radius: 15px; font-size: 0.92rem; font-family: inherit;
+    width: 100%; padding: 13px 15px; border-radius: 15px; font-family: inherit;
+    /* 16px fix: sub această valoare, iPhone-ul mărește singur pagina când
+       intri în câmp și rămâne mărită — de aici „se strică zoom-ul" */
+    font-size: 16px;
     background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18);
     color: #fff; outline: none;
 }
@@ -6444,6 +6458,94 @@ applyTheme(PREF.get('theme', 'system'));
     .mb-card, .mj-rot, .mj-pilula, #mobBara { background: rgba(28, 38, 72, 0.90); }
     .mf-corp { background: rgba(24, 33, 64, 0.98); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   RĂSPUNS LA APĂSARE — sticla „se lasă" sub deget
+   O singură clasă pentru toate butoanele interfeței mobile.
+   ══════════════════════════════════════════════════════════════ */
+.mj-rot, .mj-pilula, .mb-seg button, .mo-oras, .mo-sterge, .mb-card.apasabil,
+.mr-btn, .sheet-close, .seg button, .mo-rez div {
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease,
+                box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.mj-rot:active, .mo-sterge:active, .mr-btn:active, .sheet-close:active { transform: scale(0.88); }
+.mj-pilula:active, .mo-oras:active, .mb-card.apasabil:active { transform: scale(0.975); }
+.mb-seg button:active, .seg button:active, .mo-rez div:active { transform: scale(0.93); }
+.mj-rot:active, .mj-pilula:active, .mb-seg button:active, .mo-oras:active,
+.mr-btn:active, .sheet-close:active, .seg button:active, .mo-rez div:active {
+    background: rgba(255,255,255,0.30);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 0 0 4px rgba(255,255,255,0.09);
+}
+/* unda de lumină care traversează sticla la apăsare */
+.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn { position: relative; overflow: hidden; }
+.mj-rot::after, .mj-pilula::after, .mo-oras::after, .mb-card.apasabil::after, .mr-btn::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at var(--px, 50%) var(--py, 50%),
+                rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 62%);
+    transition: opacity 0.45s ease;
+}
+.mj-rot.unda::after, .mj-pilula.unda::after, .mo-oras.unda::after,
+.mb-card.apasabil.unda::after, .mr-btn.unda::after { opacity: 1; transition: opacity 0.05s; }
+
+/* ══════════════════════════════════════════════════════════════
+   HARTA DE PRECIPITAȚII PE TOT ECRANUL
+   ══════════════════════════════════════════════════════════════ */
+#mobRadarPlin {
+    position: fixed; inset: 0; z-index: 9850; display: none;
+    background: #1c1c1e;
+}
+#mobRadarPlin.deschis { display: block; }
+#mrHarta { position: absolute; inset: 0; }
+#mrHarta .leaflet-container { background: #1c1c1e; }
+.mr-btn {
+    position: absolute; z-index: 20; width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(120, 120, 128, 0.42);
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.16); color: #fff; font-size: 1.15rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+#mrInchide { top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; }
+.mr-dreapta {
+    position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px));
+    z-index: 20; display: flex; flex-direction: column; gap: 10px;
+}
+.mr-dreapta .mr-btn { position: relative; top: auto; right: auto; }
+/* legenda, ca pe iPhone */
+#mrLegenda {
+    position: absolute; z-index: 20; left: 14px;
+    top: calc(74px + env(safe-area-inset-top, 0px));
+    border-radius: 16px; padding: 12px 14px;
+    background: rgba(60, 60, 67, 0.55);
+    -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.14); color: #fff;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+}
+#mrLegenda .l-tit { font-size: 0.86rem; font-weight: 600; margin-bottom: 9px; }
+#mrLegenda .l-corp { display: flex; gap: 10px; }
+#mrLegenda .l-bara {
+    width: 5px; border-radius: 3px;
+    background: linear-gradient(180deg, #f5f36f 0%, #f0a04a 30%, #c05ce0 58%, #6c7bf0 82%, #4a7de0 100%);
+}
+#mrLegenda .l-et { display: flex; flex-direction: column; justify-content: space-between;
+                   font-size: 0.8rem; color: rgba(255,255,255,0.78); line-height: 1.55; }
+/* bula cu temperatura ta */
+.mr-bula {
+    background: rgba(88, 86, 132, 0.86);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.24); border-radius: 999px;
+    color: #fff; font-weight: 600; text-align: center; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.32);
+}
+.mr-bula.mare { padding: 8px 14px; font-size: 1.35rem; line-height: 1.1; }
+.mr-bula.mare .b-ic { font-size: 0.95rem; display: block; margin-top: -1px; }
+.mr-bula.mica { padding: 4px 9px; font-size: 0.86rem; }
+.mr-punct { width: 9px; height: 9px; border-radius: 50%; background: #2b2b2f; border: 1.5px solid rgba(255,255,255,0.5); }
+.mr-et { font-size: 0.68rem; color: rgba(255,255,255,0.75); text-align: center; margin-top: 2px; white-space: nowrap; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mr-btn, #mrLegenda { background: rgba(50, 50, 58, 0.94); }
+}
 </style>
 
 <div id="mobApp">
@@ -6473,6 +6575,28 @@ applyTheme(PREF.get('theme', 'system'));
             <span class="mj-puncte" id="mjPuncte"></span>
         </div>
         <button class="mj-rot" id="mjLista" title="Meniu">☰</button>
+    </div>
+</div>
+
+<!-- ═══ HARTA DE PRECIPITAȚII PE TOT ECRANUL ═══ -->
+<div id="mobRadarPlin">
+    <div id="mrHarta"></div>
+    <button class="mr-btn" id="mrInchide" aria-label="Închide">✕</button>
+    <div class="mr-dreapta">
+        <button class="mr-btn" id="mrStraturi" title="Straturi">◈</button>
+        <button class="mr-btn" id="mrCentru" title="Locația mea">➤</button>
+    </div>
+    <div id="mrLegenda">
+        <div class="l-tit" id="mrLegTit">Precipitații</div>
+        <div class="l-corp">
+            <div class="l-bara"></div>
+            <div class="l-et">
+                <span id="mrL1">Extreme</span>
+                <span id="mrL2">Abundente</span>
+                <span id="mrL3">Moderate</span>
+                <span id="mrL4">Slabe</span>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -6584,11 +6708,13 @@ function mobCer() {
     if (cod >= 51 && cod <= 99) clasa = 'ploaie';
     else if (ziLumina && cod >= 3) clasa = 'noros';
     else if (ziLumina) clasa = 'zi';
-    // aproape de apus sau răsărit → cer cald
+    // Răsăritul și apusul se văd MEREU, chiar dacă e înnorat sau plouă —
+    // e cel mai frumos moment al zilei și merită arătat.
     try {
-        var acum = new Date(), ap = new Date(zi.sunset[0]), ra = new Date(zi.sunrise[0]);
-        var d1 = Math.abs(acum - ap) / 60000, d2 = Math.abs(acum - ra) / 60000;
-        if ((d1 < 60 || d2 < 60) && cod < 51) clasa = 'apus';
+        var acum = mobAcumLocal();
+        var d1 = Math.abs(acum - mobDinIso(zi.sunset[0])) / 60000;
+        var d2 = Math.abs(acum - mobDinIso(zi.sunrise[0])) / 60000;
+        if (d1 < 75 || d2 < 75) clasa = 'apus';
     } catch (e) {}
     el.className = clasa;
     mobStele(clasa === 'noapte');
@@ -6629,16 +6755,40 @@ function mobAmesteca(c1, c2, f) {
     return 'rgb(' + Math.round(a[0]+(b[0]-a[0])*f) + ',' + Math.round(a[1]+(b[1]-a[1])*f) + ',' + Math.round(a[2]+(b[2]-a[2])*f) + ')';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   TIMPUL, CORECT PENTRU ORAȘUL ALES
+   Open-Meteo trimite orele deja în fusul orașului, ca text simplu
+   („2026-08-09T05:00"), fără zonă. Dacă le dădeam prin `new Date()`,
+   browserul le citea ca ore românești — de aia, la New York, banda pe
+   ore rămânea pe ora de la noi. Acum citim direct din text.
+   ══════════════════════════════════════════════════════════════ */
 function mobOra(iso) {
-    try { return new Date(iso).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', { hour: '2-digit', minute: '2-digit' }); }
-    catch (e) { return ''; }
+    var m = String(iso || '').match(/T(\d{2}):(\d{2})/);
+    if (!m) return '';
+    if (LANG === 'en') {
+        var h = +m[1], sufix = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+        return h12 + ':' + m[2] + ' ' + sufix;
+    }
+    return m[1] + ':' + m[2];
+}
+// „2026-08-09T05:00" → obiect Date cu aceleași cifre, ca să putem compara
+function mobDinIso(iso) {
+    var m = String(iso || '').match(/(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/);
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+}
+// ora locală A ORAȘULUI, exprimată în aceleași cifre ca datele de mai sus
+function mobAcumLocal() {
+    var off = (MOBD && MOBD.utc_offset_seconds != null) ? MOBD.utc_offset_seconds : 0;
+    var d = new Date();
+    return new Date(d.getTime() + off * 1000 + d.getTimezoneOffset() * 60000);
 }
 function mobZiScurt(iso, i) {
     if (i === 0) return T('azi2');
-    try {
-        var n = new Date(iso).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' });
-        return n.charAt(0).toUpperCase() + n.slice(1).replace('.', '') + '.';
-    } catch (e) { return ''; }
+    var d = mobDinIso(iso);
+    if (!d) return '';
+    var n = d.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' });
+    return n.charAt(0).toUpperCase() + n.slice(1).replace('.', '') + '.';
 }
 
 /* ══ ANTETUL ══ */
@@ -6661,8 +6811,8 @@ function mobAntet() {
 /* ══ BANDA PE ORE ══ */
 function mobCardOre() {
     var o = MOBD.hourly, zi = MOBD.daily;
-    var acum = new Date(), start = 0;
-    for (var i = 0; i < o.time.length; i++) { if (new Date(o.time[i]) >= acum) { start = Math.max(0, i - 1); break; } }
+    var acum = mobAcumLocal(), start = 0;
+    for (var i = 0; i < o.time.length; i++) { if (mobDinIso(o.time[i]) >= acum) { start = Math.max(0, i - 1); break; } }
     var titluri = { temp: T('conditiiMeteo'), precip: T('precipitatii'), vant: T('vant') };
     var subt = { temp: T('temperatura') + ' (°' + UNIT + ')', precip: T('sanseDePloaie'), vant: T('viteza') + ' (km/h)' };
 
@@ -6678,14 +6828,14 @@ function mobCardOre() {
     // reperele de răsărit/apus intercalate între ore
     var repere = [];
     try {
-        for (var z = 0; z < 2; z++) {
-            repere.push({ t: new Date(zi.sunrise[z]), et: T('rasarit'), ic: '🌅' });
-            repere.push({ t: new Date(zi.sunset[z]), et: T('apus'), ic: '🌇' });
+        for (var z = 0; z < 3; z++) {
+            if (zi.sunrise[z]) repere.push({ t: mobDinIso(zi.sunrise[z]), iso: zi.sunrise[z], et: T('rasarit'), ic: '🌅' });
+            if (zi.sunset[z])  repere.push({ t: mobDinIso(zi.sunset[z]),  iso: zi.sunset[z],  et: T('apus'),    ic: '🌇' });
         }
     } catch (e) {}
 
     for (var k = start; k < Math.min(start + 25, o.time.length); k++) {
-        var t = new Date(o.time[k]), urm = new Date(o.time[Math.min(k+1, o.time.length-1)]);
+        var t = mobDinIso(o.time[k]), urm = mobDinIso(o.time[Math.min(k+1, o.time.length-1)]);
         var etOra = (k === start) ? T('acum') : mobOra(o.time[k]);
         var val, sub = '';
         if (_mobOraMod === 'temp') { val = Math.round(cv(o.temperature_2m[k])) + '°'; sub = o.precipitation_probability[k] >= 15 ? o.precipitation_probability[k] + '%' : ''; }
@@ -6700,7 +6850,7 @@ function mobCardOre() {
         // intercalăm răsăritul/apusul dacă pică între ora asta și următoarea
         repere.forEach(function(r) {
             if (r.t > t && r.t <= urm) {
-                h += '<div class="mb-ora"><div class="o-t">' + mobOra(r.t.toISOString()) + '</div>' +
+                h += '<div class="mb-ora"><div class="o-t">' + mobOra(r.iso) + '</div>' +
                      '<div class="o-i">' + r.ic + '</div><div class="o-p"></div>' +
                      '<div class="o-v" style="font-size:0.8rem;">' + r.et + '</div></div>';
             }
@@ -6839,14 +6989,21 @@ function mobGrila() {
     return h;
 }
 function ora_curenta_index() {
-    var acum = new Date();
-    for (var i = 0; i < MOBD.hourly.time.length; i++) if (new Date(MOBD.hourly.time[i]) >= acum) return i;
+    var acum = mobAcumLocal();
+    for (var i = 0; i < MOBD.hourly.time.length; i++) if (mobDinIso(MOBD.hourly.time[i]) >= acum) return i;
     return 0;
 }
 
 /* ══ ASAMBLAREA ══ */
 function mobRandare() {
     if (!esteMobil() || !MOBD) return;
+    // Hărțile vechi trebuie distruse înainte să rescriem pagina, altfel
+    // Leaflet rămâne agățat de containere care nu mai există și harta
+    // păstrează orașul și zoom-ul anterioare.
+    for (var k in _mobHarti) {
+        try { if (_mobHarti[k] && _mobHarti[k].remove) _mobHarti[k].remove(); } catch (e) {}
+    }
+    _mobHarti = {};
     mobCer();
     mobAntet();
     var h = '';
@@ -6943,10 +7100,8 @@ function mobDeschideFoaie(care) {
              '<div class="mb-harta" id="mfHartaAnm" style="height:280px;"></div></div>';
         c.innerHTML = h;
     } else if (care === 'radar') {
-        t.textContent = T('precipitatii');
-        c.innerHTML = '<div class="mb-card"><div class="mb-harta" id="mfRadar" style="height:340px;"></div>' +
-            '<div class="mb-nota">' + T('radarNota') + '</div></div>';
-        setTimeout(function() { mobHartaRadarMare('mfRadar'); }, 260);
+        deschideRadarPlin();          // harta merge pe tot ecranul, ca pe iPhone
+        return;
     } else if (care === 'clima') {
         t.textContent = T('ccTitlu');
         var d = _ccDate;
@@ -7047,16 +7202,108 @@ function mobFoaieOrase() {
 }
 function mobInchideFoaie() { document.getElementById('mobFoaie').classList.remove('deschis'); }
 
-function mobHartaRadarMare(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    var m = L.map(id, { zoomControl: false, attributionControl: false, maxZoom: 9 }).setView([LOC.lat, LOC.lon], 7);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 9 }).addTo(m);
-    fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
-        var u = d.radar.past[d.radar.past.length - 1];
-        L.tileLayer(d.host + u.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.78, maxNativeZoom: 9, maxZoom: 9 }).addTo(m);
-    }).catch(function() {});
-    setTimeout(function() { m.invalidateSize(); }, 250);
+/* ══════════════════════════════════════════════════════════════
+   HARTA DE PRECIPITAȚII PE TOT ECRANUL
+   Fundal întunecat cu etichete, radar deasupra, bula ta cu
+   temperatura și pastile mici pentru orașele din jur.
+   ══════════════════════════════════════════════════════════════ */
+var _mrHarta = null, _mrStratRadar = null, _mrTipFundal = 0;
+
+function deschideRadarPlin() {
+    var box = document.getElementById('mobRadarPlin');
+    box.classList.add('deschis');
+    document.getElementById('mrLegTit').textContent = T('precipitatii');
+    document.getElementById('mrL1').textContent = T('legExtreme');
+    document.getElementById('mrL2').textContent = T('legAbundente');
+    document.getElementById('mrL3').textContent = T('legModerate');
+    document.getElementById('mrL4').textContent = T('legSlabe');
+
+    if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
+    setTimeout(function() {
+        _mrHarta = L.map('mrHarta', { zoomControl: false, attributionControl: false,
+                                      maxZoom: 9, minZoom: 3, zoomSnap: 0.25 })
+                    .setView([LOC.lat, LOC.lon], 6.5);
+        mrFundal(0);
+        mrRadar();
+        mrMarcaje();
+        setTimeout(function() { _mrHarta.invalidateSize(); }, 120);
+    }, 30);
+}
+function inchideRadarPlin() {
+    document.getElementById('mobRadarPlin').classList.remove('deschis');
+    if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
+}
+function mrFundal(tip) {
+    if (!_mrHarta) return;
+    if (_mrHarta._fundal) _mrHarta.removeLayer(_mrHarta._fundal);
+    if (_mrHarta._etichete) { _mrHarta.removeLayer(_mrHarta._etichete); _mrHarta._etichete = null; }
+    if (tip === 1) {
+        // satelit, cu denumirile deasupra
+        _mrHarta._fundal = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            { maxNativeZoom: 9, maxZoom: 9 }).addTo(_mrHarta);
+        _mrHarta._etichete = L.tileLayer(
+            'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+            { maxZoom: 9, opacity: 0.85 }).addTo(_mrHarta);
+    } else {
+        _mrHarta._fundal = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            { maxZoom: 9 }).addTo(_mrHarta);
+    }
+    if (_mrStratRadar) _mrStratRadar.bringToFront();
+}
+function mrRadar() {
+    fetch('https://api.rainviewer.com/public/weather-maps.json')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var u = d.radar.past[d.radar.past.length - 1];
+            if (!_mrHarta) return;
+            // schema 4 („Universal Blue") seamănă cel mai bine cu cea de pe iPhone
+            _mrStratRadar = L.tileLayer(d.host + u.path + '/512/{z}/{x}/{y}/4/1_1.png',
+                { opacity: 0.85, maxNativeZoom: 9, maxZoom: 9, tileSize: 512, zoomOffset: -1 }).addTo(_mrHarta);
+        }).catch(function() {});
+}
+function mrMarcaje() {
+    if (!_mrHarta || !MOBD) return;
+    var t = Math.round(cv(MOBD.current.temperature_2m));
+    // bula ta, cu temperatura și pictograma vremii
+    L.marker([LOC.lat, LOC.lon], { interactive: false, icon: L.divIcon({
+        className: '', iconSize: [null, null], iconAnchor: [42, 74],
+        html: '<div style="display:flex;flex-direction:column;align-items:center;width:84px;">' +
+              '<div class="mr-bula mare">' + t + '°<span class="b-ic">' + wmoIcon(MOBD.current.weather_code) + '</span></div>' +
+              '<div class="mr-punct" style="margin-top:5px;"></div>' +
+              '<div class="mr-et">' + T('locatiaTa') + '</div></div>'
+    }) }).addTo(_mrHarta);
+
+    // câteva orașe din jur, ca pe hartă la ei
+    var pas = 1.6, cosLat = Math.max(0.3, Math.cos(LOC.lat * Math.PI / 180));
+    var puncte = [[LOC.lat + pas, LOC.lon], [LOC.lat - pas, LOC.lon],
+                  [LOC.lat, LOC.lon + pas / cosLat], [LOC.lat, LOC.lon - pas / cosLat],
+                  [LOC.lat + pas * 0.7, LOC.lon + pas * 0.7 / cosLat],
+                  [LOC.lat - pas * 0.7, LOC.lon - pas * 0.7 / cosLat]];
+    var lats = puncte.map(function(p) { return p[0].toFixed(3); }).join(',');
+    var lons = puncte.map(function(p) { return p[1].toFixed(3); }).join(',');
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&current=temperature_2m')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var v = Array.isArray(d) ? d : [d];
+            v.forEach(function(x, i) {
+                if (!_mrHarta || !x.current) return;
+                var p = puncte[i];
+                fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + p[0] +
+                      '&longitude=' + p[1] + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
+                    .then(function(r) { return r.json(); })
+                    .then(function(g) {
+                        var nume = g.city || g.locality || g.principalSubdivision || '';
+                        if (!nume || !_mrHarta) return;
+                        L.marker(p, { interactive: false, icon: L.divIcon({
+                            className: '', iconSize: [null, null], iconAnchor: [34, 26],
+                            html: '<div style="display:flex;flex-direction:column;align-items:center;width:68px;">' +
+                                  '<div class="mr-bula mica">' + Math.round(cv(x.current.temperature_2m)) + '°</div>' +
+                                  '<div class="mr-et">' + nume + '</div></div>'
+                        }) }).addTo(_mrHarta);
+                    }).catch(function() {});
+            });
+        }).catch(function() {});
 }
 function mobHartaAnm(id) {
     var el = document.getElementById(id);
@@ -7066,8 +7313,8 @@ function mobHartaAnm(id) {
         setTimeout(function() { mobHartaAnm(id); }, 2500);
         return;
     }
-    _mobHarti[id] = true;
     var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
+    _mobHarti[id] = m;
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(m);
     var strat = L.geoJSON(_judeteGeo, { style: function() { return { color: 'rgba(255,255,255,0.35)', weight: 0.8, fillColor: '#3fbf5a', fillOpacity: 0.22 }; } }).addTo(m);
     m.fitBounds(strat.getBounds(), { padding: [6, 6] });
@@ -7118,7 +7365,28 @@ function mobHartaAnm(id) {
         }, { passive: true });
     }
     var bH = document.getElementById('mjHarta');
-    if (bH) bH.addEventListener('click', function() { mobDeschideFoaie('radar'); });
+    if (bH) bH.addEventListener('click', deschideRadarPlin);
+
+    // butoanele hărții pe tot ecranul
+    document.getElementById('mrInchide').addEventListener('click', inchideRadarPlin);
+    document.getElementById('mrStraturi').addEventListener('click', function() {
+        _mrTipFundal = _mrTipFundal ? 0 : 1;
+        mrFundal(_mrTipFundal);
+    });
+    document.getElementById('mrCentru').addEventListener('click', function() {
+        if (_mrHarta) _mrHarta.flyTo([LOC.lat, LOC.lon], 6.5, { duration: 0.6 });
+    });
+
+    /* unda de lumină sub deget, pentru toate butoanele de sticlă */
+    document.addEventListener('pointerdown', function(e) {
+        var el = e.target.closest('.mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn');
+        if (!el) return;
+        var r = el.getBoundingClientRect();
+        el.style.setProperty('--px', ((e.clientX - r.left) / r.width * 100) + '%');
+        el.style.setProperty('--py', ((e.clientY - r.top) / r.height * 100) + '%');
+        el.classList.add('unda');
+        setTimeout(function() { el.classList.remove('unda'); }, 420);
+    }, { passive: true });
     var bL = document.getElementById('mjLista');
     if (bL) bL.addEventListener('click', function() { try { document.getElementById('settingsBtn').click(); } catch (e) {} });
 })();
