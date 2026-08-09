@@ -6304,6 +6304,25 @@ applyTheme(PREF.get('theme', 'system'));
     -webkit-font-smoothing: antialiased;
 }
 
+/* ══════════════════════════════════════════════════════════════
+   FĂRĂ SELECTARE ȘI FĂRĂ COPIERE
+   Aplicația se citește, nu se copiază — ca pe iPhone. Blocăm
+   selecția textului, meniul de la apăsare lungă pe imagini și
+   tragerea lor afară. Câmpurile de scris rămân normale.
+   ══════════════════════════════════════════════════════════════ */
+#mobApp, #mobFoaie, #mobRadarPlin, #sfatToast, .sheet, .chat-window, #splash, #welcome {
+    -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+    -webkit-touch-callout: none;
+}
+#mobApp img, #mobFoaie img, #mobRadarPlin img, .chat-window img, canvas {
+    -webkit-user-drag: none; user-select: none; pointer-events: auto;
+}
+/* excepțiile: unde chiar scrii sau alegi text */
+input, textarea, select, [contenteditable="true"] {
+    -webkit-user-select: text !important; user-select: text !important;
+    -webkit-touch-callout: default;
+}
+
 @media (max-width: 760px) {
     /* ascundem interfața de desktop, fără s-o scoatem din pagină
        (codul vechi încă scrie în ea, dar nu se mai vede) */
@@ -6498,18 +6517,34 @@ applyTheme(PREF.get('theme', 'system'));
 .ml-data { font-size: 0.86rem; color: rgba(255,255,255,0.75); margin-bottom: 12px; }
 /* touch-action: none — altfel gestul orizontal de pe riglă era interpretat
    și ca glisare între orașe, și mișca tot ecranul odată cu ea */
-.ml-rigla { position: relative; padding: 8px 0 2px; cursor: grab; touch-action: none; user-select: none; }
-.lr-gradatii { display: flex; justify-content: space-between; align-items: flex-end; height: 20px; }
-.lr-lin { width: 1px; height: 9px; background: rgba(255,255,255,0.28); border-radius: 1px; }
+.ml-rigla {
+    position: relative; padding: 8px 0 2px; cursor: grab;
+    touch-action: none; user-select: none; overflow: hidden;
+    /* marginile se sting, ca rigla să nu pară tăiată brusc */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+/* Banda alunecă sub marcaj. 29 de zile × 26 px = 754 px lățime;
+   ziua de azi e a 15-a, deci centrul ei cade la 14×26 + 13 = 377 px —
+   exact cât deplasăm banda ca „AZI" să pice sub vârful marcajului. */
+.lr-banda { width: 754px; margin-left: calc(50% - 377px); will-change: transform; }
+.lr-gradatii { display: flex; align-items: flex-end; height: 20px; }
+.lr-lin { width: 1px; height: 9px; margin-right: 5.5px; background: rgba(255,255,255,0.28); border-radius: 1px; }
 .lr-lin.mare { height: 17px; background: rgba(255,255,255,0.55); }
 .lr-marcaj {
     position: absolute; left: 50%; top: 0; transform: translateX(-50%);
     width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
-    border-top: 7px solid #6fd0ff;
+    border-top: 7px solid #6fd0ff; pointer-events: none; z-index: 2;
+    filter: drop-shadow(0 0 6px rgba(111,208,255,0.55));
 }
-.lr-etichete { display: flex; justify-content: space-between; margin-top: 5px; }
-.lr-et { font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.3px; cursor: pointer; }
-.lr-et.azi { color: #fff; font-weight: 800; }
+.lr-etichete { display: flex; margin-top: 5px; }
+.lr-et {
+    width: 26px; flex: 0 0 26px; text-align: center;
+    font-size: 0.6rem; font-weight: 600; color: rgba(255,255,255,0.42);
+    letter-spacing: 0.2px; cursor: pointer;
+    transition: color 0.35s ease, font-weight 0.35s ease, transform 0.35s ease;
+}
+.lr-et.azi { color: #fff; font-weight: 800; transform: scale(1.08); }
 .ml-tabel { margin-top: 14px; text-align: left; }
 .ml-rand {
     display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
@@ -6910,6 +6945,26 @@ function esteMobil() { return window.matchMedia('(max-width: 760px)').matches; }
 function vibreaza(ms) {
     try { if (navigator.vibrate) navigator.vibrate(ms || 10); } catch (e) {}
 }
+
+/* Fără meniu de copiere și fără tragerea imaginilor — doar de privit.
+   Lăsăm în pace câmpurile de scris, altfel n-ai mai putea lipi un text. */
+(function() {
+    var scrisibil = function(t) {
+        return t && (t.closest('input, textarea, select, [contenteditable="true"]'));
+    };
+    document.addEventListener('contextmenu', function(e) {
+        if (esteMobil() && !scrisibil(e.target)) e.preventDefault();
+    });
+    document.addEventListener('dragstart', function(e) {
+        if (!scrisibil(e.target)) e.preventDefault();
+    });
+    document.addEventListener('selectstart', function(e) {
+        if (esteMobil() && !scrisibil(e.target)) e.preventDefault();
+    });
+    document.addEventListener('copy', function(e) {
+        if (esteMobil() && !scrisibil(document.activeElement)) e.preventDefault();
+    });
+})();
 
 /* ══════════════════════════════════════════════════════════════
    ORAȘELE SALVATE
@@ -7412,8 +7467,8 @@ function lunaAltitudine(ms, lat, lon) {
     return Math.asin(Math.sin(lat * rad) * Math.sin(dec) + Math.cos(lat * rad) * Math.cos(dec) * Math.cos(H)) / rad;
 }
 // căutăm trecerile prin orizont în următoarele 24 de ore
-function lunaRasaritApus(lat, lon) {
-    var start = new Date(); start.setHours(0, 0, 0, 0);
+function lunaRasaritApus(lat, lon, baza) {
+    var start = new Date(baza || Date.now()); start.setHours(0, 0, 0, 0);
     var t0 = start.getTime(), ras = null, apu = null;
     var a0 = lunaAltitudine(t0, lat, lon);
     for (var m = 10; m <= 1440; m += 10) {
@@ -7551,7 +7606,14 @@ function creeazaLuna3D(container, latura) {
 
     var lumina = new THREE.DirectionalLight(0xfff6e8, 2.6);
     scena.add(lumina);
-    scena.add(new THREE.AmbientLight(0x4a5570, 0.10));   // lumina cenușie a Pământului
+    /* Lumina cenușie — pe cer, partea neluminată a Lunii nu e complet
+       neagră: e luminată slab de Pământ. Fără ea, secera plutea în gol;
+       acum se ghicește tot discul, ca o umbră albăstruie. */
+    scena.add(new THREE.AmbientLight(0x5b6fa8, 0.30));
+    // o a doua lumină, foarte slabă, dinspre privitor — dă volum umbrei
+    var pamant = new THREE.DirectionalLight(0x8fa3d8, 0.22);
+    pamant.position.set(0, 0.2, 5);
+    scena.add(pamant);
 
     L3.scena = scena; L3.cam = cam; L3.rand = rand; L3.luna = luna; L3.lumina = lumina;
     L3.gata = true;
@@ -7689,7 +7751,7 @@ function lunaSvg(f, marime) {
         '</g></svg>';
 }
 
-var _lunaOffset = 0;      // câte zile față de azi arătăm
+var _lunaZi = 0;          // câte zile față de azi arătăm (poate fi fracționar)
 
 function mobCardLuna() {
     return '<div class="mb-card mb-luna" id="mbLuna"></div>';
@@ -7697,94 +7759,151 @@ function mobCardLuna() {
 function deseneazaLuna() {
     var box = document.getElementById('mbLuna');
     if (!box) return;
-    var ms = Date.now() + _lunaOffset * 86400000;
-    var f = lunaFaza(ms), ill = lunaIluminare(f);
-    var ra = lunaRasaritApus(LOC.lat, LOC.lon);
-    var dist = lunaDistanta(ms);
-    var pana = lunaUrmatoareaPlina(ms);
-    var dt = new Date(ms);
-    var dataTxt = dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO',
-                    { weekday: 'long', day: 'numeric', month: 'long' });
-    var ora = function(t) { return t ? new Date(t).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO',
-                    { hour: '2-digit', minute: '2-digit' }) : '—'; };
-
-    // rigla: o gradație pe zi, cu etichete la fiecare 24 de ore
-    var gradatii = '', etichete = '';
-    for (var i = -7; i <= 7; i++) {
-        for (var s = 0; s < 4; s++) {
-            var mare = s === 0;
-            gradatii += '<span class="lr-lin' + (mare ? ' mare' : '') + '"></span>';
-        }
-        var zi = new Date(Date.now() + i * 86400000);
-        etichete += '<span class="lr-et' + (i === _lunaOffset ? ' azi' : '') + '" data-zi="' + i + '">' +
-            (i === 0 ? T('azi2').toUpperCase()
-                     : zi.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' }).toUpperCase()) +
-            '</span>';
-    }
-
-    var rand = function(et, val) { return '<div class="ml-rand"><span>' + et + '</span><b>' + val + '</b></div>'; };
-    // Luna: model 3D dacă e disponibil, altfel randare pe canvas, altfel desen
     var LATURA = 200;
-    var vizual = window.THREE
-        ? '<div id="ml3D" class="ml-glob" style="width:' + LATURA + 'px;height:' + LATURA + 'px;"></div>'
-        : (_texLuna.stare === 'gata' ? '<canvas id="mlCanvas" class="ml-glob"></canvas>' : lunaSvg(f, LATURA));
 
-    box.innerHTML =
-        '<div class="mb-cap"><span class="mbc-ico">🌙</span><span>' + lunaNumeFaza(f) + '</span></div>' +
-        '<div class="ml-sus">' + vizual + '</div>' +
-        '<div class="ml-data">' + dataTxt + '</div>' +
-        '<div class="ml-rigla" id="mlRigla">' +
-            '<div class="lr-gradatii">' + gradatii + '</div>' +
-            '<div class="lr-marcaj"></div>' +
-            '<div class="lr-etichete">' + etichete + '</div>' +
-        '</div>' +
-        '<div class="ml-tabel">' +
-            rand(T('iluminare'), Math.round(ill * 100) + ' %') +
-            rand(T('rasaritLuna'), ora(ra.rasarit)) +
-            rand(T('apusLuna'), ora(ra.apus)) +
-            rand(T('urmatoareaPlina'), pana === 0 ? T('azi2') : (T('peste') + ' ' + pana + ' ' + T('zile'))) +
-            rand(T('distanta'), Math.round(dist).toLocaleString(LANG === 'en' ? 'en-GB' : 'ro-RO') + ' km') +
-        '</div>';
-
-    // 3D dacă avem three.js; altfel îl aducem și redesenăm
-    var box3 = document.getElementById('ml3D');
-    if (box3) {
-        if (!L3.gata || !box3.firstChild) creeazaLuna3D(box3, LATURA);
-        pozitieSoare3D(f);
-    } else if (_texLuna.stare === 'gata') {
-        var cv3 = document.getElementById('mlCanvas');
-        if (cv3) randeazaLunaNasa(cv3, f, LATURA);
-    } else {
-        incarcaTexturiLuna(function() { deseneazaLuna(); });
-        incarcaThree(function() { L3.gata = false; deseneazaLuna(); });
+    /* Construim scheletul O SINGURĂ dată. Înainte rescriam tot cardul la
+       fiecare mișcare a riglei — de aceea părea că sari dintr-o poză în
+       alta: canvasul 3D era distrus și recreat de zeci de ori pe secundă. */
+    if (!box._construit) {
+        var gradatii = '', etichete = '';
+        for (var i = -14; i <= 14; i++) {
+            for (var s = 0; s < 4; s++) gradatii += '<span class="lr-lin' + (s === 0 ? ' mare' : '') + '"></span>';
+            var zi = new Date(Date.now() + i * 86400000);
+            etichete += '<span class="lr-et" data-zi="' + i + '">' +
+                (i === 0 ? T('azi2').toUpperCase()
+                         : zi.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' }).toUpperCase()) +
+                '</span>';
+        }
+        var rand = function(id, et) {
+            return '<div class="ml-rand"><span>' + et + '</span><b id="' + id + '">–</b></div>';
+        };
+        box.innerHTML =
+            '<div class="mb-cap"><span class="mbc-ico">🌙</span><span id="mlFaza">—</span></div>' +
+            '<div class="ml-sus"><div id="ml3D" class="ml-glob" style="width:' + LATURA + 'px;height:' + LATURA + 'px;"></div></div>' +
+            '<div class="ml-data" id="mlData">—</div>' +
+            '<div class="ml-rigla" id="mlRigla">' +
+                '<div class="lr-banda" id="mlBanda">' +
+                    '<div class="lr-gradatii">' + gradatii + '</div>' +
+                    '<div class="lr-etichete">' + etichete + '</div>' +
+                '</div>' +
+                '<div class="lr-marcaj"></div>' +
+            '</div>' +
+            '<div class="ml-tabel">' +
+                rand('mlIlum', T('iluminare')) +
+                rand('mlRas', T('rasaritLuna')) +
+                rand('mlApus', T('apusLuna')) +
+                rand('mlPlina', T('urmatoareaPlina')) +
+                rand('mlDist', T('distanta')) +
+            '</div>';
+        box._construit = true;
+        legRigla();
     }
 
-    /* Rigla: urmărește degetul continuu. `touch-action: none` pe element
-       și oprirea propagării fac ca gestul să nu mai fie citit și ca
-       glisare între orașe — de aceea se mișca tot ecranul. */
-    var rg = document.getElementById('mlRigla');
-    var x0 = null, off0 = 0;
-    var start = function(x) { x0 = x; off0 = _lunaOffset; };
+    // 3D: creat o dată, apoi doar mutăm lumina
+    var box3 = document.getElementById('ml3D');
+    if (box3 && window.THREE && (!L3.gata || !box3.firstChild)) creeazaLuna3D(box3, LATURA);
+    if (!window.THREE) incarcaThree(function() { L3.gata = false; deseneazaLuna(); });
+
+    actualizeazaLuna();
+}
+
+/* Actualizează doar valorile și lumina — fără să atingă structura. */
+function actualizeazaLuna() {
+    var box = document.getElementById('mbLuna');
+    if (!box || !box._construit) return;
+    var ms = Date.now() + _lunaZi * 86400000;
+    var f = lunaFaza(ms);
+    var pune = function(id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+
+    pozitieSoare3D(f);
+
+    // banda se mută sub marcaj, continuu — nu sare din zi în zi
+    var banda = document.getElementById('mlBanda');
+    if (banda) banda.style.transform = 'translateX(' + (-_lunaZi * PAS_ZI) + 'px)';
+
+    // valorile se recalculează doar când chiar s-a schimbat ziua
+    var ziIntreaga = Math.round(_lunaZi);
+    if (box._zi !== ziIntreaga) {
+        box._zi = ziIntreaga;
+        var msZi = Date.now() + ziIntreaga * 86400000;
+        var fz = lunaFaza(msZi);
+        var ra = lunaRasaritApus(LOC.lat, LOC.lon, msZi);
+        var ora = function(t) { return t ? new Date(t).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO',
+                        { hour: '2-digit', minute: '2-digit' }) : '—'; };
+        var pana = lunaUrmatoareaPlina(msZi);
+        pune('mlFaza', lunaNumeFaza(fz));
+        pune('mlData', new Date(msZi).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO',
+                        { weekday: 'long', day: 'numeric', month: 'long' }));
+        pune('mlIlum', Math.round(lunaIluminare(fz) * 100) + ' %');
+        pune('mlRas', ora(ra.rasarit));
+        pune('mlApus', ora(ra.apus));
+        pune('mlPlina', pana === 0 ? T('azi2') : (T('peste') + ' ' + pana + ' ' + T('zile')));
+        pune('mlDist', Math.round(lunaDistanta(msZi)).toLocaleString(LANG === 'en' ? 'en-GB' : 'ro-RO') + ' km');
+        Array.prototype.forEach.call(box.querySelectorAll('.lr-et'), function(el) {
+            el.classList.toggle('azi', +el.getAttribute('data-zi') === ziIntreaga);
+        });
+    }
+}
+
+/* Rigla: urmărește degetul continuu, cu valori fracționare, apoi se
+   așază lin pe ziua cea mai apropiată. */
+var PAS_ZI = 26;                 // pixeli pe zi
+function legRigla() {
+    var rg = document.getElementById('mlRigla'), banda = document.getElementById('mlBanda');
+    if (!rg || !banda) return;
+    var x0 = null, z0 = 0, ultZi = 0, cadru = null;
+
+    var start = function(x) {
+        x0 = x; z0 = _lunaZi; ultZi = Math.round(_lunaZi);
+        banda.style.transition = 'none';
+    };
     var mut = function(x) {
         if (x0 === null) return;
-        var dz = Math.round((x0 - x) / 24);
-        var nou = Math.max(-14, Math.min(14, off0 + dz));
-        if (nou !== _lunaOffset) {
-            _lunaOffset = nou;
-            vibreaza(nou === 0 ? 18 : 8);      // o pulsație mai apăsată exact pe „azi"
-            deseneazaLuna();
-        }
+        _lunaZi = Math.max(-14, Math.min(14, z0 + (x0 - x) / PAS_ZI));
+        if (!cadru) cadru = requestAnimationFrame(function() {
+            cadru = null;
+            actualizeazaLuna();
+            var z = Math.round(_lunaZi);
+            if (z !== ultZi) { ultZi = z; vibreaza(z === 0 ? 16 : 6); }
+        });
     };
+    var gata = function() {
+        if (x0 === null) return;
+        x0 = null;
+        // alunecare fină până pe ziua cea mai apropiată
+        var tinta = Math.round(_lunaZi), de = _lunaZi, t0 = performance.now();
+        banda.style.transition = 'none';
+        (function pas(t) {
+            var k = Math.min(1, (t - t0) / 320);
+            var e = 1 - Math.pow(1 - k, 3);              // frânare lină
+            _lunaZi = de + (tinta - de) * e;
+            actualizeazaLuna();
+            if (k < 1) requestAnimationFrame(pas);
+        })(t0);
+    };
+
     rg.addEventListener('touchstart', function(e) { e.stopPropagation(); start(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchmove', function(e) { e.stopPropagation(); mut(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchend', function(e) { e.stopPropagation(); x0 = null; }, { passive: true });
+    rg.addEventListener('touchmove',  function(e) { e.stopPropagation(); mut(e.touches[0].clientX); }, { passive: true });
+    rg.addEventListener('touchend',   function(e) { e.stopPropagation(); gata(); }, { passive: true });
     rg.addEventListener('pointerdown', function(e) { if (e.pointerType === 'mouse') { start(e.clientX); rg.setPointerCapture(e.pointerId); } });
     rg.addEventListener('pointermove', function(e) { if (e.pointerType === 'mouse') mut(e.clientX); });
-    rg.addEventListener('pointerup', function() { x0 = null; });
+    rg.addEventListener('pointerup',   function(e) { if (e.pointerType === 'mouse') gata(); });
+
+    // clic pe o zi: alunecă până acolo, nu sare
     Array.prototype.forEach.call(rg.querySelectorAll('.lr-et'), function(el) {
-        el.addEventListener('click', function() { _lunaOffset = +el.getAttribute('data-zi'); deseneazaLuna(); });
+        el.addEventListener('click', function() {
+            var tinta = +el.getAttribute('data-zi'), de = _lunaZi, t0 = performance.now();
+            (function pas(t) {
+                var k = Math.min(1, (t - t0) / 420);
+                var e = 1 - Math.pow(1 - k, 3);
+                _lunaZi = de + (tinta - de) * e;
+                actualizeazaLuna();
+                if (k < 1) requestAnimationFrame(pas);
+            })(t0);
+        });
     });
 }
+
 
 /* ══ STAȚIILE PROPRII — doar în zona Târgoviștei ══ */
 function mobCardStatii() {
