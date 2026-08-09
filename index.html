@@ -6486,9 +6486,16 @@ applyTheme(PREF.get('theme', 'system'));
 /* ── cardul lunii, cu riglă de derulare ── */
 .mb-luna { text-align: center; }
 .mb-luna .mb-cap { justify-content: flex-start; }
-.ml-sus { display: flex; justify-content: center; padding: 4px 0 6px; }
+.ml-sus { display: flex; justify-content: center; padding: 8px 0 10px; }
+/* globul lunar randat din hărțile NASA */
+.ml-glob {
+    border-radius: 50%;
+    box-shadow: 0 0 42px rgba(255,255,255,0.10), 0 10px 30px rgba(0,0,0,0.35);
+}
 .ml-data { font-size: 0.86rem; color: rgba(255,255,255,0.75); margin-bottom: 12px; }
-.ml-rigla { position: relative; padding: 4px 0 2px; cursor: grab; touch-action: pan-y; }
+/* touch-action: none — altfel gestul orizontal de pe riglă era interpretat
+   și ca glisare între orașe, și mișca tot ecranul odată cu ea */
+.ml-rigla { position: relative; padding: 8px 0 2px; cursor: grab; touch-action: none; user-select: none; }
 .lr-gradatii { display: flex; justify-content: space-between; align-items: flex-end; height: 20px; }
 .lr-lin { width: 1px; height: 9px; background: rgba(255,255,255,0.28); border-radius: 1px; }
 .lr-lin.mare { height: 17px; background: rgba(255,255,255,0.55); }
@@ -7340,7 +7347,127 @@ function lunaUrmatoareaPlina(ms) {
     var pana = ((0.5 - f) + 1) % 1;                 // fracție de ciclu până la plină
     return Math.ceil(pana * SYNODIC);
 }
-// desenul lunii, cu terminatorul real
+/* ══════════════════════════════════════════════════════════════
+   LUNA REALĂ — hărțile NASA (Lunar Reconnaissance Orbiter)
+   Nu folosim opt poze diferite. Avem O SINGURĂ hartă de culoare
+   și una de relief, iar iluminarea se calculează pixel cu pixel
+   după poziția Soarelui. Craterele rămân pe loc, iar terminatorul
+   se mută natural — exact ca la Apple, doar că din date NASA.
+
+   Fișiere necesare în folderul public (le descarci de la NASA):
+     moon_color.jpg  ← lroc_color_2k.jpg   (2048×1024, 447 KB)
+     moon_elev.jpg   ← ldem_3_8bit.jpg     (1024×512,  109 KB)
+   Dacă lipsesc, aplicația revine automat la desenul vechi.
+   ══════════════════════════════════════════════════════════════ */
+var _texLuna = { col: null, rel: null, stare: 'nou' };   // nou | incarca | gata | lipsa
+
+function incarcaTexturiLuna(cand) {
+    if (_texLuna.stare === 'gata') { cand && cand(); return; }
+    if (_texLuna.stare === 'incarca' || _texLuna.stare === 'lipsa') return;
+    _texLuna.stare = 'incarca';
+    var ramase = 2, esuat = false;
+    var ia = function(src, cheie, w, h) {
+        var img = new Image();
+        img.onload = function() {
+            var c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            var x = c.getContext('2d', { willReadFrequently: true });
+            x.drawImage(img, 0, 0, w, h);
+            try { _texLuna[cheie] = { d: x.getImageData(0, 0, w, h).data, w: w, h: h }; }
+            catch (e) { esuat = true; }
+            if (--ramase === 0) termina();
+        };
+        img.onerror = function() { esuat = true; if (--ramase === 0) termina(); };
+        img.src = src;
+    };
+    var termina = function() {
+        _texLuna.stare = (esuat || !_texLuna.col || !_texLuna.rel) ? 'lipsa' : 'gata';
+        if (_texLuna.stare === 'gata' && cand) cand();
+        else if (_texLuna.stare === 'lipsa') { try { deseneazaLuna(); } catch (e) {} }
+    };
+    // lucrăm la jumătate din rezoluție: destul pentru un disc de ~340 px
+    ia('moon_color.jpg', 'col', 1024, 512);
+    ia('moon_elev.jpg', 'rel', 512, 256);
+}
+
+/* Desenează Luna pe canvas, iluminată pentru faza dată. */
+function randeazaLunaNasa(canvas, faza, latura) {
+    var col = _texLuna.col, rel = _texLuna.rel;
+    if (!col || !rel) return false;
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var N = Math.round(latura * dpr);
+    canvas.width = N; canvas.height = N;
+    canvas.style.width = latura + 'px'; canvas.style.height = latura + 'px';
+    var ctx = canvas.getContext('2d');
+    var img = ctx.createImageData(N, N);
+    var out = img.data;
+    var R = N / 2 - 1, cx = N / 2, cy = N / 2;
+
+    // direcția Soarelui: la lună nouă e în spatele Lunii, la lună plină
+    // în spatele nostru; între ele se rotește prin dreapta (lună crescătoare)
+    var th = 2 * Math.PI * faza;
+    var Lx = Math.sin(th), Ly = 0, Lz = -Math.cos(th);
+
+    var esantion = function(t, u, v) {                 // u,v în [0,1]
+        var px = (u * t.w) | 0, py = (v * t.h) | 0;
+        if (px < 0) px = 0; if (px >= t.w) px = t.w - 1;
+        if (py < 0) py = 0; if (py >= t.h) py = t.h - 1;
+        return (py * t.w + px) * 4;
+    };
+
+    for (var y = 0; y < N; y++) {
+        var dy = (y - cy) / R;
+        for (var x = 0; x < N; x++) {
+            var dx = (x - cx) / R;
+            var i = (y * N + x) * 4;
+            var r2 = dx * dx + dy * dy;
+            if (r2 > 1) { out[i + 3] = 0; continue; }   // în afara discului
+
+            // normala la sferă (ecranul: y în jos, deci îl inversăm)
+            var nx = dx, ny = -dy, nz = Math.sqrt(1 - r2);
+            var lat = Math.asin(ny);
+            var lon = Math.atan2(nx, nz);
+            var u = lon / (2 * Math.PI) + 0.5;
+            var v = 0.5 - lat / Math.PI;
+
+            // relieful: panta locală modulează unghiul de incidență,
+            // așa apar craterele și munții când lumina vine oblic
+            var ir = esantion(rel, u, v);
+            var h0 = rel.d[ir];
+            var hu = rel.d[esantion(rel, u + 0.0025, v)];
+            var hv = rel.d[esantion(rel, u, v + 0.005)];
+            var gu = (hu - h0) / 255, gv = (hv - h0) / 255;
+
+            // cosinusul de incidență, corectat cu panta
+            var mu0 = nx * Lx + ny * Ly + nz * Lz;
+            var tanX = Math.cos(lon), tanZ = -Math.sin(lon);       // est local
+            var proiL = Lx * tanX + Lz * tanZ;
+            mu0 += (-gu * proiL - gv * Ly) * 2.6;
+            if (mu0 <= 0) { out[i] = out[i+1] = out[i+2] = 6; out[i+3] = 255; continue; }
+            if (mu0 > 1) mu0 = 1;
+
+            var mu = nz;                                           // unghiul de emisie
+            // fotometrie lunară: amestec Lommel-Seeliger + Lambert.
+            // Doar Lambert ar face luna plină să pară o bilă bombată;
+            // în realitate se vede aproape uniform luminată.
+            var refl = 0.62 * (mu0 / (mu0 + mu + 0.001)) + 0.38 * mu0;
+            refl *= 1.9;
+
+            var ic = esantion(col, u, v);
+            var rr = col.d[ic] * refl, gg = col.d[ic + 1] * refl, bb = col.d[ic + 2] * refl;
+            // atenuare fină spre marginea discului
+            var margine = 1 - 0.20 * Math.pow(r2, 6);
+            out[i]     = rr > 255 ? 255 : rr * margine;
+            out[i + 1] = gg > 255 ? 255 : gg * margine;
+            out[i + 2] = bb > 255 ? 255 : bb * margine;
+            out[i + 3] = 255;
+        }
+    }
+    ctx.putImageData(img, 0, 0);
+    return true;
+}
+
+// desenul de rezervă, dacă hărțile NASA nu sunt puse în folder
 function lunaSvg(f, marime) {
     var r = 40, cx = 42, cy = 42;
     var crescand = f < 0.5;
@@ -7396,9 +7523,15 @@ function deseneazaLuna() {
     }
 
     var rand = function(et, val) { return '<div class="ml-rand"><span>' + et + '</span><b>' + val + '</b></div>'; };
+    // Luna: dacă avem hărțile NASA o randăm real, altfel desenul de rezervă
+    var LATURA = 172;
+    var vizual = (_texLuna.stare === 'gata')
+        ? '<canvas id="mlCanvas" class="ml-glob"></canvas>'
+        : lunaSvg(f, LATURA);
+
     box.innerHTML =
         '<div class="mb-cap"><span class="mbc-ico">🌙</span><span>' + lunaNumeFaza(f) + '</span></div>' +
-        '<div class="ml-sus">' + lunaSvg(f, 108) + '</div>' +
+        '<div class="ml-sus">' + vizual + '</div>' +
         '<div class="ml-data">' + dataTxt + '</div>' +
         '<div class="ml-rigla" id="mlRigla">' +
             '<div class="lr-gradatii">' + gradatii + '</div>' +
@@ -7413,19 +7546,32 @@ function deseneazaLuna() {
             rand(T('distanta'), Math.round(dist).toLocaleString(LANG === 'en' ? 'en-GB' : 'ro-RO') + ' km') +
         '</div>';
 
-    // rigla: se poate trage cu degetul ca să vezi zilele următoare
+    // randăm globul NASA (dacă e disponibil) sau pornim încărcarea hărților
+    if (_texLuna.stare === 'gata') {
+        var cv3 = document.getElementById('mlCanvas');
+        if (cv3) randeazaLunaNasa(cv3, f, LATURA);
+    } else {
+        incarcaTexturiLuna(function() { deseneazaLuna(); });
+    }
+
+    /* Rigla: urmărește degetul continuu. `touch-action: none` pe element
+       și oprirea propagării fac ca gestul să nu mai fie citit și ca
+       glisare între orașe — de aceea se mișca tot ecranul. */
     var rg = document.getElementById('mlRigla');
     var x0 = null, off0 = 0;
-    var lat0 = function(x) { x0 = x; off0 = _lunaOffset; };
+    var start = function(x) { x0 = x; off0 = _lunaOffset; };
     var mut = function(x) {
         if (x0 === null) return;
-        var dz = Math.round((x0 - x) / 26);
-        var nou = Math.max(-7, Math.min(7, off0 + dz));
-        if (nou !== _lunaOffset) { _lunaOffset = nou; deseneazaLuna(); x0 = null; }
+        var dz = Math.round((x0 - x) / 24);
+        var nou = Math.max(-14, Math.min(14, off0 + dz));
+        if (nou !== _lunaOffset) { _lunaOffset = nou; deseneazaLuna(); }
     };
-    rg.addEventListener('touchstart', function(e) { lat0(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchmove', function(e) { mut(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchend', function() { x0 = null; }, { passive: true });
+    rg.addEventListener('touchstart', function(e) { e.stopPropagation(); start(e.touches[0].clientX); }, { passive: true });
+    rg.addEventListener('touchmove', function(e) { e.stopPropagation(); mut(e.touches[0].clientX); }, { passive: true });
+    rg.addEventListener('touchend', function(e) { e.stopPropagation(); x0 = null; }, { passive: true });
+    rg.addEventListener('pointerdown', function(e) { if (e.pointerType === 'mouse') { start(e.clientX); rg.setPointerCapture(e.pointerId); } });
+    rg.addEventListener('pointermove', function(e) { if (e.pointerType === 'mouse') mut(e.clientX); });
+    rg.addEventListener('pointerup', function() { x0 = null; });
     Array.prototype.forEach.call(rg.querySelectorAll('.lr-et'), function(el) {
         el.addEventListener('click', function() { _lunaOffset = +el.getAttribute('data-zi'); deseneazaLuna(); });
     });
@@ -8038,7 +8184,7 @@ function mobHartaAnm(id) {
         if (!zona) return;
         zona.addEventListener('touchstart', function(e) {
             if (e.touches.length !== 1 || oraseSalvate().length < 2 ||
-                e.target.closest('.leaflet-container, .mb-ore, .mb-seg, input, .mr-btn')) { anulat = true; return; }
+                e.target.closest('.leaflet-container, .mb-ore, .mb-seg, input, .mr-btn, .ml-rigla')) { anulat = true; return; }
             anulat = false; orizontal = null; mutat = 0;
             x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
             mobMuta(0, undefined, false);
