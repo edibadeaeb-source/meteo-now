@@ -1027,10 +1027,20 @@
             transition: opacity 0.45s ease, visibility 0.45s ease;
         }
         #splash.hide { opacity: 0; visibility: hidden; }
-        #splash .sp-logo { width: 104px; height: 104px; border-radius: 24px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
-        #splash .sp-name { font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
-        #splash .sp-sub { font-size: 0.82rem; color: #9fb0d8; margin-top: -10px; }
-        #splash .sp-bar { width: 150px; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.18); overflow: hidden; }
+        #splash { background: linear-gradient(180deg, #101b3c 0%, #1e2b55 45%, #45416f 100%); }
+        /* panoul de sticlă din mijloc */
+        #splash .sp-sticla {
+            display: flex; flex-direction: column; align-items: center; gap: 16px;
+            padding: 34px 40px 30px; border-radius: 30px;
+            background: rgba(255, 255, 255, 0.11);
+            -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+            border: 1px solid rgba(255, 255, 255, 0.20);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.28);
+        }
+        #splash .sp-logo { width: 104px; height: 104px; border-radius: 26px; box-shadow: 0 12px 40px rgba(0,0,0,0.45); }
+        #splash .sp-name { font-size: 1.6rem; font-weight: 800; color: #fff; letter-spacing: 1.2px; margin-top: -4px; }
+        #splash .sp-sub { font-size: 0.84rem; color: rgba(255,255,255,0.72); margin-top: -12px; }
+        #splash .sp-bar { width: 150px; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.20); overflow: hidden; }
         #splash .sp-bar i { display: block; height: 100%; width: 40%; background: #4f83ff; border-radius: 3px; animation: spload 1.1s ease-in-out infinite; }
         @keyframes spload { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
 
@@ -1190,6 +1200,47 @@
         .hero-band .moon-col .tile-sub { color: #dbe3f5; }
 
         /* ══════════════════════════════════════════════════════
+           SETĂRILE PE TELEFON — sticlă mată, ca restul aplicației
+           Blocul stă la finalul foii de stil, ca să învingă regulile
+           de bază ale panoului (scrise mai sus, cu aceeași
+           specificitate). Pe desktop rămâne panoul clasic.
+           ══════════════════════════════════════════════════════ */
+        @media (max-width: 760px) {
+            .sheet-backdrop { align-items: flex-end; padding: 0; background: rgba(4, 8, 22, 0.5); }
+            .sheet {
+                width: 100%; max-height: 90vh; border: none;
+                border-top: 1px solid rgba(255,255,255,0.20);
+                border-radius: 26px 26px 0 0;
+                background: rgba(30, 40, 74, 0.82);
+                -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
+                box-shadow: 0 -18px 50px rgba(0,0,0,0.45);
+                color: #fff;
+                padding-bottom: env(safe-area-inset-bottom, 0px);
+            }
+            .sheet-head { border-bottom: 1px solid rgba(255,255,255,0.14); padding: 18px 18px 14px; }
+            .sheet-head h3 { color: #fff; }
+            .sheet-close { background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.20); color: #fff; }
+            .set-label { color: rgba(255,255,255,0.60); }
+            .set-row { color: #fff; border-bottom-color: rgba(255,255,255,0.12); }
+            .set-row small { color: rgba(255,255,255,0.62); }
+            .set-note { color: rgba(255,255,255,0.60); }
+            /* fiecare grup devine un card de sticlă */
+            .set-group {
+                background: rgba(255,255,255,0.09);
+                border: 1px solid rgba(255,255,255,0.14);
+                border-radius: 18px; padding: 13px 14px 10px; margin-bottom: 12px;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+            }
+            .set-group .set-row:last-of-type { border-bottom: none; }
+            .seg { background: rgba(255,255,255,0.10); border-radius: 12px; padding: 3px; gap: 3px; }
+            .seg button { background: transparent; border: none; color: rgba(255,255,255,0.72); border-radius: 10px; }
+            .seg button.active { background: rgba(255,255,255,0.24); color: #fff; }
+            @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+                .sheet { background: rgba(24, 33, 64, 0.98); }
+            }
+        }
+
+        /* ══════════════════════════════════════════════════════
            ZONE SIGURE iPhone (insula, bara de stare, bara de jos)
            Aplicația instalată se întinde pe tot ecranul, deci fără
            regulile astea conținutul intră sub insulă și sub bara
@@ -1281,10 +1332,12 @@
 
 <!-- ═══ ECRAN DE PORNIRE ═══ -->
 <div id="splash">
-    <img class="sp-logo" src="icon-192.png" alt="METEO Târgoviște">
-    <div class="sp-name">METEO Târgoviște</div>
-    <div class="sp-sub">Stație meteo · Dâmbovița</div>
-    <div class="sp-bar"><i></i></div>
+    <div class="sp-sticla">
+        <img class="sp-logo" src="icon-192.png" alt="METEO NOW">
+        <div class="sp-name">METEO NOW</div>
+        <div class="sp-sub" data-i18n="brandSub">Vremea în timp real</div>
+        <div class="sp-bar"><i></i></div>
+    </div>
 </div>
 
 <!-- ═══ PANOU LOCAȚIE (sub săgeata din bara de sus) ═══ -->
@@ -1332,10 +1385,11 @@
             <div class="set-group">
                 <div class="set-label" data-i18n="setNotificari">Notificări</div>
                 <div class="set-row">
-                    <div>Alerte meteo<small id="pushHint">Primești notificare la avertizări ANM pentru Dâmbovița</small></div>
+                    <div><span data-i18n="notifTitlu">Vremea la tine</span><small id="pushHint" data-i18n="notifSub">Rezumatul zilei dimineața și seara, plus alerte când vremea o cere</small></div>
                     <label class="switch"><input type="checkbox" id="setPush"><span></span></label>
                 </div>
                 <div class="set-note" id="pushNote"></div>
+                <div class="set-note" id="pushANM" data-i18n="notifANM"></div>
             </div>
 
             <div class="set-group">
@@ -1355,9 +1409,9 @@
             </div>
 
             <div class="set-group">
-                <div class="set-label">Despre</div>
+                <div class="set-label" data-i18n="despre">Despre</div>
                 <div class="set-row">
-                    <div>METEO Târgoviște<small id="aboutVersion">Stație meteo pentru Dâmbovița</small></div>
+                    <div>METEO NOW<small id="aboutVersion" data-i18n="despreSub">Vremea în timp real, oriunde în lume</small></div>
                 </div>
                 <div class="set-note">
                     Surse de date: ANM (meteoromania.ro) · NOAA SWPC · Open-Meteo · RainViewer · OpenWeatherMap · DWD.<br>
@@ -5173,7 +5227,7 @@ function startLocalAlerts() {
             var corp = (info.fen && info.fen !== 'conform textelor') ? info.fen : info.tip;
             if (info.int && info.int !== 'conform textelor') corp += ' · ' + info.int;
             try {
-                new Notification('⚠️ ' + cod + ' — Dâmbovița', {
+                new Notification('⚠️ ' + cod + ' — ' + (LOC.nume || ''), {
                     body: corp, icon: 'icon-192.png', tag: 'anm-local'
                 });
             } catch (e) {}
@@ -5206,7 +5260,7 @@ function stopLocalAlerts() {
         return reg.pushManager.getSubscription();
     }).then(function(sub) {
         el.checked = !!sub && Notification.permission === 'granted';
-        if (el.checked) pushNote('✅ Activat pentru avertizările ANM — Dâmbovița.', 'var(--green)');
+        if (el.checked) pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
     }).catch(function() {});
 
     el.addEventListener('change', async function() {
@@ -5337,6 +5391,13 @@ var I18N = {
         presiuneMica: 'Presiune scăzută — vremea se poate schimba.', presiuneNormala: 'Presiune normală.',
         surseMob: 'Surse: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
         seIncarca: 'Se încarcă datele meteo…',
+        oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…',
+        hartaAvertANM: 'Avertizări pe hartă', hartaAnmNota: 'Zonele colorate sunt sub avertizare. Sursa: meteoromania.ro',
+        notifTitlu: 'Vremea la tine',
+        notifSub: 'Rezumatul zilei dimineața și seara, plus alerte când vremea o cere',
+        notifANM: 'Dacă orașul ales e din România, primești automat și avertizările oficiale ANM.',
+        despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume',
+        notifActiv: '✅ Activat pentru {oras}.',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -5439,6 +5500,13 @@ var I18N = {
         presiuneMica: 'Low pressure — weather may change.', presiuneNormala: 'Normal pressure.',
         surseMob: 'Sources: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
         seIncarca: 'Loading weather data…',
+        oraseleMele: 'My cities', adaugaOras: 'Search for a city…',
+        hartaAvertANM: 'Warnings on the map', hartaAnmNota: 'Coloured areas are under warning. Source: meteoromania.ro',
+        notifTitlu: 'Your weather',
+        notifSub: 'A daily brief morning and evening, plus alerts when the weather calls for it',
+        notifANM: 'If your city is in Romania, you also get the official ANM warnings automatically.',
+        despre: 'About', despreSub: 'Real-time weather, anywhere in the world',
+        notifActiv: '✅ Enabled for {oras}.',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
@@ -5607,7 +5675,8 @@ function seteazaLocatie(loc, reincarca) {
     aplicaVizibilitateSectiuni();
     try { adaugaRecent(LOC); } catch (e) {}
     try { actualizeazaLocatiaPush(); } catch (e) {}
-    try { if (typeof mobIncarca === 'function') mobIncarca(); } catch (e) {}
+    try { if (typeof adaugaOras === 'function') adaugaOras(LOC); } catch (e) {}
+    try { if (typeof mobIncarca === 'function') { MOBD = null; mobIncarca(); } } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
 
@@ -6302,7 +6371,53 @@ applyTheme(PREF.get('theme', 'system'));
     display: flex; align-items: center; justify-content: center; gap: 9px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3);
 }
-.mj-pilula .p-loc { font-size: 0.86rem; font-weight: 600; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mj-pilula .p-loc { font-size: 0.86rem; font-weight: 600; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* punctele care arată câte orașe ai salvate și pe al câtelea ești */
+.mj-puncte { display: flex; gap: 6px; align-items: center; }
+.mj-punct { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.40); transition: background 0.2s, width 0.2s; }
+.mj-punct.activ { background: #fff; width: 16px; border-radius: 3px; }
+.mj-sageata { font-size: 0.8rem; opacity: 0.7; }
+
+/* ── lista de orașe (foaia care se deschide din pilula de jos) ── */
+.mo-oras {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px; margin-bottom: 9px;
+    border-radius: 18px; cursor: pointer;
+    background: rgba(255,255,255,0.11); border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.mo-oras.curent { background: rgba(255,255,255,0.20); border-color: rgba(255,255,255,0.32); }
+.mo-st { flex: 1; min-width: 0; }
+.mo-nume { font-size: 1.02rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.mo-sub { font-size: 0.74rem; color: rgba(255,255,255,0.62); margin-top: 1px;
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-t { font-size: 1.7rem; font-weight: 300; letter-spacing: -1px; }
+.mo-sterge {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.20); background: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.8); font-size: 0.85rem; font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+}
+.mo-sterge:hover { background: rgba(229,72,77,0.45); color: #fff; }
+.mo-cauta { position: relative; margin-bottom: 12px; }
+.mo-cauta input {
+    width: 100%; padding: 13px 15px; border-radius: 15px; font-size: 0.92rem; font-family: inherit;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18);
+    color: #fff; outline: none;
+}
+.mo-cauta input::placeholder { color: rgba(255,255,255,0.5); }
+.mo-cauta input:focus { border-color: rgba(255,255,255,0.42); }
+.mo-rez { max-height: 250px; overflow-y: auto; }
+.mo-rez div {
+    padding: 11px 13px; border-radius: 13px; cursor: pointer; font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.mo-rez div:hover { background: rgba(255,255,255,0.14); }
+.mo-rez small { display: block; font-size: 0.72rem; color: rgba(255,255,255,0.58); }
+/* animația de trecere de la un oraș la altul */
+#mobApp.aluneca-st .mb-hero, #mobApp.aluneca-st #mbContinut { animation: alunecaSt 0.34s ease; }
+#mobApp.aluneca-dr .mb-hero, #mobApp.aluneca-dr #mbContinut { animation: alunecaDr 0.34s ease; }
+@keyframes alunecaSt { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+@keyframes alunecaDr { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
 
 /* ── foaia care se deschide la apăsarea unui card ── */
 #mobFoaie {
@@ -6352,7 +6467,11 @@ applyTheme(PREF.get('theme', 'system'));
 
     <div id="mobJos">
         <button class="mj-rot" id="mjHarta" title="Hărți">🗺</button>
-        <div class="mj-pilula" id="mjLoc"><span class="p-loc" id="mjLocText">—</span></div>
+        <div class="mj-pilula" id="mjLoc">
+            <span class="mj-sageata">➤</span>
+            <span class="p-loc" id="mjLocText">—</span>
+            <span class="mj-puncte" id="mjPuncte"></span>
+        </div>
         <button class="mj-rot" id="mjLista" title="Meniu">☰</button>
     </div>
 </div>
@@ -6377,6 +6496,67 @@ var _mobOraMod = 'temp';    // temp | precip | vant
 var _mobHarti = {};
 
 function esteMobil() { return window.matchMedia('(max-width: 760px)').matches; }
+
+/* ══════════════════════════════════════════════════════════════
+   ORAȘELE SALVATE
+   Ca pe iPhone: ții o listă, glisezi stânga-dreapta ca să treci
+   de la unul la altul, iar pilula de jos arată pe al câtelea ești.
+   ══════════════════════════════════════════════════════════════ */
+function oraseSalvate() {
+    try {
+        var l = JSON.parse(localStorage.getItem('meteo-orase') || '[]');
+        if (Array.isArray(l) && l.length) return l;
+    } catch (e) {}
+    // prima dată: pornim de la locația curentă
+    return (LOC && LOC.lat != null) ? [{ nume: LOC.nume, tara: LOC.tara, admin: LOC.admin, lat: LOC.lat, lon: LOC.lon }] : [];
+}
+function salveazaOrase(l) {
+    try { localStorage.setItem('meteo-orase', JSON.stringify(l.slice(0, 12))); } catch (e) {}
+}
+function acelasiOras(a, b) {
+    return a && b && Math.abs(a.lat - b.lat) < 0.05 && Math.abs(a.lon - b.lon) < 0.05;
+}
+function indexOrasCurent() {
+    var l = oraseSalvate();
+    for (var i = 0; i < l.length; i++) if (acelasiOras(l[i], LOC)) return i;
+    return -1;
+}
+function adaugaOras(loc) {
+    var l = oraseSalvate();
+    for (var i = 0; i < l.length; i++) if (acelasiOras(l[i], loc)) return i;
+    l.push({ nume: loc.nume, tara: loc.tara, admin: loc.admin, lat: +loc.lat, lon: +loc.lon });
+    salveazaOrase(l);
+    return l.length - 1;
+}
+function stergeOras(i) {
+    var l = oraseSalvate();
+    if (l.length <= 1) return;                    // nu rămânem fără niciunul
+    l.splice(i, 1);
+    salveazaOrase(l);
+}
+/* trecerea la orașul următor/anterior */
+function treciLaOras(pas) {
+    var l = oraseSalvate();
+    if (l.length < 2) return;
+    var i = indexOrasCurent();
+    if (i < 0) i = 0;
+    var nou = (i + pas + l.length) % l.length;
+    var app = document.getElementById('mobApp');
+    app.classList.remove('aluneca-st', 'aluneca-dr');
+    void app.offsetWidth;                          // repornim animația
+    app.classList.add(pas > 0 ? 'aluneca-st' : 'aluneca-dr');
+    seteazaLocatie(l[nou]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function mobPuncte() {
+    var box = document.getElementById('mjPuncte');
+    if (!box) return;
+    var l = oraseSalvate(), i = indexOrasCurent();
+    if (l.length < 2) { box.innerHTML = ''; return; }
+    var h = '';
+    for (var k = 0; k < l.length; k++) h += '<span class="mj-punct' + (k === i ? ' activ' : '') + '"></span>';
+    box.innerHTML = h;
+}
 
 function mobIncarca() {
     if (!esteMobil()) return;
@@ -6475,6 +6655,7 @@ function mobAntet() {
     document.getElementById('mbBaraOras').textContent = LOC.nume || '';
     document.getElementById('mbBaraSub').textContent = Math.round(cv(c.temperature_2m)) + '° | ' + wmoText(c.weather_code);
     document.getElementById('mjLocText').textContent = LOC.nume || '';
+    mobPuncte();
 }
 
 /* ══ BANDA PE ORE ══ */
@@ -6676,10 +6857,21 @@ function mobRandare() {
     h += mobCardClima();
     h += mobCardStatii();
     h += mobGrila();
+    h += mobCardHartaANM();
     h += '<div style="text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.5);padding:8px 24px 0;line-height:1.5;">' +
          T('surseMob') + '</div>';
     document.getElementById('mbContinut').innerHTML = h;
     mobLeaga();
+}
+
+/* ══ HARTA ANM, jos de tot — doar când ești în România ══ */
+function mobCardHartaANM() {
+    if (!esteRomania()) return '';
+    return '<div class="mb-card">' +
+        '<div class="mb-cap"><span class="mbc-ico">🗺️</span><span>' + T('hartaAvertANM') + '</span>' +
+        '<span class="mbc-dr">ANM</span></div>' +
+        '<div class="mb-harta" id="mbHartaAnmJos" style="height:250px;"></div>' +
+        '<div class="mb-nota">' + T('hartaAnmNota') + '</div></div>';
 }
 
 function mobLeaga() {
@@ -6704,8 +6896,9 @@ function mobLeaga() {
     Array.prototype.forEach.call(document.querySelectorAll('#mbContinut [data-foaie]'), function(el) {
         el.addEventListener('click', function() { mobDeschideFoaie(el.getAttribute('data-foaie')); });
     });
-    // radarul din card
+    // hărțile din carduri
     setTimeout(function() { mobHartaRadar('mbRadar'); }, 120);
+    setTimeout(function() { mobHartaAnm('mbHartaAnmJos'); }, 400);
 }
 
 /* ── hărțile din interfața mobilă ── */
@@ -6768,8 +6961,89 @@ function mobDeschideFoaie(care) {
                 '<div class="mb-nota">' + T('ccFataDeNormal') + '</div></div>' +
             '</div>';
     }
+    else if (care === 'orase') { mobFoaieOrase(); }
     f.classList.add('deschis');
     if (care === 'anm') setTimeout(function() { mobHartaAnm('mfHartaAnm'); }, 300);
+}
+
+/* ══ LISTA DE ORAȘE ══ */
+function mobFoaieOrase() {
+    document.getElementById('mfTitlu').textContent = T('oraseleMele');
+    var l = oraseSalvate(), curent = indexOrasCurent();
+    var h = '<div class="mo-cauta"><input type="text" id="moCauta" placeholder="' + T('adaugaOras') + '" autocomplete="off">' +
+            '<div class="mo-rez" id="moRez" style="display:none;"></div></div>';
+    l.forEach(function(o, i) {
+        h += '<div class="mo-oras' + (i === curent ? ' curent' : '') + '" data-i="' + i + '">' +
+             '<div class="mo-st"><div class="mo-nume">' + (i === curent ? '➤ ' : '') + (o.nume || '') + '</div>' +
+             '<div class="mo-sub">' + [o.admin, o.tara].filter(Boolean).join(', ') + '</div></div>' +
+             '<div class="mo-t" id="moT' + i + '">–</div>' +
+             (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="Șterge">✕</button>' : '') +
+             '</div>';
+    });
+    document.getElementById('mfContinut').innerHTML = h;
+
+    // temperatura fiecărui oraș din listă, într-un singur apel
+    if (l.length) {
+        var lats = l.map(function(o) { return o.lat; }).join(','), lons = l.map(function(o) { return o.lon; }).join(',');
+        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&current=temperature_2m')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                var v = Array.isArray(d) ? d : [d];
+                v.forEach(function(x, i) {
+                    var el = document.getElementById('moT' + i);
+                    if (el && x.current) el.textContent = Math.round(cv(x.current.temperature_2m)) + '°';
+                });
+            }).catch(function() {});
+    }
+
+    // alegerea unui oraș
+    Array.prototype.forEach.call(document.querySelectorAll('#mfContinut .mo-oras'), function(el) {
+        el.addEventListener('click', function(e) {
+            if (e.target.hasAttribute('data-sterge')) return;
+            var o = oraseSalvate()[+el.getAttribute('data-i')];
+            if (o) { seteazaLocatie(o); mobInchideFoaie(); window.scrollTo({ top: 0 }); }
+        });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#mfContinut [data-sterge]'), function(b) {
+        b.addEventListener('click', function(e) {
+            e.stopPropagation();
+            stergeOras(+b.getAttribute('data-sterge'));
+            mobFoaieOrase();
+            mobPuncte();
+        });
+    });
+
+    // căutarea unui oraș nou
+    var inp = document.getElementById('moCauta'), rez = document.getElementById('moRez'), t = null;
+    inp.addEventListener('input', function() {
+        clearTimeout(t);
+        var q = inp.value.trim();
+        if (q.length < 2) { rez.style.display = 'none'; return; }
+        t = setTimeout(function() {
+            fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) +
+                  '&count=8&language=' + (LANG === 'en' ? 'en' : 'ro'))
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var g = d.results || [];
+                    if (!g.length) { rez.style.display = 'none'; return; }
+                    rez.innerHTML = g.map(function(x, i) {
+                        return '<div data-g="' + i + '">' + x.name +
+                               '<small>' + [x.admin1, x.country].filter(Boolean).join(', ') + '</small></div>';
+                    }).join('');
+                    rez.style.display = 'block';
+                    Array.prototype.forEach.call(rez.querySelectorAll('[data-g]'), function(el) {
+                        el.addEventListener('click', function() {
+                            var x = g[+el.getAttribute('data-g')];
+                            var loc = { nume: x.name, tara: x.country_code, admin: x.admin1, lat: x.latitude, lon: x.longitude };
+                            adaugaOras(loc);
+                            seteazaLocatie(loc);
+                            mobInchideFoaie();
+                            window.scrollTo({ top: 0 });
+                        });
+                    });
+                }).catch(function() {});
+        }, 320);
+    });
 }
 function mobInchideFoaie() { document.getElementById('mobFoaie').classList.remove('deschis'); }
 
@@ -6786,7 +7060,13 @@ function mobHartaRadarMare(id) {
 }
 function mobHartaAnm(id) {
     var el = document.getElementById(id);
-    if (!el || typeof _judeteGeo === 'undefined' || !_judeteGeo) return;
+    if (!el || _mobHarti[id]) return;
+    if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
+        // geometria județelor încă nu s-a încărcat — reîncercăm o dată
+        setTimeout(function() { mobHartaAnm(id); }, 2500);
+        return;
+    }
+    _mobHarti[id] = true;
     var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(m);
     var strat = L.geoJSON(_judeteGeo, { style: function() { return { color: 'rgba(255,255,255,0.35)', weight: 0.8, fillColor: '#3fbf5a', fillOpacity: 0.22 }; } }).addTo(m);
@@ -6815,7 +7095,28 @@ function mobHartaAnm(id) {
     var f = document.getElementById('mobFoaie');
     if (f) f.addEventListener('click', function(e) { if (e.target === f) mobInchideFoaie(); });
     var jos = document.getElementById('mjLoc');
-    if (jos) jos.addEventListener('click', function() { try { deschideLocPanel(); } catch (e) {} });
+    if (jos) jos.addEventListener('click', function() { mobDeschideFoaie('orase'); });
+
+    /* glisare stânga/dreapta pe pagină = orașul următor/anterior.
+       Ignorăm hărțile și zonele care se derulează pe orizontală,
+       ca să nu furăm gestul de acolo. */
+    var x0 = null, y0 = null, anulat = false;
+    var app = document.getElementById('mobApp');
+    if (app) {
+        app.addEventListener('touchstart', function(e) {
+            if (e.touches.length !== 1 ||
+                e.target.closest('.leaflet-container, .mb-ore, .mb-seg, input, #mobJos')) { anulat = true; return; }
+            anulat = false; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        }, { passive: true });
+        app.addEventListener('touchmove', function(e) { if (e.touches.length > 1) anulat = true; }, { passive: true });
+        app.addEventListener('touchend', function(e) {
+            if (anulat || x0 === null) { x0 = null; return; }
+            var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+            // orizontal, hotărât, și clar mai mult pe orizontală decât pe verticală
+            if (Math.abs(dx) >= 80 && Math.abs(dx) >= Math.abs(dy) * 2) treciLaOras(dx < 0 ? 1 : -1);
+            x0 = null;
+        }, { passive: true });
+    }
     var bH = document.getElementById('mjHarta');
     if (bH) bH.addEventListener('click', function() { mobDeschideFoaie('radar'); });
     var bL = document.getElementById('mjLista');
