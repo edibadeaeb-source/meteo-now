@@ -5336,6 +5336,7 @@ var I18N = {
         presiuneMare: 'Presiune ridicată — de obicei vreme stabilă.',
         presiuneMica: 'Presiune scăzută — vremea se poate schimba.', presiuneNormala: 'Presiune normală.',
         surseMob: 'Surse: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
+        seIncarca: 'Se încarcă datele meteo…',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -5437,6 +5438,7 @@ var I18N = {
         presiuneMare: 'High pressure — usually settled weather.',
         presiuneMica: 'Low pressure — weather may change.', presiuneNormala: 'Normal pressure.',
         surseMob: 'Sources: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
+        seIncarca: 'Loading weather data…',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
@@ -6142,31 +6144,39 @@ applyTheme(PREF.get('theme', 'system'));
      Desktopul rămâne neatins.
      ══════════════════════════════════════════════════════════════════ -->
 <style>
+/* IMPORTANT: ascunderea implicită trebuie declarată ÎNAINTE de regula
+   din @media. La specificitate egală câștigă ultima regulă scrisă, iar
+   dacă o puneam după, interfața mobilă rămânea ascunsă pe telefon —
+   ecran negru, pentru că layout-ul de desktop era deja ascuns. */
+#mobApp { display: none; }
+
+#mobApp {
+    position: relative; min-height: 100vh; z-index: 0;
+    color: #fff;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    padding-bottom: 120px;
+    -webkit-font-smoothing: antialiased;
+}
+
 @media (max-width: 760px) {
     /* ascundem interfața de desktop, fără s-o scoatem din pagină
        (codul vechi încă scrie în ea, dar nu se mai vede) */
     body > header.topbar, body > .hero-band, body > main.container,
     body > section.band-section, body > div.container, body > footer.site-footer-w,
     body > nav.side-nav { display: none !important; }
-    #mobApp { display: block; }
-    body { background: transparent; }
+    #mobApp { display: block !important; }
+    /* fundalul-cer și pe html/body, ca ecranul să nu fie negru
+       nici măcar o clipă, înainte să se încarce datele */
+    html, body { background: linear-gradient(180deg, #1b2a52 0%, #263a68 45%, #4a4a7d 100%) !important; }
     /* asistentul urcă deasupra barei plutitoare, ca să nu se suprapună */
     .chat-fab { bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important; right: 16px !important; }
     /* panoul de locație și setările plutesc peste interfața mobilă */
     .loc-panel, .sheet { z-index: 9900; }
 }
-#mobApp { display: none; }
 
 /* ── fundalul-cer, se schimbă după oră și vreme ── */
-#mobApp {
-    position: relative; min-height: 100vh;
-    color: #fff;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    padding-bottom: 120px;
-    -webkit-font-smoothing: antialiased;
-}
 #mobCer {
-    position: fixed; inset: 0; z-index: -2;
+    position: fixed; inset: 0; z-index: 0;
     background: linear-gradient(180deg, #1b2a52 0%, #263a68 45%, #4a4a7d 100%);
     transition: background 1.2s ease;
 }
@@ -6175,8 +6185,13 @@ applyTheme(PREF.get('theme', 'system'));
 #mobCer.apus   { background: linear-gradient(180deg, #2a3a6b 0%, #77568c 55%, #d98a6a 100%); }
 #mobCer.noros  { background: linear-gradient(180deg, #4a586f 0%, #6a7890 45%, #96a0b3 100%); }
 #mobCer.ploaie { background: linear-gradient(180deg, #2c3a4d 0%, #46566c 45%, #6d7d92 100%); }
-#mobStele { position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity 1.5s ease; }
+#mobStele { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.5s ease; }
 #mobStele.pornit { opacity: 1; }
+
+/* Conținutul stă deasupra cerului. Fără z-index negativ nicăieri:
+   un element cu z-index negativ ajunge în spatele fundalului paginii
+   și dispare complet pe unele telefoane. */
+.mb-hero, #mbContinut, #mobBara, #mobJos { position: relative; z-index: 2; }
 
 /* ── antetul mare, care se strânge la derulare ── */
 .mb-hero { text-align: center; padding: 14px 20px 22px; padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
@@ -6812,6 +6827,23 @@ if (esteMobil()) {
     setTimeout(mobIncarca, 300);
     setInterval(mobIncarca, 10 * 60 * 1000);
 }
+// dacă ecranul devine îngust (rotire, fereastră redimensionată), pornim și atunci
+window.addEventListener('resize', function() {
+    if (esteMobil() && !MOBD) mobIncarca();
+    else if (esteMobil() && MOBD) mobRandare();
+});
+// plasă de siguranță: dacă din orice motiv nu s-au încărcat datele,
+// măcar arătăm numele locației și un mesaj, nu un ecran gol
+setTimeout(function() {
+    if (esteMobil() && !MOBD) {
+        var c = document.getElementById('mbContinut');
+        document.getElementById('mbOras').textContent = (LOC && LOC.nume) ? LOC.nume : '';
+        if (c && !c.innerHTML.trim()) {
+            c.innerHTML = '<div class="mb-card" style="text-align:center;">' +
+                '<div style="font-size:0.9rem;opacity:0.85;padding:6px 0;">' + T('seIncarca') + '</div></div>';
+        }
+    }
+}, 5000);
 </script>
 </body>
 </html>
