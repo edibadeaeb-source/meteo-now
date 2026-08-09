@@ -3324,9 +3324,15 @@ chatInput.addEventListener('focus', function() {
     setTimeout(function() { chatMessages.scrollTop = chatMessages.scrollHeight; }, 300);
 });
 
-// Click pe sugestii
-chatSuggestions.querySelectorAll('.chat-suggestion').forEach(function(btn) {
-    btn.addEventListener('click', function() { sendChatMessage(btn.dataset.q); });
+/* Click pe sugestii — UN SINGUR ascultător, pe container.
+   Înainte, butoanele erau recreate la fiecare schimbare de oraș, iar
+   ascultătorul legat la pornire rămânea agățat de butoanele vechi:
+   după ce schimbai orașul, apăsarea nu mai făcea nimic. */
+chatSuggestions.addEventListener('click', function(e) {
+    var b = e.target.closest('.chat-suggestion');
+    if (!b) return;
+    var q = b.getAttribute('data-q');
+    if (q) sendChatMessage(q);
 });
 
 // Notificare cand IAQ > 200
@@ -3901,7 +3907,58 @@ function culNum(c) {
     return 0;
 }
 function stripHtml(s) { var t = document.createElement('div'); t.innerHTML = s || ''; return (t.textContent || '').replace(/\s+/g, ' ').trim(); }
-var WARN_COLS = { 0: 'transparent', 1: '#f5c500', 2: '#f97316', 3: '#e5484d' };
+var WARN_COLS = { 0: 'transparent', 1: '#f7ff3c', 2: '#ff8c1a', 3: '#e5202b' };
+
+/* ══════════════════════════════════════════════════════════════
+   „conform textelor" — ce înseamnă și cum îl reparăm
+   ANM pune uneori acest text în câmpurile scurte, ca să spună
+   „citește mesajul complet". Fenomenele, intervalul și zonele
+   reale stau în câmpul `mesaj`, structurate pe rânduri.
+   Le scoatem de acolo, ca utilizatorul să vadă ceva folositor.
+   ══════════════════════════════════════════════════════════════ */
+function esteGol(v) {
+    v = stripHtml(v || '').toLowerCase().replace(/[;.\s]+$/, '');
+    return !v || v.indexOf('conform text') === 0;
+}
+function _dinMesaj(txt, eticheta, urmatoare) {
+    var re = new RegExp(eticheta + '\\s*:\\s*([\\s\\S]*?)(?=' + urmatoare + '\\s*:|$)', 'i');
+    var m = txt.match(re);
+    if (!m) return '';
+    return m[1].replace(/\s+/g, ' ').trim().replace(/[;,]\s*$/, '');
+}
+// ca stripHtml, dar păstrează rândurile — avem nevoie de ele ca să separăm
+// „Fenomene vizate: …" de corpul mesajului
+function stripLinii(s) {
+    var h = String(s || '').replace(/<br\s*\/?>/gi, '\n')
+                           .replace(/<\/(p|div|li|tr|h\d)>/gi, '\n');
+    var t = document.createElement('div');
+    t.innerHTML = h;
+    return (t.textContent || '').split('\n')
+        .map(function(r) { return r.replace(/\s+/g, ' ').trim(); })
+        .filter(Boolean).join('\n');
+}
+function anmDetalii(w) {
+    var linii = stripLinii(w.mesaj || '');
+    var caut = function(et) {
+        var m = linii.match(new RegExp('^\\s*' + et + '\\s*:\\s*(.+)$', 'im'));
+        return m ? m[1].replace(/[;,.]\s*$/, '').trim() : '';
+    };
+    var fen = esteGol(w.fenomeneVizate) ? caut('Fenomene vizate')          : stripHtml(w.fenomeneVizate);
+    var itv = esteGol(w.intervalul)     ? caut('Interval de valabilitate') : stripHtml(w.intervalul);
+    var zon = esteGol(w.zonaAfectata)   ? caut('Zone afectate')            : stripHtml(w.zonaAfectata);
+    if (esteGol(zon)) zon = '';
+
+    // corpul mesajului = rândurile care nu sunt titlu sau etichetă
+    var corp = linii.split('\n').filter(function(r) {
+        return !/^\s*(interval de valabilitate|fenomene vizate|zone afectate|informare meteorologic|aten[țt]ionare|avertizare)/i.test(r);
+    }).join(' ');
+    return {
+        fenomene: fen.replace(/[;.]\s*$/, ''),
+        interval: itv.replace(/[;.]\s*$/, ''),
+        zone: zon.replace(/[;.]\s*$/, ''),
+        rezumat: corp.trim().slice(0, 300)
+    };
+}
 function loadJudeteGeo() {
     // întâi prin serverul Flask (fără CORS, cache pe disc), apoi direct de pe GitHub
     var gh = 'https://raw.githubusercontent.com/GabrielRondelli/geojson/main/romania-counties.geojson';
@@ -3939,7 +3996,8 @@ function refreshWarnings() {
         var types = {}, latest = '';
         warns.forEach(function(w) {
             latest = w.dataAparitiei || latest;
-            var t = (w.numeTipMesaj || 'Avertizare') + (w.fenomeneVizate && w.fenomeneVizate !== 'conform textelor' ? ': ' + w.fenomeneVizate : '');
+            var d = anmDetalii(w);
+            var t = (w.numeTipMesaj || 'Avertizare') + (d.fenomene ? ': ' + d.fenomene : '');
             types[t] = 1;
         });
         document.getElementById('warnDate').innerText = latest || new Date().toLocaleDateString('ro-RO');
@@ -3955,10 +4013,10 @@ function refreshWarnings() {
         var listHtml = warns.map(function(w) {
             var lvW = Math.max.apply(null, judArr(w).map(function(j) { return culNum(j.culoare); }).concat([culNum(w.culoare), 1]));
             var titlu = w.numeTipMesaj || w.tipMesaj || w.titlu || 'Avertizare meteorologică';
-            var interval = (w.intervalul && w.intervalul !== 'conform textelor') ? w.intervalul
-                : ((w.dataAparitiei || '') + (w.dataExpirarii ? ' → ' + w.dataExpirarii : ''));
-            var fen = (w.fenomeneVizate && w.fenomeneVizate !== 'conform textelor') ? stripHtml(w.fenomeneVizate) : '';
-            var zona = stripHtml(w.zonaAfectata || '');
+            var det = anmDetalii(w);
+            var interval = det.interval || ((w.dataAparitiei || '') + (w.dataExpirarii ? ' → ' + w.dataExpirarii : ''));
+            var fen = det.fenomene;
+            var zona = det.zone || det.rezumat;
             if (zona.length > 240) zona = zona.slice(0, 240) + '…';
             var col = WARN_COLS[lvW] || '#f5c500';
             return '<div style="padding:8px 11px;margin-bottom:6px;background:#f4f6fb;border-left:4px solid ' + col + ';border-radius:0 6px 6px 0;">' +
@@ -4021,7 +4079,7 @@ function nivelAvert(w) {
 
 // „val de căldură persistent, caniculă…" → „🌡️ Caniculă"
 function etichetaFenomen(w) {
-    var f = stripHtml(w.fenomeneVizate || '').toLowerCase();
+    var f = (anmDetalii(w).fenomene || '').toLowerCase();
     var reguli = [
         [/canicul|val de c[ăa]ldur|disconfort termic/, '🌡️', 'canicula'],
         [/vijeli|instabilitate|desc[ăa]rc[ăa]ri|furtun/, '⛈️', 'furtuni'],
@@ -4135,9 +4193,10 @@ function deseneazaZoneAvert() {
         var nume = JUD_NAME[a.cod.toUpperCase()] || zoneName(a.cod);
         var det = a.av.map(function(i) {
             var w = alese[i]; if (!w) return '';
-            var fen = stripHtml(w.fenomeneVizate || '');
+            var d = anmDetalii(w);
             return '<div style="margin-top:3px;">• <b>' + (w.numeTipMesaj || T('avertizare')) + '</b>' +
-                   (fen ? '<br><span style="color:#555;">' + fen + '</span>' : '') + '</div>';
+                   (d.fenomene ? '<br><span style="color:#555;">' + d.fenomene + '</span>' : '') +
+                   (d.interval ? '<br><span style="color:#777;font-size:0.9em;">🕐 ' + d.interval + '</span>' : '') + '</div>';
         }).join('');
         var popup = '<b>' + nume + '</b> — ' + (CODNAME[a.lv] || T('avertizare')) + det;
 
@@ -5914,9 +5973,10 @@ function actualizeazaChat() {
         b.className = 'chat-suggestion';
         b.setAttribute('data-q', p[1]);
         b.textContent = p[0];
-        b.addEventListener('click', function() { sendChatMessage(p[1]); });
         box.appendChild(b);
     });
+    // dacă n-ai început încă discuția, sugestiile trebuie să fie vizibile
+    if (!chatHistory.length) box.style.display = '';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -6259,9 +6319,46 @@ applyTheme(PREF.get('theme', 'system'));
         transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease;
         -webkit-tap-highlight-color: transparent;
     }
-    .chat-fab:active { transform: scale(0.88); background: rgba(255,255,255,0.30) !important; }
+    .chat-fab:active { transform: scale(1.12); background: rgba(255,255,255,0.32) !important; filter: contrast(1.14) brightness(1.1); }
+
+    /* ── asistentul AI, în aceeași sticlă ── */
+    .chat-window {
+        background: rgba(30, 40, 74, 0.80) !important;
+        -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
+        border: 1px solid rgba(255,255,255,0.18) !important;
+        box-shadow: 0 -18px 50px rgba(0,0,0,0.45) !important;
+        color: #fff;
+    }
+    .chat-header {
+        background: rgba(255,255,255,0.10) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.14) !important; color: #fff !important;
+    }
+    .chat-header * { color: #fff !important; }
+    .chat-messages { background: transparent !important; }
+    .chat-msg.bot, .message.bot {
+        background: rgba(255,255,255,0.13) !important; color: #f0f3ff !important;
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+    .chat-msg.user, .message.user {
+        background: rgba(255,255,255,0.26) !important; color: #fff !important;
+    }
+    .chat-suggestion {
+        background: rgba(255,255,255,0.13) !important; color: #eaeefb !important;
+        border: 1px solid rgba(255,255,255,0.20) !important;
+        transition: transform 0.14s ease, background 0.18s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .chat-suggestion:active { transform: scale(1.08); background: rgba(255,255,255,0.30) !important; filter: contrast(1.14); }
+    .chat-input-area { background: rgba(255,255,255,0.08) !important; border-top: 1px solid rgba(255,255,255,0.14) !important; }
+    .chat-input-area input, #chatInput {
+        background: rgba(255,255,255,0.12) !important; border: 1px solid rgba(255,255,255,0.18) !important;
+        color: #fff !important;
+    }
+    .chat-input-area input::placeholder, #chatInput::placeholder { color: rgba(255,255,255,0.5) !important; }
+
     @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         .chat-fab { background: rgba(40, 52, 92, 0.92) !important; }
+        .chat-window { background: rgba(24, 33, 64, 0.98) !important; }
     }
     /* panoul de locație și setările plutesc peste interfața mobilă */
     .loc-panel, .sheet { z-index: 9900; }
@@ -6511,7 +6608,16 @@ applyTheme(PREF.get('theme', 'system'));
     color: #fff;
 }
 #mobFoaie.deschis .mf-corp { transform: translateY(0); }
-.mf-maner { width: 38px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.34); margin: 6px auto 12px; }
+/* linia de sus e zona de prindere: o tragi în jos și foaia se închide */
+.mf-maner {
+    width: 38px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.34);
+    margin: 6px auto 12px; position: relative;
+}
+.mf-prindere {
+    position: absolute; top: 0; left: 0; right: 0; height: 44px; z-index: 5;
+    cursor: grab; touch-action: none;
+}
+.mf-corp.trage { transition: none; }
 .mf-titlu { font-size: 1.18rem; font-weight: 700; margin-bottom: 10px; }
 .mf-corp .mb-card { margin-left: 0; margin-right: 0; }
 
@@ -6530,13 +6636,18 @@ applyTheme(PREF.get('theme', 'system'));
     transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease,
                 box-shadow 0.18s ease, border-color 0.18s ease;
 }
-.mj-rot:active, .mo-sterge:active, .mr-btn:active, .sheet-close:active { transform: scale(0.88); }
-.mj-pilula:active, .mo-oras:active, .mb-card.apasabil:active { transform: scale(0.975); }
-.mb-seg button:active, .seg button:active, .mo-rez div:active { transform: scale(0.93); }
+/* Apăsarea CREȘTE elementul și îi ridică puțin contrastul, ca pe iPhone —
+   sticla pare că se apropie de deget, nu că se afundă. */
+.mj-rot:active, .mo-sterge:active, .mr-btn:active, .sheet-close:active { transform: scale(1.12); }
+.mj-pilula:active, .mo-oras:active, .mb-card.apasabil:active { transform: scale(1.022); }
+.mb-seg button:active, .seg button:active, .mo-rez div:active, .mb-avchip:active { transform: scale(1.08); }
 .mj-rot:active, .mj-pilula:active, .mb-seg button:active, .mo-oras:active,
-.mr-btn:active, .sheet-close:active, .seg button:active, .mo-rez div:active {
-    background: rgba(255,255,255,0.30);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 0 0 4px rgba(255,255,255,0.09);
+.mr-btn:active, .sheet-close:active, .seg button:active, .mo-rez div:active,
+.mb-card.apasabil:active, .mb-avchip:active {
+    background: rgba(255,255,255,0.32);
+    border-color: rgba(255,255,255,0.50);
+    filter: contrast(1.14) brightness(1.10);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 8px 26px rgba(0,0,0,0.35);
 }
 /* unda de lumină care traversează sticla la apăsare */
 .mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn { position: relative; overflow: hidden; }
@@ -6667,6 +6778,7 @@ applyTheme(PREF.get('theme', 'system'));
 
 <div id="mobFoaie">
     <div class="mf-corp" id="mfCorp">
+        <div class="mf-prindere" id="mfPrindere"></div>
         <div class="mf-maner"></div>
         <div class="mf-titlu" id="mfTitlu"></div>
         <div id="mfContinut"></div>
@@ -6791,23 +6903,125 @@ function mobCer() {
         if (d1 < 75 || d2 < 75) clasa = 'apus';
     } catch (e) {}
     el.className = clasa;
-    mobStele(clasa === 'noapte');
+    // ninsoarea are propria animație, deși fundalul rămâne „ploaie"
+    var tipAnim = (cod >= 71 && cod <= 77) ? 'ninsoare' : clasa;
+    if (tipAnim !== _cerTip || !_cerAnim) porneșteCerViu(tipAnim);
 }
 
-function mobStele(pornit) {
+/* ══════════════════════════════════════════════════════════════
+   CERUL VIU
+   Un singur canvas care desenează ce se întâmplă afară: soarele
+   pulsează încet, norii plutesc, ploaia cade, fulgii se leagănă,
+   stelele clipesc. Se oprește singur când aplicația e în fundal.
+   ══════════════════════════════════════════════════════════════ */
+var _cerAnim = null, _cerObiecte = null, _cerTip = 'noapte';
+
+function mobStele(pornit) { /* păstrată — cerul viu preia rolul */ }
+
+function porneșteCerViu(tip) {
     var cv2 = document.getElementById('mobStele');
-    if (!cv2) return;
-    cv2.classList.toggle('pornit', !!pornit);
-    if (!pornit || cv2._desenat) return;
-    cv2._desenat = true;
-    var w = cv2.width = innerWidth, h = cv2.height = innerHeight;
+    if (!cv2 || !esteMobil()) return;
+    _cerTip = tip;
+    cv2.classList.add('pornit');
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = cv2.width = innerWidth * dpr, h = cv2.height = innerHeight * dpr;
+    cv2.style.width = innerWidth + 'px'; cv2.style.height = innerHeight + 'px';
     var ct = cv2.getContext('2d');
-    for (var i = 0; i < 90; i++) {
-        var x = Math.random() * w, y = Math.random() * h * 0.75, r = Math.random() * 1.1 + 0.3;
-        ct.beginPath(); ct.arc(x, y, r, 0, 6.284);
-        ct.fillStyle = 'rgba(255,255,255,' + (0.25 + Math.random() * 0.6) + ')';
-        ct.fill();
+    ct.scale(dpr, dpr);
+    var W = innerWidth, H = innerHeight;
+
+    // pregătim obiectele o singură dată pentru fiecare tip de vreme
+    var o = { stele: [], nori: [], pic: [], fulgi: [] };
+    if (tip === 'noapte') {
+        for (var i = 0; i < 95; i++) o.stele.push({ x: Math.random() * W, y: Math.random() * H * 0.72,
+            r: Math.random() * 1.2 + 0.3, f: Math.random() * 6.28, v: 0.4 + Math.random() * 1.4 });
     }
+    if (tip === 'noros' || tip === 'ploaie' || tip === 'zi' || tip === 'apus') {
+        var nrNori = (tip === 'zi') ? 3 : 6;
+        for (var n = 0; n < nrNori; n++) o.nori.push({
+            x: Math.random() * (W + 300) - 150, y: 40 + Math.random() * (H * 0.42),
+            s: 0.55 + Math.random() * 0.9, v: 0.10 + Math.random() * 0.22,
+            a: (tip === 'ploaie' ? 0.16 : 0.13) + Math.random() * 0.10
+        });
+    }
+    if (tip === 'ploaie') {
+        for (var p = 0; p < 90; p++) o.pic.push({ x: Math.random() * W, y: Math.random() * H,
+            l: 9 + Math.random() * 13, v: 5 + Math.random() * 5, a: 0.16 + Math.random() * 0.28 });
+    }
+    if (tip === 'ninsoare') {
+        for (var s2 = 0; s2 < 70; s2++) o.fulgi.push({ x: Math.random() * W, y: Math.random() * H,
+            r: 1.2 + Math.random() * 2.4, v: 0.4 + Math.random() * 0.9,
+            f: Math.random() * 6.28, am: 8 + Math.random() * 22 });
+    }
+    _cerObiecte = o;
+
+    var t = 0;
+    if (_cerAnim) cancelAnimationFrame(_cerAnim);
+    (function cadru() {
+        _cerAnim = requestAnimationFrame(cadru);
+        if (document.hidden) return;                 // nu consumăm baterie degeaba
+        t += 0.016;
+        ct.clearRect(0, 0, W, H);
+
+        // soarele: aureolă care respiră
+        if (tip === 'zi' || tip === 'apus') {
+            var puls = 1 + Math.sin(t * 0.7) * 0.06;
+            var sx = W * 0.76, sy = H * 0.13;
+            var g = ct.createRadialGradient(sx, sy, 4, sx, sy, 128 * puls);
+            g.addColorStop(0, tip === 'apus' ? 'rgba(255,206,150,0.85)' : 'rgba(255,246,200,0.90)');
+            g.addColorStop(0.35, tip === 'apus' ? 'rgba(255,170,110,0.30)' : 'rgba(255,235,160,0.28)');
+            g.addColorStop(1, 'rgba(255,220,150,0)');
+            ct.fillStyle = g;
+            ct.beginPath(); ct.arc(sx, sy, 128 * puls, 0, 6.284); ct.fill();
+            // razele care se rotesc lent
+            ct.save(); ct.translate(sx, sy); ct.rotate(t * 0.05);
+            for (var r2 = 0; r2 < 12; r2++) {
+                ct.rotate(6.284 / 12);
+                ct.fillStyle = 'rgba(255,240,190,' + (0.05 + Math.sin(t + r2) * 0.02) + ')';
+                ct.fillRect(30, -2.5, 78, 5);
+            }
+            ct.restore();
+        }
+
+        // luna și stelele
+        o.stele.forEach(function(st) {
+            var a = 0.28 + Math.abs(Math.sin(t * st.v + st.f)) * 0.62;
+            ct.beginPath(); ct.arc(st.x, st.y, st.r, 0, 6.284);
+            ct.fillStyle = 'rgba(255,255,255,' + a + ')'; ct.fill();
+        });
+
+        // norii
+        o.nori.forEach(function(nr) {
+            nr.x += nr.v;
+            if (nr.x > W + 180) nr.x = -180;
+            ct.fillStyle = 'rgba(255,255,255,' + nr.a + ')';
+            var b = nr.s;
+            [[0, 0, 42], [34, -12, 32], [64, 4, 27], [-30, 6, 26], [14, 12, 30]].forEach(function(c) {
+                ct.beginPath();
+                ct.ellipse(nr.x + c[0] * b, nr.y + c[1] * b, c[2] * b, c[2] * b * 0.62, 0, 0, 6.284);
+                ct.fill();
+            });
+        });
+
+        // ploaia
+        ct.lineCap = 'round';
+        o.pic.forEach(function(pp) {
+            pp.y += pp.v; pp.x += 0.6;
+            if (pp.y > H) { pp.y = -14; pp.x = Math.random() * W; }
+            ct.strokeStyle = 'rgba(190,215,255,' + pp.a + ')';
+            ct.lineWidth = 1.3;
+            ct.beginPath(); ct.moveTo(pp.x, pp.y); ct.lineTo(pp.x - 1.6, pp.y + pp.l); ct.stroke();
+        });
+
+        // ninsoarea
+        o.fulgi.forEach(function(fl) {
+            fl.y += fl.v; fl.f += 0.012;
+            var x = fl.x + Math.sin(fl.f) * fl.am;
+            if (fl.y > H) { fl.y = -8; fl.x = Math.random() * W; }
+            ct.beginPath(); ct.arc(x, fl.y, fl.r, 0, 6.284);
+            ct.fillStyle = 'rgba(255,255,255,0.62)'; ct.fill();
+        });
+    })();
 }
 
 /* ── culoarea barelor de temperatură, ca pe iPhone ── */
@@ -7122,15 +7336,16 @@ function mobCardHartaANM() {
     var lista = '';
     w.forEach(function(x) {
         var lv = nivelAvert(x);
-        var CUL = ['#fff', '#f5c500', '#f97316', '#e5484d'];
-        var fen = stripHtml(x.fenomeneVizate || '').replace(/;\s*$/, '');
-        var zona = stripHtml(x.zonaAfectata || '');
-        if (zona.length > 150) zona = zona.slice(0, 150) + '…';
+        var d = anmDetalii(x);
+        var CUL = WARN_COLS;
+        var zona = d.zone || d.rezumat;
+        if (zona.length > 180) zona = zona.slice(0, 180) + '…';
         lista += '<div class="mb-avrand" style="border-left-color:' + CUL[lv] + '">' +
                  '<div class="avr-sus"><b>' + (x.numeTipMesaj || T('avertizare')) + '</b>' +
                  '<span class="avr-cod" style="background:' + CUL[lv] + ';color:' +
-                    (lv === 1 ? '#1c2434' : '#fff') + '">' + NUME[lv] + '</span></div>' +
-                 (fen ? '<div class="avr-fen">' + fen + '</div>' : '') +
+                    (lv <= 2 ? '#1c2434' : '#fff') + '">' + NUME[lv] + '</span></div>' +
+                 (d.fenomene ? '<div class="avr-fen">' + d.fenomene + '</div>' : '') +
+                 (d.interval ? '<div class="avr-zona">🕐 ' + d.interval + '</div>' : '') +
                  (zona ? '<div class="avr-zona">📍 ' + zona + '</div>' : '') +
                  '</div>';
     });
@@ -7227,11 +7442,12 @@ function mobDeschideFoaie(care) {
         (window._anmWarns || []).forEach(function(w) {
             var lv = (typeof nivelAvert === 'function') ? nivelAvert(w) : 1;
             var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
-            var CUL = ['#fff', '#f5c500', '#f97316', '#e5484d'];
+            var d = anmDetalii(w);
             h += '<div class="mb-card"><div class="mb-cap"><span>' + (w.numeTipMesaj || '') + '</span>' +
-                 '<span class="mbc-dr" style="color:' + CUL[lv] + ';font-weight:800;">' + NUME[lv] + '</span></div>' +
-                 '<div style="font-size:0.88rem;line-height:1.5;">' + stripHtml(w.fenomeneVizate || '') + '</div>' +
-                 '<div class="mb-nota">' + stripHtml(w.zonaAfectata || '').slice(0, 220) + '</div></div>';
+                 '<span class="mbc-dr" style="color:' + WARN_COLS[lv] + ';font-weight:800;">' + NUME[lv] + '</span></div>' +
+                 (d.fenomene ? '<div style="font-size:0.9rem;line-height:1.5;font-weight:600;">' + d.fenomene + '</div>' : '') +
+                 (d.interval ? '<div style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-top:5px;">🕐 ' + d.interval + '</div>' : '') +
+                 (d.rezumat ? '<div class="mb-nota">' + d.rezumat + '</div>' : '') + '</div>';
         });
         h += '<div class="mb-card"><div class="mb-cap"><span>' + T('hartaAvert') + '</span></div>' +
              '<div class="mb-harta" id="mfHartaAnm" style="height:280px;"></div></div>';
@@ -7526,6 +7742,36 @@ function mobHartaAnm(id) {
 
     var f = document.getElementById('mobFoaie');
     if (f) f.addEventListener('click', function(e) { if (e.target === f) mobInchideFoaie(); });
+
+    /* glisare în jos pe linia de sus = închiderea foii, ca pe iPhone */
+    (function() {
+        var pr = document.getElementById('mfPrindere'), corp = document.getElementById('mfCorp');
+        if (!pr || !corp) return;
+        var y0 = null;
+        var start = function(y) { y0 = y; corp.classList.add('trage'); };
+        var misca = function(y) {
+            if (y0 === null) return;
+            var dy = Math.max(0, y - y0);
+            corp.style.transform = 'translateY(' + dy + 'px)';
+            document.getElementById('mobFoaie').style.background =
+                'rgba(4, 8, 22, ' + Math.max(0.12, 0.5 - dy / 700) + ')';
+        };
+        var gata = function(y) {
+            if (y0 === null) return;
+            var dy = Math.max(0, y - y0);
+            y0 = null;
+            corp.classList.remove('trage');
+            corp.style.transform = '';
+            document.getElementById('mobFoaie').style.background = '';
+            if (dy > 90) mobInchideFoaie();
+        };
+        pr.addEventListener('touchstart', function(e) { start(e.touches[0].clientY); }, { passive: true });
+        pr.addEventListener('touchmove',  function(e) { misca(e.touches[0].clientY); }, { passive: true });
+        pr.addEventListener('touchend',   function(e) { gata(e.changedTouches[0].clientY); }, { passive: true });
+        pr.addEventListener('pointerdown', function(e) { if (e.pointerType === 'mouse') start(e.clientY); });
+        window.addEventListener('pointermove', function(e) { if (e.pointerType === 'mouse' && y0 !== null) misca(e.clientY); });
+        window.addEventListener('pointerup', function(e) { if (e.pointerType === 'mouse' && y0 !== null) gata(e.clientY); });
+    })();
     /* ══ GLISAREA ÎNTRE ORAȘE ══
        Conținutul urmează degetul în timp real. La ridicare, dacă ai tras
        destul, alunecă până afară și intră orașul următor; dacă nu, revine
