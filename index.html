@@ -6322,12 +6322,13 @@ applyTheme(PREF.get('theme', 'system'));
         border: 1px solid rgba(255,255,255,0.22) !important;
         box-shadow: 0 6px 20px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.32) !important;
         color: #fff !important;
-        transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease;
+        transition: transform 0.30s cubic-bezier(0.33,0.9,0.35,1), background 0.42s ease, box-shadow 0.42s ease;
         -webkit-tap-highlight-color: transparent;
     }
-    .chat-fab.presat { transform: scale(1.10); background: rgba(255,255,255,0.30) !important;
-                       filter: contrast(1.10) brightness(1.07);
-                       box-shadow: 0 0 0 8px rgba(255,255,255,0.07), 0 12px 32px rgba(0,0,0,0.34) !important; }
+    .chat-fab.presat { transform: scale(0.93); background: rgba(255,255,255,0.26) !important;
+                       filter: brightness(1.05);
+                       box-shadow: 0 0 0 8px rgba(255,255,255,0.06), 0 12px 32px rgba(0,0,0,0.30) !important; }
+    .chat-fab.revine { animation: medRevine 0.62s cubic-bezier(0.2, 1.25, 0.32, 1); }
 
     /* ── asistentul AI, în aceeași sticlă ── */
     .chat-window {
@@ -6353,7 +6354,7 @@ applyTheme(PREF.get('theme', 'system'));
     .chat-suggestion {
         background: rgba(255,255,255,0.13) !important; color: #eaeefb !important;
         border: 1px solid rgba(255,255,255,0.20) !important;
-        transition: transform 0.14s ease, background 0.18s ease;
+        transition: transform 0.30s cubic-bezier(0.33,0.9,0.35,1), background 0.42s ease;
         -webkit-tap-highlight-color: transparent;
     }
     .chat-suggestion:active { transform: scale(1.08); background: rgba(255,255,255,0.30) !important; filter: contrast(1.14); }
@@ -6525,9 +6526,8 @@ applyTheme(PREF.get('theme', 'system'));
     border-radius: 999px; padding: 6px 12px; font-size: 0.74rem; font-weight: 700; font-family: inherit;
     background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #eaeefb;
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.14s ease, background 0.18s ease;
+    transition: transform 0.30s cubic-bezier(0.33,0.9,0.35,1), background 0.42s ease;
 }
-.mb-avchip:active { transform: scale(0.94); }
 .mb-avchip.activ { background: rgba(255,255,255,0.30); border-color: rgba(255,255,255,0.45); color: #fff; }
 .mb-avchip .av-bulina { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 .mb-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.72rem; font-weight: 700;
@@ -6684,8 +6684,6 @@ applyTheme(PREF.get('theme', 'system'));
 .mj-rot, .mj-pilula, .mb-seg button, .mo-oras, .mo-sterge, .mb-card.apasabil,
 .mr-btn, .sheet-close, .seg button, .mo-rez div {
     -webkit-tap-highlight-color: transparent;
-    transition: transform 0.14s cubic-bezier(0.3,0.9,0.3,1), background 0.18s ease,
-                box-shadow 0.18s ease, border-color 0.18s ease;
 }
 /* ══════════════════════════════════════════════════════════════
    APĂSAREA — moale, ca o meduză
@@ -6704,18 +6702,36 @@ applyTheme(PREF.get('theme', 'system'));
                 box-shadow 0.55s ease, filter 0.55s ease,
                 background 0.45s ease, border-color 0.45s ease;
 }
-/* în timpul apăsării: creștere mică, cu un ușor recul */
+/* Apăsarea: se lasă moale sub deget, nu sare. Nimic nu se aprinde
+   instantaneu — de aceea intrarea e de aproape o treime de secundă. */
 .presat {
-    transition: transform 0.19s cubic-bezier(0.34, 1.5, 0.5, 1),
-                box-shadow 0.22s ease, filter 0.22s ease,
-                background 0.22s ease, border-color 0.22s ease !important;
-    filter: contrast(1.10) brightness(1.07) saturate(1.05);
-    border-color: rgba(255,255,255,0.42) !important;
+    transition: transform 0.30s cubic-bezier(0.33, 0.9, 0.35, 1),
+                box-shadow 0.42s ease, filter 0.42s ease,
+                background 0.42s ease, border-color 0.42s ease !important;
+    filter: brightness(1.05) saturate(1.04);
+    border-color: rgba(255,255,255,0.34) !important;
 }
-.mj-rot.presat, .mo-sterge.presat, .mr-btn.presat, .sheet-close.presat { transform: scale(1.10); }
-.mj-pilula.presat, .mo-oras.presat, .mb-card.apasabil.presat { transform: scale(1.018); }
+.mj-rot.presat, .mo-sterge.presat, .mr-btn.presat, .sheet-close.presat { transform: scale(0.93); }
+.mj-pilula.presat, .mo-oras.presat, .mb-card.apasabil.presat { transform: scale(0.982); }
 .mb-seg button.presat, .seg button.presat, .mo-rez div.presat,
-.mb-avchip.presat, .chat-suggestion.presat, .lr-et.presat { transform: scale(1.07); }
+.mb-avchip.presat, .chat-suggestion.presat, .lr-et.presat { transform: scale(0.94); }
+
+/* Eliberarea: revine trecând puțin peste 1 și se așază — senzația
+   de material moale care își recapătă forma. */
+.revine { animation: medRevine 0.62s cubic-bezier(0.2, 1.25, 0.32, 1); }
+@keyframes medRevine {
+    0%   { transform: scale(0.94); }
+    46%  { transform: scale(1.035); }
+    78%  { transform: scale(0.992); }
+    100% { transform: scale(1); }
+}
+.mj-pilula.revine, .mo-oras.revine, .mb-card.apasabil.revine { animation-name: medRevineMic; }
+@keyframes medRevineMic {
+    0%   { transform: scale(0.982); }
+    46%  { transform: scale(1.012); }
+    78%  { transform: scale(0.997); }
+    100% { transform: scale(1); }
+}
 
 /* aura care se aprinde sub deget şi se stinge singură */
 .mj-rot, .mj-pilula, .mo-oras, .mb-card.apasabil, .mr-btn,
@@ -6731,7 +6747,12 @@ applyTheme(PREF.get('theme', 'system'));
     /* aprindere blândă, stingere și mai blândă */
     transition: opacity 0.55s ease, transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.presat::after { opacity: 1; transform: scale(1); transition: opacity 0.16s ease, transform 0.42s cubic-bezier(0.16, 1, 0.3, 1); }
+/* aura se aprinde treptat cât ții degetul; nu apare dintr-o dată */
+.presat::after {
+    opacity: 1; transform: scale(1);
+    transition: opacity 0.42s cubic-bezier(0.4, 0, 0.6, 1),
+                transform 0.85s cubic-bezier(0.16, 0.9, 0.3, 1);
+}
 
 /* halo moale în jurul elementului, cât e ținut apăsat */
 .mj-rot.presat, .mj-pilula.presat, .mr-btn.presat, .mo-sterge.presat, .sheet-close.presat {
@@ -7506,8 +7527,12 @@ function creeazaLuna3D(container, latura) {
             try { deseneazaLuna(); } catch (e) {}
         } else { deseneazaCadru3D(); }
     };
-    var texCol = incarcator.load('moon_color.jpg', candSoseste, undefined, candEsueaza);
-    var texRel = incarcator.load('moon_elev.jpg', candSoseste, undefined, candEsueaza);
+    /* Hărțile vin prin serverul nostru: el le aduce o singură dată de la NASA
+       și le ține pe disc. Nu mai trebuie descărcate manual, iar texturile sunt
+       de pe același domeniu — altfel WebGL le refuză. */
+    var http = location.protocol.indexOf('http') === 0;
+    var texCol = incarcator.load(http ? 'api/moon/color' : 'moon_color.jpg', candSoseste, undefined, candEsueaza);
+    var texRel = incarcator.load(http ? 'api/moon/elev'  : 'moon_elev.jpg',  candSoseste, undefined, candEsueaza);
     texCol.anisotropy = 4;
 
     // 256×128 segmente → relieful se vede pe siluetă, nu doar în umbre
@@ -8455,8 +8480,15 @@ function mobHartaAnm(id) {
     }
     function terminaApasarea() {
         if (!_elApasat) return;
-        _elApasat.classList.remove('presat');
+        var el = _elApasat;
         _elApasat = null;
+        el.classList.remove('presat');
+        // revenirea nu e o simplă întoarcere: trece puțin peste dimensiunea
+        // normală și se așază, ca un corp moale care își recapătă forma
+        el.classList.remove('revine');
+        void el.offsetWidth;
+        el.classList.add('revine');
+        setTimeout(function() { el.classList.remove('revine'); }, 620);
     }
 
     document.addEventListener('pointerdown', function(e) {

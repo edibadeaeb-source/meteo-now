@@ -519,6 +519,52 @@ def _push_check_intern():
 
 
 # ═══════════════════════════════════════════════════════════════
+#  HĂRȚILE LUNII (NASA / Lunar Reconnaissance Orbiter)
+#
+#  Le aducem o singură dată de la NASA și le ținem pe disc. Astfel
+#  nu mai trebuie descărcate manual, iar browserul le primește de pe
+#  domeniul nostru — fără probleme de CORS la texturile WebGL.
+# ═══════════════════════════════════════════════════════════════
+_MOON_SURSE = {
+    'color': 'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg',
+    'elev':  'https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_3_8bit.jpg',
+}
+_MOON_DIR = os.path.join(BASE_DIR, 'cache_luna')
+
+
+@app.route('/api/moon/<nume>')
+def moon_texture(nume):
+    if nume not in _MOON_SURSE:
+        return jsonify({'error': 'necunoscut'}), 404
+
+    # 1) dacă cineva a pus deja fișierul lângă index.html, îl folosim pe acela
+    for d in _static_candidates:
+        if not d:
+            continue
+        local = os.path.join(d, f'moon_{nume}.jpg')
+        if os.path.isfile(local):
+            return send_from_directory(d, f'moon_{nume}.jpg',
+                                       max_age=60 * 60 * 24 * 30)
+
+    # 2) altfel îl aducem de la NASA și îl păstrăm
+    os.makedirs(_MOON_DIR, exist_ok=True)
+    cale = os.path.join(_MOON_DIR, f'{nume}.jpg')
+    if not os.path.isfile(cale):
+        try:
+            r = requests.get(_MOON_SURSE[nume], timeout=60,
+                             headers={'User-Agent': 'MeteoNow/1.0'})
+            r.raise_for_status()
+            with open(cale, 'wb') as f:
+                f.write(r.content)
+            print(f"🌙 hartă lunară descărcată: {nume} ({len(r.content)//1024} KB)", flush=True)
+        except Exception as e:
+            print(f"⚠️  hartă lunară {nume}: {e}", flush=True)
+            return jsonify({'error': 'indisponibil'}), 502
+
+    return send_from_directory(_MOON_DIR, f'{nume}.jpg', max_age=60 * 60 * 24 * 30)
+
+
+# ═══════════════════════════════════════════════════════════════
 #  REZUMATUL ZILEI + SFATURI (notificări personalizate pe locație)
 #
 #  Fiecare abonat are propriile coordonate, deci propriul mesaj.
