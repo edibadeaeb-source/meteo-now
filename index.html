@@ -708,7 +708,7 @@
 
         /* ── prescurtările județelor pe harta ANM (ca pe harta oficială) ── */
         .jud-eticheta {
-            font-weight: 500; font-size: 9px; line-height: 1;
+            font-weight: 500; font-size: 7.5px; line-height: 1;
             color: #1c2434; text-align: center; white-space: nowrap;
             text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff, 0 0 2px #fff;
             pointer-events: none; letter-spacing: 0.1px;
@@ -6847,6 +6847,12 @@ var _mobHarti = {};
 
 function esteMobil() { return window.matchMedia('(max-width: 760px)').matches; }
 
+/* Vibrație scurtă la gesturi — dă senzația de „clic" fizic.
+   Android o susține; pe iOS e ignorată în siguranță. */
+function vibreaza(ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms || 10); } catch (e) {}
+}
+
 /* ══════════════════════════════════════════════════════════════
    ORAȘELE SALVATE
    Ca pe iPhone: ții o listă, glisezi stânga-dreapta ca să treci
@@ -6931,6 +6937,24 @@ function mobIncarca() {
         MOBD = d;
         mobRandare();
     }).catch(function(e) { console.error('mobil:', e); });
+
+    /* Datele ANM veneau prin harta de desktop, care pe telefon e ascunsă —
+       dacă inițializarea ei eșua, rămâneam fără județe și fără texte.
+       Acum interfața mobilă și le aduce singură, dacă lipsesc. */
+    if (esteRomania()) {
+        try {
+            if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
+                loadJudeteGeo().then(function(g) {
+                    _judeteGeo = g;
+                    refreshWarnings();
+                    setTimeout(function() { try { mobRandare(); } catch (e) {} }, 900);
+                }).catch(function(e) { console.error('judete:', e); });
+            } else if (!window._anmWarns) {
+                refreshWarnings();
+                setTimeout(function() { try { mobRandare(); } catch (e) {} }, 900);
+            }
+        } catch (e) { console.error('ANM mobil:', e); }
+    }
 }
 
 /* ── fundalul-cer, după oră și vreme ── */
@@ -7235,7 +7259,7 @@ function mobCardANM() {
     var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
     var fen = [];
     (window._anmWarns || []).forEach(function(w) {
-        var f = stripHtml(w.fenomeneVizate || '').replace(/;\s*$/, '');
+        var f = anmDetalii(w).fenomene;
         if (f && fen.indexOf(f) < 0) fen.push(f);
     });
     var titlu = lv > 0 ? NUME[lv].toUpperCase() : T('avertActive');
@@ -7390,6 +7414,99 @@ function incarcaTexturiLuna(cand) {
     ia('moon_elev.jpg', 'rel', 512, 256);
 }
 
+/* ══════════════════════════════════════════════════════════════
+   LUNA 3D — sferă reală cu relief, three.js
+   Geometrie sferică cu 30.000 de vârfuri, deplasate după harta de
+   altitudine LOLA, îmbrăcată în harta de culoare LROC. Lumină
+   direcțională poziționată după faza zilei. Se poate roti cu degetul.
+   ══════════════════════════════════════════════════════════════ */
+var L3 = { gata: false, incarca: false, scena: null, cam: null, rand: null,
+           luna: null, lumina: null, rotY: 0, rotX: 0, anim: null };
+
+function incarcaThree(cand) {
+    if (window.THREE) { cand(); return; }
+    if (L3.incarca) return;
+    L3.incarca = true;
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload = function() { L3.incarca = false; cand(); };
+    s.onerror = function() { L3.incarca = false; L3.gata = false; };
+    document.head.appendChild(s);
+}
+
+function creeazaLuna3D(container, latura) {
+    if (!window.THREE) return false;
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+
+    var scena = new THREE.Scene();
+    var cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    cam.position.z = 4.05;
+
+    var rand = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    rand.setPixelRatio(dpr);
+    rand.setSize(latura, latura);
+    rand.domElement.style.borderRadius = '50%';
+    rand.domElement.style.touchAction = 'none';
+    container.innerHTML = '';
+    container.appendChild(rand.domElement);
+
+    var incarcator = new THREE.TextureLoader();
+    var texCol = incarcator.load('moon_color.jpg');
+    var texRel = incarcator.load('moon_elev.jpg');
+    texCol.anisotropy = 4;
+
+    // 256×128 segmente → relieful se vede pe siluetă, nu doar în umbre
+    var geo = new THREE.SphereGeometry(1, 256, 128);
+    var mat = new THREE.MeshStandardMaterial({
+        map: texCol,
+        bumpMap: texRel, bumpScale: 0.022,            // craterele
+        displacementMap: texRel, displacementScale: 0.032, displacementBias: -0.016,
+        roughness: 0.98, metalness: 0
+    });
+    var luna = new THREE.Mesh(geo, mat);
+    // fața vizibilă de pe Pământ: harta e centrată pe 0° longitudine
+    luna.rotation.y = -Math.PI / 2;
+    scena.add(luna);
+
+    var lumina = new THREE.DirectionalLight(0xfff6e8, 2.6);
+    scena.add(lumina);
+    scena.add(new THREE.AmbientLight(0x4a5570, 0.10));   // lumina cenușie a Pământului
+
+    L3.scena = scena; L3.cam = cam; L3.rand = rand; L3.luna = luna; L3.lumina = lumina;
+    L3.gata = true;
+
+    // rotire cu degetul
+    var el = rand.domElement, apasat = false, px = 0, py = 0;
+    el.addEventListener('pointerdown', function(e) { apasat = true; px = e.clientX; py = e.clientY; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointermove', function(e) {
+        if (!apasat) return;
+        L3.rotY += (e.clientX - px) * 0.0075;
+        L3.rotX = Math.max(-1.2, Math.min(1.2, L3.rotX + (e.clientY - py) * 0.0075));
+        px = e.clientX; py = e.clientY;
+        deseneazaCadru3D();
+    });
+    el.addEventListener('pointerup', function() { apasat = false; });
+    el.addEventListener('pointercancel', function() { apasat = false; });
+    el.addEventListener('dblclick', function() { L3.rotY = 0; L3.rotX = 0; deseneazaCadru3D(); });
+    return true;
+}
+
+function deseneazaCadru3D() {
+    if (!L3.gata) return;
+    L3.luna.rotation.y = -Math.PI / 2 + L3.rotY;
+    L3.luna.rotation.x = L3.rotX;
+    L3.rand.render(L3.scena, L3.cam);
+}
+
+/* Poziționează Soarele după fază și redesenează. */
+function pozitieSoare3D(faza) {
+    if (!L3.gata) return;
+    var th = 2 * Math.PI * faza;
+    // lună nouă: Soarele în spatele Lunii; plină: în spatele nostru
+    L3.lumina.position.set(Math.sin(th) * 5, 0.35, -Math.cos(th) * 5);
+    deseneazaCadru3D();
+}
+
 /* Desenează Luna pe canvas, iluminată pentru faza dată. */
 function randeazaLunaNasa(canvas, faza, latura) {
     var col = _texLuna.col, rel = _texLuna.rel;
@@ -7523,11 +7640,11 @@ function deseneazaLuna() {
     }
 
     var rand = function(et, val) { return '<div class="ml-rand"><span>' + et + '</span><b>' + val + '</b></div>'; };
-    // Luna: dacă avem hărțile NASA o randăm real, altfel desenul de rezervă
-    var LATURA = 172;
-    var vizual = (_texLuna.stare === 'gata')
-        ? '<canvas id="mlCanvas" class="ml-glob"></canvas>'
-        : lunaSvg(f, LATURA);
+    // Luna: model 3D dacă e disponibil, altfel randare pe canvas, altfel desen
+    var LATURA = 200;
+    var vizual = window.THREE
+        ? '<div id="ml3D" class="ml-glob" style="width:' + LATURA + 'px;height:' + LATURA + 'px;"></div>'
+        : (_texLuna.stare === 'gata' ? '<canvas id="mlCanvas" class="ml-glob"></canvas>' : lunaSvg(f, LATURA));
 
     box.innerHTML =
         '<div class="mb-cap"><span class="mbc-ico">🌙</span><span>' + lunaNumeFaza(f) + '</span></div>' +
@@ -7546,12 +7663,17 @@ function deseneazaLuna() {
             rand(T('distanta'), Math.round(dist).toLocaleString(LANG === 'en' ? 'en-GB' : 'ro-RO') + ' km') +
         '</div>';
 
-    // randăm globul NASA (dacă e disponibil) sau pornim încărcarea hărților
-    if (_texLuna.stare === 'gata') {
+    // 3D dacă avem three.js; altfel îl aducem și redesenăm
+    var box3 = document.getElementById('ml3D');
+    if (box3) {
+        if (!L3.gata || !box3.firstChild) creeazaLuna3D(box3, LATURA);
+        pozitieSoare3D(f);
+    } else if (_texLuna.stare === 'gata') {
         var cv3 = document.getElementById('mlCanvas');
         if (cv3) randeazaLunaNasa(cv3, f, LATURA);
     } else {
         incarcaTexturiLuna(function() { deseneazaLuna(); });
+        incarcaThree(function() { L3.gata = false; deseneazaLuna(); });
     }
 
     /* Rigla: urmărește degetul continuu. `touch-action: none` pe element
@@ -7564,7 +7686,11 @@ function deseneazaLuna() {
         if (x0 === null) return;
         var dz = Math.round((x0 - x) / 24);
         var nou = Math.max(-14, Math.min(14, off0 + dz));
-        if (nou !== _lunaOffset) { _lunaOffset = nou; deseneazaLuna(); }
+        if (nou !== _lunaOffset) {
+            _lunaOffset = nou;
+            vibreaza(nou === 0 ? 18 : 8);      // o pulsație mai apăsată exact pe „azi"
+            deseneazaLuna();
+        }
     };
     rg.addEventListener('touchstart', function(e) { e.stopPropagation(); start(e.touches[0].clientX); }, { passive: true });
     rg.addEventListener('touchmove', function(e) { e.stopPropagation(); mut(e.touches[0].clientX); }, { passive: true });
@@ -7716,6 +7842,8 @@ function mobCardHartaANM() {
     if (!esteRomania()) return '';
     var w = window._anmWarns || [];
     var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
+    // Harta rămâne pe pagină și când nu e nicio avertizare — înainte
+    // dispărea toată secțiunea, cu județe cu tot, și părea că s-a stricat.
 
     var chips = '';
     if (w.length > 1) {
@@ -8212,6 +8340,7 @@ function mobHartaAnm(id) {
             var L2 = window.innerWidth;
             if (Math.abs(dx) >= L2 * 0.22 || Math.abs(dx) >= 90) {
                 var dir = dx < 0 ? 1 : -1;
+                vibreaza(14);
                 // iese complet, apoi intră orașul nou din partea opusă
                 mobMuta(-dir * L2 * 0.55, 0, true);
                 setTimeout(function() {
@@ -8266,6 +8395,8 @@ function mobHartaAnm(id) {
 if (esteMobil()) {
     setTimeout(mobIncarca, 300);
     setInterval(mobIncarca, 10 * 60 * 1000);
+    // aducem three.js din timp, ca Luna 3D să fie gata când ajungi la ea
+    setTimeout(function() { incarcaThree(function() { try { deseneazaLuna(); } catch (e) {} }); }, 2500);
 }
 // dacă ecranul devine îngust (rotire, fereastră redimensionată), pornim și atunci
 window.addEventListener('resize', function() {
