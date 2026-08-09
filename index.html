@@ -6369,6 +6369,45 @@ applyTheme(PREF.get('theme', 'system'));
 .mb-sub { font-size: 0.78rem; font-weight: 600; margin-top: 1px; }
 .mb-nota { font-size: 0.78rem; color: rgba(255,255,255,0.72); line-height: 1.35; margin-top: auto; padding-top: 8px; }
 
+/* ── secțiunea ANM din interfața mobilă ── */
+.mb-avchips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
+.mb-avchips::-webkit-scrollbar { display: none; }
+.mb-avchip {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 6px; cursor: pointer;
+    border-radius: 999px; padding: 6px 12px; font-size: 0.74rem; font-weight: 700; font-family: inherit;
+    background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #eaeefb;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.14s ease, background 0.18s ease;
+}
+.mb-avchip:active { transform: scale(0.94); }
+.mb-avchip.activ { background: rgba(255,255,255,0.30); border-color: rgba(255,255,255,0.45); color: #fff; }
+.mb-avchip .av-bulina { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.mb-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.72rem; font-weight: 700;
+              color: rgba(255,255,255,0.82); margin-top: 10px; }
+.mb-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+.mb-avlista { margin-top: 12px; max-height: 240px; overflow-y: auto; }
+.mb-avrand {
+    background: rgba(255,255,255,0.08); border-left: 3px solid #f5c500;
+    border-radius: 0 12px 12px 0; padding: 9px 11px; margin-bottom: 8px;
+}
+.avr-sus { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 0.84rem; }
+.avr-cod { font-size: 0.62rem; font-weight: 800; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.avr-fen { font-size: 0.78rem; color: rgba(255,255,255,0.88); margin-top: 4px; line-height: 1.4; }
+.avr-zona { font-size: 0.72rem; color: rgba(255,255,255,0.6); margin-top: 3px; line-height: 1.35; }
+
+/* ── scala climatică, cu etichete ca pe desktop ── */
+.mb-scala { margin-top: 12px; }
+.mb-scala .s-bara {
+    position: relative; height: 9px; border-radius: 5px;
+    background: linear-gradient(90deg, #2456b3, #2f7fd1, #7ec8e3, #e9edf3, #f5c500, #f97316, #e5484d);
+}
+.mb-scala .s-ac {
+    position: absolute; top: -5px; width: 3px; height: 19px; border-radius: 2px;
+    background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,0.35); transform: translateX(-50%);
+}
+.mb-scala .s-et { display: flex; justify-content: space-between; font-size: 0.63rem;
+                  color: rgba(255,255,255,0.6); margin-top: 6px; }
+
 /* ── hărți în cardurile mobile ── */
 .mb-harta { height: 210px; border-radius: 14px; overflow: hidden; margin: 0 -2px; }
 .mb-harta .leaflet-container { background: #55575c; }
@@ -6379,8 +6418,10 @@ applyTheme(PREF.get('theme', 'system'));
    drumurile și denumirile. Folosim un filtru care RIDICĂ negrurile
    (pantă + prag), păstrând diferența dintre uscat, drumuri și text.
    Filtrăm doar panoul de fundal, ca radarul să-și țină culorile. */
-.leaflet-fundalgri-pane { filter: brightness(3) contrast(0.6); }   /* rezervă */
-.leaflet-fundalgri-pane { filter: url(#griHarta); }
+/* Valori măsurate pe dale reale: uscatul iese #575757, iar denumirile
+   ajung la 183 din 255 — practic identic cu harta din aplicația iPhone
+   (#55575c uscat). Filtru CSS simplu, fără dependențe. */
+.leaflet-fundalgri-pane { filter: brightness(4.2) contrast(0.44); }
 
 /* ── bara plutitoare de jos ── */
 #mobJos {
@@ -6518,29 +6559,31 @@ applyTheme(PREF.get('theme', 'system'));
 #mobRadarPlin.deschis { display: block; }
 #mrHarta { position: absolute; inset: 0; width: 100%; height: 100%; }
 #mrHarta .leaflet-container { background: #55575c; }
+/* z-index mare: panourile interne ale Leaflet urcă până la 800,
+   iar butoanele trebuie să rămână deasupra lor în orice situație */
 .mr-btn {
-    position: absolute; z-index: 20; width: 46px; height: 46px; border-radius: 50%;
-    background: rgba(120, 120, 128, 0.42);
+    position: absolute; z-index: 1200; width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(92, 92, 100, 0.82);
     -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.16); color: #fff; font-size: 1.15rem; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.28); color: #fff; font-size: 1.15rem; cursor: pointer;
     display: flex; align-items: center; justify-content: center; font-family: inherit;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.22);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.30);
 }
 #mrInchide { top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; }
 .mr-dreapta {
     position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px));
-    z-index: 20; display: flex; flex-direction: column; gap: 10px;
+    z-index: 1200; display: flex; flex-direction: column; gap: 10px;
 }
 .mr-dreapta .mr-btn { position: relative; top: auto; right: auto; }
 /* legenda, ca pe iPhone */
 #mrLegenda {
-    position: absolute; z-index: 20; left: 14px;
+    position: absolute; z-index: 1200; left: 14px;
     top: calc(74px + env(safe-area-inset-top, 0px));
     border-radius: 16px; padding: 12px 14px;
-    background: rgba(60, 60, 67, 0.55);
+    background: rgba(78, 78, 86, 0.80);
     -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.14); color: #fff;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+    border: 1px solid rgba(255,255,255,0.22); color: #fff;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.42);
 }
 #mrLegenda .l-tit { font-size: 0.86rem; font-weight: 600; margin-bottom: 9px; }
 #mrLegenda .l-corp { display: flex; gap: 10px; }
@@ -6564,20 +6607,11 @@ applyTheme(PREF.get('theme', 'system'));
 .mr-punct { width: 9px; height: 9px; border-radius: 50%; background: #2b2b2f; border: 1.5px solid rgba(255,255,255,0.5); }
 .mr-et { font-size: 0.68rem; color: rgba(255,255,255,0.75); text-align: center; margin-top: 2px; white-space: nowrap; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .mr-btn, #mrLegenda { background: rgba(50, 50, 58, 0.94); }
+    .mr-btn, #mrLegenda { background: rgba(72, 72, 80, 0.96); }
 }
+/* harta din interiorul cardului nu se mișcă și nu se mărește */
+.mb-harta .leaflet-container { cursor: default; }
 </style>
-
-<!-- filtrul care transformă harta neagră în gri, ca pe iPhone -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <filter id="griHarta" color-interpolation-filters="sRGB">
-        <feComponentTransfer>
-            <feFuncR type="linear" slope="0.56" intercept="0.30"/>
-            <feFuncG type="linear" slope="0.56" intercept="0.30"/>
-            <feFuncB type="linear" slope="0.56" intercept="0.31"/>
-        </feComponentTransfer>
-    </filter>
-</svg>
 
 <div id="mobApp">
     <div id="mobCer"></div>
@@ -6962,7 +6996,7 @@ function mobCardRadar() {
 function mobCardClima() {
     if (typeof _ccDate === 'undefined' || !_ccDate) return '';
     var d = _ccDate, ab = d.abatere, cald = ab >= 0;
-    var poz = Math.max(0, Math.min(100, 50 + (d.z || 0) * 16));
+    var poz = Math.max(2, Math.min(98, 50 + ((d.z || 0) / 3) * 50));
     return '<div class="mb-card apasabil" data-foaie="clima">' +
         '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span><span class="mbc-dr">›</span></div>' +
         '<div style="display:flex;align-items:baseline;gap:8px;">' +
@@ -6970,11 +7004,13 @@ function mobCardClima() {
             '<span style="font-size:0.82rem;color:rgba(255,255,255,0.72);">' + T('fataDeNormal') + '</span>' +
         '</div>' +
         '<div style="font-size:0.8rem;color:rgba(255,255,255,0.8);margin-top:3px;">' +
-            ordinal(cald ? d.rang : d.rangRece) + ' ' + (cald ? T('ccCalda') : T('ccRece')) + ' ' + T('dinUltimii') + ' ' + d.ani + ' ' + T('ani') + '</div>' +
-        '<div style="margin-top:11px;height:8px;border-radius:5px;position:relative;' +
-            'background:linear-gradient(90deg,#2456b3,#2f7fd1,#7ec8e3,#e9edf3,#f5c500,#f97316,#e5484d);">' +
-            '<span style="position:absolute;top:-4px;left:' + poz.toFixed(0) + '%;width:3px;height:16px;border-radius:2px;' +
-            'background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,0.3);transform:translateX(-50%);"></span></div>' +
+            ordinal(cald ? d.rang : d.rangRece) + ' ' + (cald ? T('ccCalda') : T('ccRece')) + ' ' +
+            T('dinUltimii') + ' ' + d.ani + ' ' + T('ani') + '</div>' +
+        '<div class="mb-scala">' +
+            '<div class="s-bara"><span class="s-ac" style="left:' + poz.toFixed(0) + '%"></span></div>' +
+            '<div class="s-et"><span>' + T('ccMultMaiRece') + '</span><span>' + T('ccNormalScala') +
+            '</span><span>' + T('ccMultMaiCald') + '</span></div>' +
+        '</div>' +
         '</div>';
 }
 
@@ -7061,13 +7097,56 @@ function mobRandare() {
     mobLeaga();
 }
 
-/* ══ HARTA ANM, jos de tot — doar când ești în România ══ */
+/* ══ SECȚIUNEA ANM, jos de tot — doar când ești în România ══
+   Aceeași informație ca pe desktop: butoane pentru fiecare avertizare,
+   harta cu județe și coduri, legenda și lista — dar în sticlă. */
 function mobCardHartaANM() {
     if (!esteRomania()) return '';
+    var w = window._anmWarns || [];
+    var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
+
+    var chips = '';
+    if (w.length > 1) {
+        chips = '<div class="mb-avchips" id="mbAvChips">' +
+            '<button class="mb-avchip' + (_avSel < 0 ? ' activ' : '') + '" data-av="-1">' +
+            T('avToate') + ' (' + w.length + ')</button>';
+        w.forEach(function(x, i) {
+            var lv = nivelAvert(x);
+            chips += '<button class="mb-avchip' + (_avSel === i ? ' activ' : '') + '" data-av="' + i + '">' +
+                     '<span class="av-bulina" style="background:' + (WARN_COLS[lv] || '#f5c500') + '"></span>' +
+                     etichetaFenomen(x) + '</button>';
+        });
+        chips += '</div>';
+    }
+
+    var lista = '';
+    w.forEach(function(x) {
+        var lv = nivelAvert(x);
+        var CUL = ['#fff', '#f5c500', '#f97316', '#e5484d'];
+        var fen = stripHtml(x.fenomeneVizate || '').replace(/;\s*$/, '');
+        var zona = stripHtml(x.zonaAfectata || '');
+        if (zona.length > 150) zona = zona.slice(0, 150) + '…';
+        lista += '<div class="mb-avrand" style="border-left-color:' + CUL[lv] + '">' +
+                 '<div class="avr-sus"><b>' + (x.numeTipMesaj || T('avertizare')) + '</b>' +
+                 '<span class="avr-cod" style="background:' + CUL[lv] + ';color:' +
+                    (lv === 1 ? '#1c2434' : '#fff') + '">' + NUME[lv] + '</span></div>' +
+                 (fen ? '<div class="avr-fen">' + fen + '</div>' : '') +
+                 (zona ? '<div class="avr-zona">📍 ' + zona + '</div>' : '') +
+                 '</div>';
+    });
+    if (!lista) lista = '<div class="mb-nota" style="padding-top:0;">' + T('niciunaAvert') + '</div>';
+
     return '<div class="mb-card">' +
-        '<div class="mb-cap"><span class="mbc-ico">🗺️</span><span>' + T('hartaAvertANM') + '</span>' +
+        '<div class="mb-cap"><span class="mbc-ico">⚠️</span><span>' + T('avertMeteo') + '</span>' +
         '<span class="mbc-dr">ANM</span></div>' +
-        '<div class="mb-harta" id="mbHartaAnmJos" style="height:250px;"></div>' +
+        chips +
+        '<div class="mb-harta" id="mbHartaAnmJos" style="height:260px;"></div>' +
+        '<div class="mb-legenda">' +
+            '<span><i style="background:#f5c500"></i>' + T('codGalben') + '</span>' +
+            '<span><i style="background:#f97316"></i>' + T('codPortocaliu') + '</span>' +
+            '<span><i style="background:#e5484d"></i>' + T('codRosu') + '</span>' +
+        '</div>' +
+        '<div class="mb-avlista">' + lista + '</div>' +
         '<div class="mb-nota">' + T('hartaAnmNota') + '</div></div>';
 }
 
@@ -7093,6 +7172,21 @@ function mobLeaga() {
     Array.prototype.forEach.call(document.querySelectorAll('#mbContinut [data-foaie]'), function(el) {
         el.addEventListener('click', function() { mobDeschideFoaie(el.getAttribute('data-foaie')); });
     });
+    // butoanele de filtrare a avertizărilor ANM
+    var ch = document.getElementById('mbAvChips');
+    if (ch) {
+        Array.prototype.forEach.call(ch.querySelectorAll('.mb-avchip'), function(b) {
+            b.addEventListener('click', function() {
+                _avSel = parseInt(b.getAttribute('data-av'));
+                Array.prototype.forEach.call(ch.querySelectorAll('.mb-avchip'), function(x) {
+                    x.classList.toggle('activ', x === b);
+                });
+                try { if (_mobHarti['mbHartaAnmJos']) { _mobHarti['mbHartaAnmJos'].remove(); delete _mobHarti['mbHartaAnmJos']; } } catch (e) {}
+                mobHartaAnm('mbHartaAnmJos');
+                try { deseneazaZoneAvert(); } catch (e) {}     // ținem harta de desktop sincronizată
+            });
+        });
+    }
     // hărțile din carduri
     setTimeout(function() { mobHartaRadar('mbRadar'); }, 120);
     setTimeout(function() { mobHartaAnm('mbHartaAnmJos'); }, 400);
@@ -7103,13 +7197,16 @@ function mobHartaRadar(id) {
     var el = document.getElementById(id);
     if (!el || _mobHarti[id]) return;
     try {
+        // zoom fix, sub limita RainViewer — nu poate apărea „Zoom level not supported"
         var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false,
-                            scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false })
-                 .setView([LOC.lat, LOC.lon], 8);
+                            scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false,
+                            boxZoom: false, keyboard: false, zoomSnap: 0,
+                            zoom: 6.6, minZoom: 6.6, maxZoom: 6.6, center: [LOC.lat, LOC.lon] });
         fundalGri(m, 0);
         fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
             var ult = d.radar.past[d.radar.past.length - 1];
-            L.tileLayer(d.host + ult.path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.75, maxNativeZoom: 9 }).addTo(m);
+            L.tileLayer(d.host + ult.path + '/256/{z}/{x}/{y}/4/1_1.png',
+                        { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(m);
         }).catch(function() {});
         L.marker([LOC.lat, LOC.lon], { icon: L.divIcon({ className: '', iconSize: [40, 26], iconAnchor: [20, 13],
             html: '<div style="background:rgba(20,28,56,0.9);border:1px solid rgba(255,255,255,0.4);border-radius:13px;' +
@@ -7393,8 +7490,21 @@ function mobHartaAnm(id) {
     fundalGri(m, 0);
     var strat = L.geoJSON(_judeteGeo, { style: function() { return { color: 'rgba(255,255,255,0.45)', weight: 0.8, fillColor: '#3fbf5a', fillOpacity: 0.20 }; } }).addTo(m);
     m.fitBounds(strat.getBounds(), { padding: [6, 6] });
+    // prescurtările județelor, ca pe harta oficială
     try {
-        ariiDeDesenat(window._anmWarns || []).forEach(function(a) {
+        strat.eachLayer(function(l) {
+            var cod = codDinFeature(l.feature);
+            if (!cod) return;
+            var c = centruPoligon(l), off = OFFSET_ETICHETA[cod];
+            if (off) c = L.latLng(c.lat + off[0], c.lng + off[1]);
+            L.marker(c, { interactive: false, icon: L.divIcon({
+                className: 'jud-eticheta', html: cod, iconSize: [26, 12], iconAnchor: [13, 6] }) }).addTo(m);
+        });
+    } catch (e) {}
+    try {
+        var alese = (_avSel >= 0 && (window._anmWarns || [])[_avSel])
+                    ? [window._anmWarns[_avSel]] : (window._anmWarns || []);
+        ariiDeDesenat(alese).forEach(function(a) {
             var inele = parseWkt(a.gis).filter(function(r) { return r.length >= 3; });
             (a.gauri || []).forEach(function(g) { parseWkt(g).forEach(function(r) { if (r.length >= 3) inele.push(r); }); });
             if (inele.length) L.polygon(inele, { color: '#fff', weight: 0.7, fillRule: 'evenodd',
