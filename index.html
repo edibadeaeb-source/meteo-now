@@ -708,10 +708,10 @@
 
         /* ── prescurtările județelor pe harta ANM (ca pe harta oficială) ── */
         .jud-eticheta {
-            font-weight: 800; font-size: 10px; line-height: 1;
+            font-weight: 500; font-size: 9px; line-height: 1;
             color: #1c2434; text-align: center; white-space: nowrap;
             text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 2px #fff, 0 0 2px #fff;
-            pointer-events: none; letter-spacing: 0.2px;
+            pointer-events: none; letter-spacing: 0.1px;
         }
         .leaflet-marker-icon.jud-eticheta { background: none; border: none; }
 
@@ -3956,7 +3956,7 @@ function anmDetalii(w) {
         fenomene: fen.replace(/[;.]\s*$/, ''),
         interval: itv.replace(/[;.]\s*$/, ''),
         zone: zon.replace(/[;.]\s*$/, ''),
-        rezumat: corp.trim().slice(0, 300)
+        rezumat: corp.trim()
     };
 }
 function loadJudeteGeo() {
@@ -5466,6 +5466,9 @@ var I18N = {
         notifActiv: '✅ Activat pentru {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Abundente', legModerate: 'Moderate', legSlabe: 'Slabe',
         locatiaTa: 'Locația ta',
+        iluminare: 'Iluminare', rasaritLuna: 'Răsărit lună', apusLuna: 'Apus lună',
+        urmatoareaPlina: 'Următoarea lună plină', distanta: 'Distanță',
+        peste: 'peste', zile: 'zile',
         codGalben: 'cod galben', codPortocaliu: 'cod portocaliu', codRosu: 'cod roșu',
         fen_canicula: 'Caniculă', fen_furtuni: 'Furtuni', fen_ninsoare: 'Ninsoare', fen_polei: 'Polei',
         fen_ger: 'Ger', fen_ceata: 'Ceață', fen_ploi: 'Ploi', fen_vant: 'Vânt',
@@ -5577,6 +5580,9 @@ var I18N = {
         notifActiv: '✅ Enabled for {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Heavy', legModerate: 'Moderate', legSlabe: 'Light',
         locatiaTa: 'Your location',
+        iluminare: 'Illumination', rasaritLuna: 'Moonrise', apusLuna: 'Moonset',
+        urmatoareaPlina: 'Next full moon', distanta: 'Distance',
+        peste: 'in', zile: 'days',
         codGalben: 'yellow code', codPortocaliu: 'orange code', codRosu: 'red code',
         fen_canicula: 'Heat wave', fen_furtuni: 'Storms', fen_ninsoare: 'Snow', fen_polei: 'Black ice',
         fen_ger: 'Severe cold', fen_ceata: 'Fog', fen_ploi: 'Rain', fen_vant: 'Wind',
@@ -6466,6 +6472,42 @@ applyTheme(PREF.get('theme', 'system'));
 .mb-sub { font-size: 0.78rem; font-weight: 600; margin-top: 1px; }
 .mb-nota { font-size: 0.78rem; color: rgba(255,255,255,0.72); line-height: 1.35; margin-top: auto; padding-top: 8px; }
 
+/* ── cardul de vânt, cu busolă ── */
+.mv-corp { display: flex; align-items: center; gap: 12px; }
+.mv-st { flex: 1; min-width: 0; }
+.mv-rand {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 11px 0; font-size: 0.95rem;
+}
+.mv-rand + .mv-rand { border-top: 1px solid rgba(255,255,255,0.14); }
+.mv-rand span { color: #fff; }
+.mv-rand b { color: rgba(255,255,255,0.66); font-weight: 500; }
+
+/* ── cardul lunii, cu riglă de derulare ── */
+.mb-luna { text-align: center; }
+.mb-luna .mb-cap { justify-content: flex-start; }
+.ml-sus { display: flex; justify-content: center; padding: 4px 0 6px; }
+.ml-data { font-size: 0.86rem; color: rgba(255,255,255,0.75); margin-bottom: 12px; }
+.ml-rigla { position: relative; padding: 4px 0 2px; cursor: grab; touch-action: pan-y; }
+.lr-gradatii { display: flex; justify-content: space-between; align-items: flex-end; height: 20px; }
+.lr-lin { width: 1px; height: 9px; background: rgba(255,255,255,0.28); border-radius: 1px; }
+.lr-lin.mare { height: 17px; background: rgba(255,255,255,0.55); }
+.lr-marcaj {
+    position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 7px solid #6fd0ff;
+}
+.lr-etichete { display: flex; justify-content: space-between; margin-top: 5px; }
+.lr-et { font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,0.5); letter-spacing: 0.3px; cursor: pointer; }
+.lr-et.azi { color: #fff; font-weight: 800; }
+.ml-tabel { margin-top: 14px; text-align: left; }
+.ml-rand {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 11px 0; font-size: 0.92rem; color: #fff;
+}
+.ml-rand + .ml-rand { border-top: 1px solid rgba(255,255,255,0.14); }
+.ml-rand b { color: rgba(255,255,255,0.66); font-weight: 500; }
+
 /* ── secțiunea ANM din interfața mobilă ── */
 .mb-avchips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
 .mb-avchips::-webkit-scrollbar { display: none; }
@@ -6482,7 +6524,7 @@ applyTheme(PREF.get('theme', 'system'));
 .mb-legenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.72rem; font-weight: 700;
               color: rgba(255,255,255,0.82); margin-top: 10px; }
 .mb-legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
-.mb-avlista { margin-top: 12px; max-height: 240px; overflow-y: auto; }
+.mb-avlista { margin-top: 12px; }
 .mb-avrand {
     background: rgba(255,255,255,0.08); border-left: 3px solid #f5c500;
     border-radius: 0 12px 12px 0; padding: 9px 11px; margin-bottom: 8px;
@@ -7228,6 +7270,167 @@ function mobCardClima() {
         '</div>';
 }
 
+/* ══════════════════════════════════════════════════════════════
+   LUNA
+   Fază, iluminare, răsărit și apus, următoarea lună plină și
+   distanța. Cu o riglă de derulare: o tragi și vezi cum se
+   schimbă luna zi de zi, ca în aplicația iPhone.
+   ══════════════════════════════════════════════════════════════ */
+var SYNODIC = 29.53058867;
+var LUNA_REF = Date.UTC(2000, 0, 6, 18, 14);      // lună nouă de referință
+
+function lunaFaza(ms) {
+    var z = ((ms - LUNA_REF) / 86400000) % SYNODIC;
+    if (z < 0) z += SYNODIC;
+    return z / SYNODIC;                            // 0 = nouă, 0.5 = plină
+}
+function lunaIluminare(f) { return (1 - Math.cos(2 * Math.PI * f)) / 2; }
+function lunaNumeFaza(f) {
+    var idx = Math.floor(f * 8 + 0.5) % 8;
+    var n = (I18N[LANG] && I18N[LANG].luni) || I18N.ro.luni;
+    return n[idx];
+}
+// distanța Pământ–Lună (km), formulă simplificată dar suficient de exactă
+function lunaDistanta(ms) {
+    var d = (ms - Date.UTC(2000, 0, 1, 12)) / 86400000;
+    var M = (134.963 + 13.064993 * d) * Math.PI / 180;     // anomalia medie
+    var D = (297.850 + 12.190749 * d) * Math.PI / 180;     // elongația
+    return 385001 - 20905 * Math.cos(M) - 3699 * Math.cos(2 * D - M) - 2956 * Math.cos(2 * D);
+}
+// poziția Lunii pe cer (altitudine), pentru răsărit și apus
+function lunaAltitudine(ms, lat, lon) {
+    var d = (ms - Date.UTC(2000, 0, 1, 12)) / 86400000;
+    var rad = Math.PI / 180;
+    var L = (218.316 + 13.176396 * d) * rad;      // longitudinea medie
+    var M = (134.963 + 13.064993 * d) * rad;      // anomalia medie
+    var F = (93.272 + 13.229350 * d) * rad;       // argumentul latitudinii
+    var D = (297.850 + 12.190749 * d) * rad;      // elongația față de Soare
+    // termenii principali ai seriei — fără ei, răsăritul ieșea cu ~10 minute greșit
+    var lam = L + 6.289 * rad * Math.sin(M)
+                + 1.274 * rad * Math.sin(2 * D - M)
+                + 0.658 * rad * Math.sin(2 * D)
+                - 0.186 * rad * Math.sin((357.529 + 0.98560028 * d) * rad)
+                - 0.059 * rad * Math.sin(2 * M - 2 * D);
+    var bet = 5.128 * rad * Math.sin(F)
+                + 0.280 * rad * Math.sin(M + F)
+                - 0.277 * rad * Math.sin(F - M);
+    var e = (23.4397) * rad;
+    var ra = Math.atan2(Math.sin(lam) * Math.cos(e) - Math.tan(bet) * Math.sin(e), Math.cos(lam));
+    var dec = Math.asin(Math.sin(bet) * Math.cos(e) + Math.cos(bet) * Math.sin(e) * Math.sin(lam));
+    var zile = (ms - Date.UTC(2000, 0, 1, 12)) / 86400000;
+    var theta = (280.16 + 360.9856235 * zile) * rad + lon * rad;
+    var H = theta - ra;
+    return Math.asin(Math.sin(lat * rad) * Math.sin(dec) + Math.cos(lat * rad) * Math.cos(dec) * Math.cos(H)) / rad;
+}
+// căutăm trecerile prin orizont în următoarele 24 de ore
+function lunaRasaritApus(lat, lon) {
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    var t0 = start.getTime(), ras = null, apu = null;
+    var a0 = lunaAltitudine(t0, lat, lon);
+    for (var m = 10; m <= 1440; m += 10) {
+        var t = t0 + m * 60000, a = lunaAltitudine(t, lat, lon);
+        if (a0 < 0 && a >= 0 && ras === null) ras = t - (a / (a - a0)) * 600000;
+        if (a0 >= 0 && a < 0 && apu === null) apu = t - (a / (a - a0)) * 600000;
+        a0 = a;
+    }
+    return { rasarit: ras, apus: apu };
+}
+function lunaUrmatoareaPlina(ms) {
+    var f = lunaFaza(ms);
+    var pana = ((0.5 - f) + 1) % 1;                 // fracție de ciclu până la plină
+    return Math.ceil(pana * SYNODIC);
+}
+// desenul lunii, cu terminatorul real
+function lunaSvg(f, marime) {
+    var r = 40, cx = 42, cy = 42;
+    var crescand = f < 0.5;
+    var ill = lunaIluminare(f);
+    var rx = Math.abs(Math.cos(2 * Math.PI * f)) * r;
+    var so = crescand ? 1 : 0;
+    var si = (ill > 0.5 ? (crescand ? 1 : 0) : (crescand ? 0 : 1));
+    var cale = 'M ' + cx + ' ' + (cy - r) +
+        ' A ' + r + ' ' + r + ' 0 0 ' + so + ' ' + cx + ' ' + (cy + r) +
+        ' A ' + rx.toFixed(1) + ' ' + r + ' 0 0 ' + si + ' ' + cx + ' ' + (cy - r) + ' Z';
+    var uid = 'lc' + Math.random().toString(36).slice(2, 7);
+    return '<svg width="' + marime + '" height="' + marime + '" viewBox="0 0 84 84">' +
+        '<defs><clipPath id="' + uid + '"><path d="' + cale + '"/></clipPath></defs>' +
+        '<circle cx="42" cy="42" r="40" fill="#15182a"/>' +
+        '<image href="moon.png" x="2" y="2" width="80" height="80" opacity="0.16"/>' +
+        '<g clip-path="url(#' + uid + ')">' +
+            '<circle cx="42" cy="42" r="40" fill="#d9d6cc"/>' +
+            '<image href="moon.png" x="2" y="2" width="80" height="80"/>' +
+        '</g></svg>';
+}
+
+var _lunaOffset = 0;      // câte zile față de azi arătăm
+
+function mobCardLuna() {
+    return '<div class="mb-card mb-luna" id="mbLuna"></div>';
+}
+function deseneazaLuna() {
+    var box = document.getElementById('mbLuna');
+    if (!box) return;
+    var ms = Date.now() + _lunaOffset * 86400000;
+    var f = lunaFaza(ms), ill = lunaIluminare(f);
+    var ra = lunaRasaritApus(LOC.lat, LOC.lon);
+    var dist = lunaDistanta(ms);
+    var pana = lunaUrmatoareaPlina(ms);
+    var dt = new Date(ms);
+    var dataTxt = dt.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO',
+                    { weekday: 'long', day: 'numeric', month: 'long' });
+    var ora = function(t) { return t ? new Date(t).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO',
+                    { hour: '2-digit', minute: '2-digit' }) : '—'; };
+
+    // rigla: o gradație pe zi, cu etichete la fiecare 24 de ore
+    var gradatii = '', etichete = '';
+    for (var i = -7; i <= 7; i++) {
+        for (var s = 0; s < 4; s++) {
+            var mare = s === 0;
+            gradatii += '<span class="lr-lin' + (mare ? ' mare' : '') + '"></span>';
+        }
+        var zi = new Date(Date.now() + i * 86400000);
+        etichete += '<span class="lr-et' + (i === _lunaOffset ? ' azi' : '') + '" data-zi="' + i + '">' +
+            (i === 0 ? T('azi2').toUpperCase()
+                     : zi.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' }).toUpperCase()) +
+            '</span>';
+    }
+
+    var rand = function(et, val) { return '<div class="ml-rand"><span>' + et + '</span><b>' + val + '</b></div>'; };
+    box.innerHTML =
+        '<div class="mb-cap"><span class="mbc-ico">🌙</span><span>' + lunaNumeFaza(f) + '</span></div>' +
+        '<div class="ml-sus">' + lunaSvg(f, 108) + '</div>' +
+        '<div class="ml-data">' + dataTxt + '</div>' +
+        '<div class="ml-rigla" id="mlRigla">' +
+            '<div class="lr-gradatii">' + gradatii + '</div>' +
+            '<div class="lr-marcaj"></div>' +
+            '<div class="lr-etichete">' + etichete + '</div>' +
+        '</div>' +
+        '<div class="ml-tabel">' +
+            rand(T('iluminare'), Math.round(ill * 100) + ' %') +
+            rand(T('rasaritLuna'), ora(ra.rasarit)) +
+            rand(T('apusLuna'), ora(ra.apus)) +
+            rand(T('urmatoareaPlina'), pana === 0 ? T('azi2') : (T('peste') + ' ' + pana + ' ' + T('zile'))) +
+            rand(T('distanta'), Math.round(dist).toLocaleString(LANG === 'en' ? 'en-GB' : 'ro-RO') + ' km') +
+        '</div>';
+
+    // rigla: se poate trage cu degetul ca să vezi zilele următoare
+    var rg = document.getElementById('mlRigla');
+    var x0 = null, off0 = 0;
+    var lat0 = function(x) { x0 = x; off0 = _lunaOffset; };
+    var mut = function(x) {
+        if (x0 === null) return;
+        var dz = Math.round((x0 - x) / 26);
+        var nou = Math.max(-7, Math.min(7, off0 + dz));
+        if (nou !== _lunaOffset) { _lunaOffset = nou; deseneazaLuna(); x0 = null; }
+    };
+    rg.addEventListener('touchstart', function(e) { lat0(e.touches[0].clientX); }, { passive: true });
+    rg.addEventListener('touchmove', function(e) { mut(e.touches[0].clientX); }, { passive: true });
+    rg.addEventListener('touchend', function() { x0 = null; }, { passive: true });
+    Array.prototype.forEach.call(rg.querySelectorAll('.lr-et'), function(el) {
+        el.addEventListener('click', function() { _lunaOffset = +el.getAttribute('data-zi'); deseneazaLuna(); });
+    });
+}
+
 /* ══ STAȚIILE PROPRII — doar în zona Târgoviștei ══ */
 function mobCardStatii() {
     if (typeof esteTargoviste !== 'function' || !esteTargoviste()) return '';
@@ -7271,12 +7474,59 @@ function mobGrila() {
     }
     h += mic('💦', T('umiditate'), Math.round(c.relative_humidity_2m) + ' <small>%</small>', '',
              c.relative_humidity_2m >= 80 ? T('umedRau') : c.relative_humidity_2m <= 30 ? T('aerUscat') : T('umiditateOk'));
-    h += mic('🧭', T('vant'), Math.round(c.wind_speed_10m) + ' <small>km/h</small>', T('rafale') + ': ' + Math.round(c.wind_gusts_10m) + ' km/h',
-             T('directie') + ': ' + Math.round(c.wind_direction_10m) + '°');
     h += mic('⏱', T('presiune'), Math.round(c.surface_pressure) + ' <small>hPa</small>', '',
              c.surface_pressure >= 1020 ? T('presiuneMare') : c.surface_pressure <= 1000 ? T('presiuneMica') : T('presiuneNormala'));
     h += '</div>';
     return h;
+}
+
+/* ══ VÂNTUL — rânduri + busolă, ca pe iPhone ══ */
+function mobCardVant() {
+    var c = MOBD.current;
+    var dir = Math.round(c.wind_direction_10m || 0);
+    var puncte = LANG === 'en' ? ['N','NE','E','SE','S','SW','W','NW']
+                               : ['N','NE','E','SE','S','SV','V','NV'];
+    var pct = puncte[Math.round(dir / 45) % 8];
+
+    // gradațiile busolei
+    var lin = '';
+    for (var i = 0; i < 72; i++) {
+        var mare = i % 9 === 0;
+        lin += '<line x1="60" y1="' + (mare ? 9 : 12) + '" x2="60" y2="16" ' +
+               'stroke="rgba(255,255,255,' + (mare ? 0.55 : 0.28) + ')" stroke-width="' + (mare ? 1.6 : 1) + '" ' +
+               'transform="rotate(' + (i * 5) + ' 60 60)"/>';
+    }
+    var busola =
+        '<svg viewBox="0 0 120 120" width="112" height="112" style="flex-shrink:0;">' + lin +
+        '<text x="60" y="8" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)">N</text>' +
+        '<text x="112" y="63" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)">E</text>' +
+        '<text x="60" y="117" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)">S</text>' +
+        '<text x="8" y="63" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)">' +
+            (LANG === 'en' ? 'W' : 'V') + '</text>' +
+        // acul: coadă rotundă + vârf de săgeată, orientat pe direcția vântului
+        '<g transform="rotate(' + dir + ' 60 60)">' +
+            '<circle cx="60" cy="26" r="4" fill="#fff"/>' +
+            '<line x1="60" y1="26" x2="60" y2="40" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>' +
+            '<path d="M60 94 l-5 -9 h10 z" fill="#fff"/>' +
+            '<line x1="60" y1="80" x2="60" y2="86" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>' +
+        '</g>' +
+        '<text x="60" y="58" text-anchor="middle" font-size="21" font-weight="600" fill="#fff">' +
+            Math.round(c.wind_speed_10m) + '</text>' +
+        '<text x="60" y="72" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.72)">km/h</text>' +
+        '</svg>';
+
+    var rand = function(et, val) {
+        return '<div class="mv-rand"><span>' + et + '</span><b>' + val + '</b></div>';
+    };
+    return '<div class="mb-card">' +
+        '<div class="mb-cap"><span class="mbc-ico">🌬</span><span>' + T('vant') + '</span></div>' +
+        '<div class="mv-corp">' +
+            '<div class="mv-st">' +
+                rand(T('vant'), Math.round(c.wind_speed_10m) + ' km/h') +
+                rand(T('rafale'), Math.round(c.wind_gusts_10m) + ' km/h') +
+                rand(T('directie'), dir + '° ' + pct) +
+            '</div>' + busola +
+        '</div></div>';
 }
 function ora_curenta_index() {
     var acum = mobAcumLocal();
@@ -7303,8 +7553,10 @@ function mobRandare() {
     h += mobCardRadar();
     h += mobCardClima();
     h += mobCardStatii();
-    h += mobGrila();
+    h += mobCardVant();
     h += mobCardHartaANM();
+    h += mobCardLuna();
+    h += mobGrila();
     h += '<div style="text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.5);padding:8px 24px 0;line-height:1.5;">' +
          T('surseMob') + '</div>';
     document.getElementById('mbContinut').innerHTML = h;
@@ -7338,8 +7590,7 @@ function mobCardHartaANM() {
         var lv = nivelAvert(x);
         var d = anmDetalii(x);
         var CUL = WARN_COLS;
-        var zona = d.zone || d.rezumat;
-        if (zona.length > 180) zona = zona.slice(0, 180) + '…';
+        var zona = d.zone || d.rezumat;      // textul întreg, fără tăiere
         lista += '<div class="mb-avrand" style="border-left-color:' + CUL[lv] + '">' +
                  '<div class="avr-sus"><b>' + (x.numeTipMesaj || T('avertizare')) + '</b>' +
                  '<span class="avr-cod" style="background:' + CUL[lv] + ';color:' +
@@ -7405,6 +7656,7 @@ function mobLeaga() {
     // hărțile din carduri
     setTimeout(function() { mobHartaRadar('mbRadar'); }, 120);
     setTimeout(function() { mobHartaAnm('mbHartaAnmJos'); }, 400);
+    try { deseneazaLuna(); } catch (e) { console.error('luna:', e); }
 }
 
 /* ── hărțile din interfața mobilă ── */
@@ -7704,7 +7956,10 @@ function mobHartaAnm(id) {
     var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
     _mobHarti[id] = m;
     fundalGri(m, 0);
-    var strat = L.geoJSON(_judeteGeo, { style: function() { return { color: 'rgba(255,255,255,0.45)', weight: 0.8, fillColor: '#3fbf5a', fillOpacity: 0.20 }; } }).addTo(m);
+    // verde deschis pentru județele fără avertizare, ca pe harta ANM
+    var strat = L.geoJSON(_judeteGeo, { style: function() {
+        return { color: 'rgba(255,255,255,0.55)', weight: 0.8, fillColor: '#b7dd8e', fillOpacity: 0.78 };
+    } }).addTo(m);
     m.fitBounds(strat.getBounds(), { padding: [6, 6] });
     // prescurtările județelor, ca pe harta oficială
     try {
