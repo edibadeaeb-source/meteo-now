@@ -6102,82 +6102,121 @@ function actualizeazaChat() {
 var _ccUltimaLoc = null;
 var _ccDate = null;          // rezultatul calculat (în °C) — refolosit la schimbarea unității/limbii
 
+var _ccInCurs = false;          // o singură cerere odată, nu zece în paralel
+
+/* ══════════════════════════════════════════════════════════════
+   MEMORIA CLIMATICĂ
+   Cei 30 de ani pentru o anumită zi calendaristică nu se schimbă
+   de la o oră la alta, deci nu are rost să-i cerem de fiecare dată.
+   Îi ținem pe telefon, pe locație și pe zi. La următoarele deschideri
+   cardul apare instant, iar din rețea se ia doar maxima de azi.
+   ══════════════════════════════════════════════════════════════ */
+function ccCheie(fel) {
+    var azi = new Date();
+    var mmdd = ('0' + (azi.getMonth() + 1)).slice(-2) + '-' + ('0' + azi.getDate()).slice(-2);
+    return 'cc-' + fel + ':' + LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2) + ':' + mmdd;
+}
+function ccCitesteCache(fel, valabilZile) {
+    try {
+        var v = JSON.parse(localStorage.getItem(ccCheie(fel)) || 'null');
+        if (!v || !v.t) return null;
+        if (Date.now() - v.t > valabilZile * 86400000) return null;
+        return v.d;
+    } catch (e) { return null; }
+}
+function ccScrieCache(fel, date) {
+    try { localStorage.setItem(ccCheie(fel), JSON.stringify({ t: Date.now(), d: date })); }
+    catch (e) {}   // memorie plină sau mod privat — mergem mai departe fără cache
+}
+
 function analizeazaZiua() {
-    var card = document.getElementById('climateCard');
-    if (!card) return;
     var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
     if (_ccUltimaLoc === cheie && _ccDate) {     // aceeași locație → doar redesenăm
         deseneazaAnaliza(_ccDate);
+        return;
+    }
+    if (_ccInCurs) return;                       // deja se aduce; nu pornim alta
+
+    // 1) rezultatul de azi, dacă l-am calculat deja în ziua asta
+    var gata = ccCitesteCache('zi', 1);
+    if (gata) {
+        _ccUltimaLoc = cheie; _ccDate = gata;
+        deseneazaAnaliza(_ccDate);
+        try { actualizeazaContext({ abatere: gata.abatere }); } catch (e) {}
         try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
         return;
     }
-    _ccUltimaLoc = cheie;
 
-    document.getElementById('ccCorp').innerHTML =
-        '<div class="cc-loading">' + T('ccIncarca') + '</div>';
-    document.getElementById('ccBadge').textContent = '—';
+    _ccUltimaLoc = cheie;
+    _ccInCurs = true;
+    var corp = document.getElementById('ccCorp');
+    if (corp) corp.innerHTML = '<div class="cc-loading">' + T('ccIncarca') + '</div>';
+    var badge = document.getElementById('ccBadge');
+    if (badge) badge.textContent = '—';
 
     var azi = new Date();
     var an = azi.getFullYear();
     var mmdd = ('0' + (azi.getMonth() + 1)).slice(-2) + '-' + ('0' + azi.getDate()).slice(-2);
     var anStart = an - 30, anEnd = an - 1;
 
-    // 1) arhiva: aceeași zi calendaristică, 30 de ani  2) prognoza de azi
-    Promise.all([
-        fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
-              '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
-              '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); }),
-        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
-              '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto').then(function(r) { return r.json(); })
-    ]).then(function(res) {
-        var arh = res[0].daily, azi_ = res[1].daily;
-        if (!arh || !arh.time || !azi_ || !azi_.temperature_2m_max) throw new Error('date lipsă');
+    // 2) istoricul zilei — din memorie dacă îl avem (valabil jumătate de an)
+    var ist = ccCitesteCache('ist', 180);
+    var cereIstoric = ist
+        ? Promise.resolve(null)
+        : fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+                '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
+                '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); });
+
+    var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+              '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto').then(function(r) { return r.json(); });
+
+    Promise.all([cereIstoric, cereAzi]).then(function(res) {
+        var azi_ = res[1].daily;
+        if (!azi_ || !azi_.temperature_2m_max) throw new Error('date lipsă pentru azi');
+
+        if (!ist) {
+            var arh = res[0] && res[0].daily;
+            if (!arh || !arh.time) throw new Error('arhiva indisponibilă');
+            ist = [];
+            for (var i = 0; i < arh.time.length; i++) {
+                if (arh.time[i].slice(5) === mmdd && arh.temperature_2m_max[i] != null) {
+                    ist.push({ an: +arh.time[i].slice(0, 4), max: arh.temperature_2m_max[i], min: arh.temperature_2m_min[i] });
+                }
+            }
+            if (ist.length < 5) throw new Error('prea puține date');
+            ccScrieCache('ist', ist);
+        }
 
         var maxAzi = azi_.temperature_2m_max[0];
         var minAzi = azi_.temperature_2m_min[0];
-
-        // valorile istorice pentru aceeași zi calendaristică
-        var ist = [];
-        for (var i = 0; i < arh.time.length; i++) {
-            if (arh.time[i].slice(5) === mmdd && arh.temperature_2m_max[i] != null) {
-                ist.push({ an: +arh.time[i].slice(0, 4), max: arh.temperature_2m_max[i], min: arh.temperature_2m_min[i] });
-            }
-        }
-        if (ist.length < 5) throw new Error('prea puține date');
-
         var maxime = ist.map(function(x) { return x.max; });
         var media = maxime.reduce(function(a, b) { return a + b; }, 0) / maxime.length;
         var abatere = maxAzi - media;
-
-        // rang: câți ani au avut mai cald în aceeași zi
-        var maiCalde = maxime.filter(function(v) { return v > maxAzi; }).length;
-        var rang = maiCalde + 1;                       // 1 = cea mai caldă
+        var rang = maxime.filter(function(v) { return v > maxAzi; }).length + 1;
         var rangRece = maxime.filter(function(v) { return v < maxAzi; }).length + 1;
-
         var recordCald = ist.reduce(function(a, b) { return b.max > a.max ? b : a; });
         var recordRece = ist.reduce(function(a, b) { return b.min < a.min ? b : a; });
-
-        // abaterea standard → cât de „ieșită din comun" e ziua
         var varianta = maxime.reduce(function(s, v) { return s + Math.pow(v - media, 2); }, 0) / maxime.length;
         var sigma = Math.sqrt(varianta) || 1;
-        var z = abatere / sigma;
 
         _ccDate = {
-            maxAzi: maxAzi, minAzi: minAzi, media: media, abatere: abatere, z: z,
+            maxAzi: maxAzi, minAzi: minAzi, media: media, abatere: abatere, z: abatere / sigma,
             rang: rang, rangRece: rangRece, ani: maxime.length,
             recordCald: recordCald, recordRece: recordRece,
             anStart: ist[0].an, anEnd: ist[ist.length - 1].an, mmdd: mmdd
         };
+        ccScrieCache('zi', _ccDate);
+        _ccInCurs = false;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
-        // analiza vine după primul randat al interfeței mobile (durează:
-        // 30 de ani de arhivă). Fără linia asta, cardul „Cât de neobișnuită
-        // e ziua" nu mai apărea deloc pe telefon.
         try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
     }).catch(function(e) {
-        _ccUltimaLoc = null;                     // permitem reîncercarea
-        document.getElementById('ccCorp').innerHTML =
-            '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
+        _ccInCurs = false;
+        _ccUltimaLoc = null;                     // permitem o reîncercare
+        console.warn('analiza climatică:', e && e.message);
+        var c = document.getElementById('ccCorp');
+        if (c) c.innerHTML = '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
+        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e2) {}
     });
 }
 
@@ -6481,18 +6520,26 @@ try { aplicaLimba(LANG); } catch (e) {}
 /* ══════════════════════════════════════════════════════════════
    NOUTĂȚI — o singură dată, la prima deschidere după o versiune nouă
    ══════════════════════════════════════════════════════════════ */
+/* Marginile respectă atât „insula" iPhone-ului, cât și bara de navigare
+   cu trei butoane de pe Android — de aceea folosim env(...) pe toate
+   laturile, nu doar sus. */
 #noutati {
     position: fixed; inset: 0; z-index: 99200; display: none;
-    align-items: center; justify-content: center; padding: 22px;
+    align-items: center; justify-content: center;
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px
+             calc(16px + env(safe-area-inset-bottom, 0px));
     background: rgba(6, 12, 30, 0.55);
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
     opacity: 0; transition: opacity 0.4s ease;
 }
 #noutati.deschis { display: flex; opacity: 1; }
 .nt-card {
-    width: min(400px, 100%); max-height: 84vh; overflow-y: auto;
-    border-radius: 26px; padding: 22px 20px 18px; color: #fff;
-    background: rgba(30, 40, 74, 0.86);
+    width: min(400px, 100%);
+    /* 100dvh ține cont de barele care apar și dispar; vh e rezerva */
+    max-height: 100%;
+    display: flex; flex-direction: column;      /* butonul rămâne mereu vizibil */
+    border-radius: 26px; padding: 20px 18px 16px; color: #fff;
+    background: rgba(30, 40, 74, 0.88);
     -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.20);
     box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.26);
@@ -6500,27 +6547,43 @@ try { aplicaLimba(LANG); } catch (e) {}
     transition: transform 0.45s cubic-bezier(0.2, 1.15, 0.3, 1);
 }
 #noutati.deschis .nt-card { transform: none; }
-.nt-sus { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
-.nt-logo { width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0; }
-.nt-et { font-size: 0.68rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase;
+.nt-sus { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-shrink: 0; }
+.nt-logo { width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; }
+.nt-et { font-size: 0.64rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase;
          color: rgba(255,255,255,0.62); }
-.nt-titlu { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.5px; }
-.nt-lista { display: flex; flex-direction: column; gap: 15px; }
-.nt-rand { display: flex; gap: 13px; align-items: flex-start; }
+.nt-titlu { font-size: 1.18rem; font-weight: 800; letter-spacing: 0.5px; }
+/* doar lista se derulează, dacă ecranul e mic */
+.nt-lista {
+    display: flex; flex-direction: column; gap: 13px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain; min-height: 0; padding-right: 2px;
+}
+.nt-rand { display: flex; gap: 12px; align-items: flex-start; }
 .nt-ico {
-    width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+    width: 31px; height: 31px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 0.98rem;
     background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.16);
 }
-.nt-rand b { display: block; font-size: 0.92rem; font-weight: 700; margin-bottom: 1px; }
-.nt-rand span { font-size: 0.83rem; color: rgba(255,255,255,0.74); line-height: 1.45; }
+.nt-rand b { display: block; font-size: 0.88rem; font-weight: 700; margin-bottom: 1px; line-height: 1.3; }
+.nt-rand span { font-size: 0.79rem; color: rgba(255,255,255,0.74); line-height: 1.4; }
 .nt-btn {
-    width: 100%; margin-top: 20px; padding: 14px; border-radius: 15px; cursor: pointer;
-    border: none; background: #fff; color: #16204a;
+    width: 100%; margin-top: 16px; padding: 14px; border-radius: 15px; cursor: pointer;
+    border: none; background: #fff; color: #16204a; flex-shrink: 0;
     font-size: 0.95rem; font-weight: 800; font-family: inherit;
     transition: transform 0.3s cubic-bezier(0.33,0.9,0.35,1);
 }
 .nt-btn:active { transform: scale(0.96); }
+/* ecrane scunde: strângem și mai mult, ca butonul să încapă mereu */
+@media (max-height: 720px) {
+    .nt-logo { width: 40px; height: 40px; }
+    .nt-titlu { font-size: 1.05rem; }
+    .nt-lista { gap: 10px; }
+    .nt-rand span { font-size: 0.75rem; }
+    .nt-btn { padding: 12px; margin-top: 12px; }
+}
+@supports (height: 100dvh) {
+    #noutati { height: 100dvh; }
+}
 
 /* ══════════════════════════════════════════════════════════════
    FĂRĂ SELECTARE ȘI FĂRĂ COPIERE
@@ -7696,7 +7759,8 @@ function mobCardClima() {
        aduceau cei 30 de ani de arhivă — și dacă apelul întârzia sau pica,
        nu mai revenea deloc. Acum arată că se încarcă și cere singur datele. */
     if (typeof _ccDate === 'undefined' || !_ccDate) {
-        try { if (typeof analizeazaZiua === 'function') analizeazaZiua(); } catch (e) {}
+        // cerem datele o singură dată; `_ccInCurs` oprește cererile paralele
+        setTimeout(function() { try { analizeazaZiua(); } catch (e) {} }, 0);
         return '<div class="mb-card">' +
             '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span></div>' +
             '<div class="mb-nota" style="padding-top:2px;">' + T('ccIncarca') + '</div></div>';
