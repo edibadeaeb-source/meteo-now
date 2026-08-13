@@ -5860,7 +5860,8 @@ function seteazaLocatie(loc, reincarca) {
     // Luna revine la ziua de azi: dacă derulasei prin zile pentru un oraș,
     // n-are sens să rămâi acolo când te muți în alt fus orar
     try { _lunaZi = 0; } catch (e) {}
-    try { if (typeof mobIncarca === 'function') { MOBD = null; mobIncarca(); } } catch (e) {}
+    // schimbarea orașului trebuie să se vadă pe loc, fără așteptare
+    try { if (typeof mobIncarca === 'function') { MOBD = null; _ultimaRandare = 0; mobIncarca(); } } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
 
@@ -6103,6 +6104,7 @@ var _ccUltimaLoc = null;
 var _ccDate = null;          // rezultatul calculat (în °C) — refolosit la schimbarea unității/limbii
 
 var _ccInCurs = false;          // o singură cerere odată, nu zece în paralel
+var _ccEsuatLa = 0;             // când a picat ultima încercare
 
 /* ══════════════════════════════════════════════════════════════
    MEMORIA CLIMATICĂ
@@ -6212,11 +6214,14 @@ function analizeazaZiua() {
         try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
     }).catch(function(e) {
         _ccInCurs = false;
-        _ccUltimaLoc = null;                     // permitem o reîncercare
+        _ccUltimaLoc = null;
+        /* Pauză înainte de o nouă încercare. Fără ea intram în buclă:
+           cardul cerea datele, cererea pica, pagina se redesena, cardul
+           cerea din nou — și tot așa, cu clipit cu tot. */
+        _ccEsuatLa = Date.now();
         console.warn('analiza climatică:', e && e.message);
         var c = document.getElementById('ccCorp');
         if (c) c.innerHTML = '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
-        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e2) {}
     });
 }
 
@@ -7280,6 +7285,7 @@ input, textarea, select, [contenteditable="true"] {
    se ia din ce încarcă deja aplicația.
    ══════════════════════════════════════════════════════════════════ */
 var MOBD = null;            // datele de la Open-Meteo
+if (typeof _ccEsuatLa === 'undefined') { var _ccEsuatLa = 0; }
 var _mobOraMod = 'temp';    // temp | precip | vant
 var _mobHarti = {};
 
@@ -7759,8 +7765,11 @@ function mobCardClima() {
        aduceau cei 30 de ani de arhivă — și dacă apelul întârzia sau pica,
        nu mai revenea deloc. Acum arată că se încarcă și cere singur datele. */
     if (typeof _ccDate === 'undefined' || !_ccDate) {
-        // cerem datele o singură dată; `_ccInCurs` oprește cererile paralele
-        setTimeout(function() { try { analizeazaZiua(); } catch (e) {} }, 0);
+        // cerem datele o singură dată; `_ccInCurs` oprește cererile paralele,
+        // iar după un eșec așteptăm 3 minute înainte de o nouă încercare
+        if (!_ccInCurs && Date.now() - _ccEsuatLa > 180000) {
+            setTimeout(function() { try { analizeazaZiua(); } catch (e) {} }, 0);
+        }
         return '<div class="mb-card">' +
             '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span></div>' +
             '<div class="mb-nota" style="padding-top:2px;">' + T('ccIncarca') + '</div></div>';
@@ -8383,7 +8392,21 @@ function ora_curenta_index() {
 }
 
 /* ══ ASAMBLAREA ══ */
+/* Redesenarea completă distruge hărțile și globul lunar, deci nu are voie
+   să se întâmple des. Dacă vin mai multe cereri într-o secundă, le unim
+   într-una singură. Fără asta, cardurile clipeau. */
+var _tRandare = null, _ultimaRandare = 0;
 function mobRandare() {
+    var acum = Date.now();
+    if (acum - _ultimaRandare < 900) {
+        clearTimeout(_tRandare);
+        _tRandare = setTimeout(mobRandare, 900 - (acum - _ultimaRandare));
+        return;
+    }
+    _ultimaRandare = acum;
+    mobRandareAcum();
+}
+function mobRandareAcum() {
     if (!esteMobil() || !MOBD) return;
     // Hărțile vechi trebuie distruse înainte să rescriem pagina, altfel
     // Leaflet rămâne agățat de containere care nu mai există și harta
@@ -9013,9 +9036,18 @@ if (esteMobil()) {
     setTimeout(function() { incarcaThree(function() { try { deseneazaLuna(); } catch (e) {} }); }, 2500);
 }
 // dacă ecranul devine îngust (rotire, fereastră redimensionată), pornim și atunci
+/* Pe telefon, `resize` se declanșează de zeci de ori: la fiecare derulare,
+   când bara de adrese se ascunde sau reapare, când urcă tastatura. Dacă
+   redesenam de fiecare dată, hărțile și Luna erau distruse și refăcute —
+   de aici clipitul. Reacționăm doar la schimbarea LĂȚIMII (rotire). */
+var _latimeVeche = window.innerWidth, _tResize = null;
 window.addEventListener('resize', function() {
-    if (esteMobil() && !MOBD) mobIncarca();
-    else if (esteMobil() && MOBD) mobRandare();
+    if (!esteMobil()) return;
+    if (!MOBD) { mobIncarca(); return; }
+    if (Math.abs(window.innerWidth - _latimeVeche) < 24) return;   // doar bara browserului
+    _latimeVeche = window.innerWidth;
+    clearTimeout(_tResize);
+    _tResize = setTimeout(function() { mobRandare(); }, 260);
 });
 // plasă de siguranță: dacă din orice motiv nu s-au încărcat datele,
 // măcar arătăm numele locației și un mesaj, nu un ecran gol
