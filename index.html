@@ -1076,7 +1076,9 @@
         .sheet-head h3 { font-size: 1.05rem; font-weight: 800; color: var(--heading); margin: 0; }
         .sheet-close {
             background: var(--card-soft); border: 1px solid var(--border); color: var(--text);
-            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 0.95rem; line-height: 1;
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0; line-height: 0; flex-shrink: 0;
         }
         .sheet-body { padding: 16px 18px 20px; }
         .set-group { margin-bottom: 18px; }
@@ -1379,7 +1381,11 @@
     <div class="sheet">
         <div class="sheet-head">
             <h3>⚙ Setări</h3>
-            <button class="sheet-close" id="settingsClose" aria-label="Închide">✕</button>
+            <button class="sheet-close" id="settingsClose" aria-label="Închide">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+                    <path d="M6 6l12 12M18 6L6 18"/>
+                </svg>
+            </button>
         </div>
         <div class="sheet-body">
             <div class="set-group">
@@ -1477,7 +1483,7 @@
             <div class="st-et" id="stEt">Vremea la tine</div>
             <div class="st-text" id="stText"></div>
         </div>
-        <button class="st-x" id="stX" aria-label="Închide">✕</button>
+        <button class="st-x" id="stX" aria-label="Închide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         <span class="st-timp"></span>
     </div>
 </div>
@@ -3381,7 +3387,7 @@ setInterval(function() {
                 <div class="chat-header-title">🤖 <span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
                 <div class="chat-header-sub" id="chatSub">METEO NOW</div>
             </div>
-            <button class="chat-close" id="chatClose">✕</button>
+            <button class="chat-close" id="chatClose" aria-label="Închide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </div>
         <div class="chat-messages" id="chatMessages">
             <div class="chat-msg bot" id="chatSalut">
@@ -5065,10 +5071,40 @@ document.querySelectorAll('#unitSeg button').forEach(function(b) {
 
 // ── SETĂRI: deschidere / închidere ──
 var sheet = document.getElementById('settingsSheet');
-document.getElementById('settingsBtn').addEventListener('click', function() { sheet.classList.add('open'); });
-document.getElementById('settingsClose').addEventListener('click', function() { sheet.classList.remove('open'); });
-sheet.addEventListener('click', function(e) { if (e.target === sheet) sheet.classList.remove('open'); });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') sheet.classList.remove('open'); });
+
+/* Cât e deschis un panou, pagina din spate nu trebuie să se miște.
+   Reținem unde erai și te punem exact acolo la închidere. */
+var _scrollBlocat = 0, _nrPanouri = 0;
+function blocheazaFundal() {
+    if (_nrPanouri++ > 0) return;
+    _scrollBlocat = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.style.position = 'fixed';
+    document.body.style.top = (-_scrollBlocat) + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+}
+function deblocheazaFundal() {
+    if (_nrPanouri > 0) _nrPanouri--;
+    if (_nrPanouri > 0) return;
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.left = '';
+    document.body.style.right = '';
+    document.body.style.width = '';
+    window.scrollTo(0, _scrollBlocat);
+}
+
+function deschideSetari() { sheet.classList.add('open'); blocheazaFundal(); }
+function inchideSetari() {
+    if (!sheet.classList.contains('open')) return;
+    sheet.classList.remove('open');
+    deblocheazaFundal();
+}
+document.getElementById('settingsBtn').addEventListener('click', deschideSetari);
+document.getElementById('settingsClose').addEventListener('click', inchideSetari);
+sheet.addEventListener('click', function(e) { if (e.target === sheet) inchideSetari(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSetari(); });
 
 // ── SETĂRI: comutatoare ──
 function bindSwitch(id, key, onChange) {
@@ -6677,9 +6713,20 @@ input, textarea, select, [contenteditable="true"] {
     pointer-events: none;
 }
 #mobJos > * { pointer-events: auto; }
+/* Pictogramele sunt SVG, nu emoji: emoji-urile au linia de bază diferită
+   de la un telefon la altul și ieșeau descentrate în bulă. */
+.mj-rot svg, .mr-btn svg, .sheet-close svg { width: 21px; height: 21px; display: block; }
+.mr-btn svg { width: 20px; height: 20px; }
+.sheet-close svg { width: 15px; height: 15px; }
+.st-x svg { width: 11px; height: 11px; display: block; }
+.mo-sterge svg { width: 13px; height: 13px; display: block; }
+.chat-close svg { width: 15px; height: 15px; display: block; }
+.st-x, .mo-sterge, .chat-close { display: flex; align-items: center; justify-content: center;
+                                 padding: 0; line-height: 0; }
 .mj-rot {
     width: 48px; height: 48px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.22);
     background: rgba(255,255,255,0.16); color: #fff; font-size: 1.15rem; cursor: pointer;
+    padding: 0; line-height: 0;
     -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%);
     display: flex; align-items: center; justify-content: center; font-family: inherit;
     box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.3);
@@ -6883,6 +6930,7 @@ input, textarea, select, [contenteditable="true"] {
     -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.28); color: #fff; font-size: 1.15rem; cursor: pointer;
     display: flex; align-items: center; justify-content: center; font-family: inherit;
+    padding: 0; line-height: 0;
     box-shadow: 0 4px 18px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.30);
 }
 #mrInchide { top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; }
@@ -6949,23 +6997,47 @@ input, textarea, select, [contenteditable="true"] {
     <div id="mbContinut"></div>
 
     <div id="mobJos">
-        <button class="mj-rot" id="mjHarta" title="Hărți">🗺</button>
+        <button class="mj-rot" id="mjHarta" title="Hărți" aria-label="Hărți">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/>
+                <path d="M9 4v13M15 6.5v13"/>
+            </svg>
+        </button>
         <div class="mj-pilula" id="mjLoc">
             <span class="mj-sageata">➤</span>
             <span class="p-loc" id="mjLocText">—</span>
             <span class="mj-puncte" id="mjPuncte"></span>
         </div>
-        <button class="mj-rot" id="mjLista" title="Meniu">☰</button>
+        <button class="mj-rot" id="mjLista" title="Meniu" aria-label="Meniu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+                 stroke-linecap="round">
+                <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+        </button>
     </div>
 </div>
 
 <!-- ═══ HARTA DE PRECIPITAȚII PE TOT ECRANUL ═══ -->
 <div id="mobRadarPlin">
     <div id="mrHarta"></div>
-    <button class="mr-btn" id="mrInchide" aria-label="Închide">✕</button>
+    <button class="mr-btn" id="mrInchide" aria-label="Închide">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+    </button>
     <div class="mr-dreapta">
-        <button class="mr-btn" id="mrStraturi" title="Straturi">◈</button>
-        <button class="mr-btn" id="mrCentru" title="Locația mea">➤</button>
+        <button class="mr-btn" id="mrStraturi" title="Straturi" aria-label="Straturi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                 stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>
+            </svg>
+        </button>
+        <button class="mr-btn" id="mrCentru" title="Locația mea" aria-label="Locația mea">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 3L3 10.5l7.6 2.9L13.5 21 21 3z"/>
+            </svg>
+        </button>
     </div>
     <div id="mrLegenda">
         <div class="l-tit" id="mrLegTit">—</div>
@@ -7000,6 +7072,8 @@ input, textarea, select, [contenteditable="true"] {
 var MOBD = null;            // datele de la Open-Meteo
 var _mobOraMod = 'temp';    // temp | precip | vant
 var _mobHarti = {};
+
+var SVG_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 function esteMobil() { return window.matchMedia('(max-width: 760px)').matches; }
 
@@ -7067,13 +7141,22 @@ function stergeOras(i) {
     salveazaOrase(l);
 }
 /* trecerea la orașul următor/anterior */
-function treciLaOras(pas) {
+/* Lista are capete: pe primul oraș nu se mai glisează spre dreapta (înapoi),
+   pe ultimul nu se mai glisează spre stânga. Fără asta săreai dintr-un
+   capăt în celălalt, ceea ce dezorientează. */
+function poateTreceLa(pas) {
     var l = oraseSalvate();
-    if (l.length < 2) return;
+    if (l.length < 2) return false;
     var i = indexOrasCurent();
     if (i < 0) i = 0;
-    var nou = (i + pas + l.length) % l.length;
-    seteazaLocatie(l[nou]);
+    var nou = i + pas;
+    return nou >= 0 && nou < l.length;
+}
+function treciLaOras(pas) {
+    if (!poateTreceLa(pas)) return;
+    var l = oraseSalvate(), i = indexOrasCurent();
+    if (i < 0) i = 0;
+    seteazaLocatie(l[i + pas]);
     window.scrollTo({ top: 0 });
 }
 
@@ -8262,6 +8345,7 @@ function mobDeschideFoaie(care) {
     }
     else if (care === 'orase') { mobFoaieOrase(); }
     f.classList.add('deschis');
+    blocheazaFundal();
     if (care === 'anm') setTimeout(function() { mobHartaAnm('mfHartaAnm'); }, 300);
 }
 
@@ -8276,7 +8360,7 @@ function mobFoaieOrase() {
              '<div class="mo-st"><div class="mo-nume">' + (i === curent ? '➤ ' : '') + (o.nume || '') + '</div>' +
              '<div class="mo-sub">' + [o.admin, o.tara].filter(Boolean).join(', ') + '</div></div>' +
              '<div class="mo-t" id="moT' + i + '">–</div>' +
-             (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="' + T('sterge') + '">✕</button>' : '') +
+             (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="' + T('sterge') + '">' + SVG_X + '</button>' : '') +
              '</div>';
     });
     document.getElementById('mfContinut').innerHTML = h;
@@ -8344,7 +8428,12 @@ function mobFoaieOrase() {
         }, 320);
     });
 }
-function mobInchideFoaie() { document.getElementById('mobFoaie').classList.remove('deschis'); }
+function mobInchideFoaie() {
+    var f = document.getElementById('mobFoaie');
+    if (!f.classList.contains('deschis')) return;
+    f.classList.remove('deschis');
+    deblocheazaFundal();
+}
 
 /* ══════════════════════════════════════════════════════════════
    HARTA DE PRECIPITAȚII PE TOT ECRANUL
@@ -8389,12 +8478,7 @@ function deschideRadarPlin() {
     // Blocăm derularea paginii din spate. Fără asta, harta se inițializa
     // cu dimensiunile greșite și rămânea o fâșie goală sus, iar butoanele
     // păreau că „fug" până derulai.
-    _mrScroll = window.scrollY || document.documentElement.scrollTop || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = (-_mrScroll) + 'px';
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
+    blocheazaFundal();
 
     box.classList.add('deschis');
     if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
@@ -8422,12 +8506,7 @@ function deschideRadarPlin() {
 function inchideRadarPlin() {
     document.getElementById('mobRadarPlin').classList.remove('deschis');
     if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, _mrScroll);
+    deblocheazaFundal();
 }
 function mrRadar() {
     fetch('https://api.rainviewer.com/public/weather-maps.json')
@@ -8593,8 +8672,12 @@ function mobHartaAnm(id) {
                 orizontal = Math.abs(dx) > Math.abs(dy) * 1.3;
                 if (!orizontal) { anulat = true; return; }
             }
-            mutat = dx * 0.85;                       // ușoară rezistență
-            var opac = Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9));
+            // spre capătul listei nu se mai poate: lăsăm doar o urmă de
+            // mișcare, cât să se simtă că e blocat, fără să treacă mai departe
+            var dir = dx < 0 ? 1 : -1;
+            mutat = poateTreceLa(dir) ? dx * 0.85 : dx * 0.16;
+            var opac = poateTreceLa(dir)
+                ? Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9)) : 1;
             mobMuta(mutat, opac, false);
         }, { passive: true });
 
@@ -8603,8 +8686,9 @@ function mobHartaAnm(id) {
             var dx = e.changedTouches[0].clientX - x0;
             x0 = null;
             var L2 = window.innerWidth;
-            if (Math.abs(dx) >= L2 * 0.22 || Math.abs(dx) >= 90) {
-                var dir = dx < 0 ? 1 : -1;
+            var dirF = dx < 0 ? 1 : -1;
+            if ((Math.abs(dx) >= L2 * 0.22 || Math.abs(dx) >= 90) && poateTreceLa(dirF)) {
+                var dir = dirF;
                 vibreaza(14);
                 // iese complet, apoi intră orașul nou din partea opusă
                 mobMuta(-dir * L2 * 0.55, 0, true);
