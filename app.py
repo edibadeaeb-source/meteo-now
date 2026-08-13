@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import threading
+import time
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -516,6 +517,83 @@ def _push_check_intern():
                            'tag': 'anm-avertizare', 'nivel': top['nivel']})
     return jsonify({'schimbare': True, 'active': len(active), 'trimise': t, 'sterse': s,
                     'titlu': titlu, 'corp': corp})
+
+
+# ═══════════════════════════════════════════════════════════════
+#  ARHIVA CLIMATICĂ — 30 de ani pentru o zi calendaristică
+#
+#  Cererea de arhivă pe 30 de ani e foarte „grea" pentru cota gratuită
+#  Open-Meteo: câteva deschideri ale aplicației și cota zilnică se
+#  termină pentru toată lumea. O facem O SINGURĂ DATĂ pe server, pentru
+#  fiecare loc și zi, și o ținem pe disc. Utilizatorii primesc apoi un
+#  răspuns mic (30 de numere), fără să atingă deloc Open-Meteo.
+# ═══════════════════════════════════════════════════════════════
+_CLIMA_DIR = os.path.join(BASE_DIR, 'cache_clima')
+_CLIMA_ZILE_VALABIL = 200
+
+
+@app.route('/api/clima')
+def clima_istoric():
+    try:
+        lat = round(float(request.args.get('lat', 44.9266)), 2)
+        lon = round(float(request.args.get('lon', 25.4566)), 2)
+    except (TypeError, ValueError):
+        return jsonify({'error': 'coordonate invalide'}), 400
+
+    azi = now_ro()
+    mmdd = azi.strftime('%m-%d')
+    os.makedirs(_CLIMA_DIR, exist_ok=True)
+    nume = f"{lat}_{lon}_{mmdd}.json".replace('-', 'm', 1) if lat < 0 else f"{lat}_{lon}_{mmdd}.json"
+    cale = os.path.join(_CLIMA_DIR, nume.replace('/', '_'))
+
+    # 1) din cache, dacă nu e prea vechi
+    if os.path.isfile(cale):
+        varsta = (time.time() - os.path.getmtime(cale)) / 86400
+        if varsta < _CLIMA_ZILE_VALABIL:
+            try:
+                with open(cale, encoding='utf-8') as f:
+                    return jsonify(json.load(f))
+            except Exception:
+                pass
+
+    # 2) altfel, o singură cerere la Open-Meteo, pentru toți utilizatorii
+    an = azi.year
+    url = ('https://archive-api.open-meteo.com/v1/archive'
+           f'?latitude={lat}&longitude={lon}'
+           f'&start_date={an - 30}-01-01&end_date={an - 1}-12-31'
+           '&daily=temperature_2m_max,temperature_2m_min&timezone=auto')
+    try:
+        r = requests.get(url, timeout=90, headers={'User-Agent': 'MeteoNow/1.0'})
+        if r.status_code == 429:
+            return jsonify({'error': 'cota', 'mesaj': 'limita zilnică Open-Meteo atinsă'}), 429
+        r.raise_for_status()
+        d = r.json()
+    except Exception as e:
+        print(f"⚠️  arhivă climatică {lat},{lon}: {e}", flush=True)
+        return jsonify({'error': 'indisponibil'}), 502
+
+    zi = d.get('daily') or {}
+    timpi = zi.get('time') or []
+    maxime = zi.get('temperature_2m_max') or []
+    minime = zi.get('temperature_2m_min') or []
+
+    ist = []
+    for i, t in enumerate(timpi):
+        if t[5:] == mmdd and i < len(maxime) and maxime[i] is not None:
+            ist.append({'an': int(t[:4]), 'max': maxime[i],
+                        'min': minime[i] if i < len(minime) else None})
+
+    if len(ist) < 5:
+        return jsonify({'error': 'prea puține date'}), 404
+
+    rez = {'mmdd': mmdd, 'lat': lat, 'lon': lon, 'ani': len(ist), 'valori': ist}
+    try:
+        with open(cale, 'w', encoding='utf-8') as f:
+            json.dump(rez, f)
+        print(f"📊 arhivă climatică salvată: {lat},{lon} {mmdd} ({len(ist)} ani)", flush=True)
+    except Exception:
+        pass
+    return jsonify(rez)
 
 
 # ═══════════════════════════════════════════════════════════════
