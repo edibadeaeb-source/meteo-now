@@ -1,8 +1,14 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.onrender.meteo_targoviste.twa",
-        "sha256_cert_fingerprints": ["83:64:CA:3B:14:D4:E8:22:82:33:CD:36:50:C9:B4:E1:9B:DF:0C:38:98:18:F4:E5:0A:93:0D:37:88:53:87:ED"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.onrender.meteo_targoviste.twa",
+      "sha256_cert_fingerprints": [
+        "24:54:43:47:D0:0B:CC:12:7A:54:19:FA:0C:65:D9:3A:8B:B8:F7:9F:62:22:39:CC:ED:34:AE:D9:3D:FB:29:E4"
+      ]
+    }
+  }
+]
