@@ -5840,6 +5840,9 @@ function seteazaLocatie(loc, reincarca) {
     try { adaugaRecent(LOC); } catch (e) {}
     try { actualizeazaLocatiaPush(); } catch (e) {}
     try { if (typeof adaugaOras === 'function') adaugaOras(LOC); } catch (e) {}
+    // Luna revine la ziua de azi: dacă derulasei prin zile pentru un oraș,
+    // n-are sens să rămâi acolo când te muți în alt fus orar
+    try { _lunaZi = 0; } catch (e) {}
     try { if (typeof mobIncarca === 'function') { MOBD = null; mobIncarca(); } } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
@@ -6938,7 +6941,18 @@ input, textarea, select, [contenteditable="true"] {
     position: absolute; right: 14px; top: calc(14px + env(safe-area-inset-top, 0px));
     z-index: 1200; display: flex; flex-direction: column; gap: 10px;
 }
-.mr-dreapta .mr-btn { position: relative; top: auto; right: auto; }
+.mr-dreapta .mr-btn { position: relative; top: auto; right: auto; left: auto; margin: 0; }
+/* siguranță: pictograma stă exact în mijloc, indiferent de ce moștenește
+   butonul din alte reguli (text-align, line-height, padding) */
+.mj-rot, .mr-btn, .sheet-close, .st-x, .mo-sterge, .chat-close {
+    display: inline-flex !important; align-items: center !important;
+    justify-content: center !important; padding: 0 !important;
+    line-height: 0 !important; text-align: center; box-sizing: border-box;
+}
+.mj-rot > svg, .mr-btn > svg, .sheet-close > svg,
+.st-x > svg, .mo-sterge > svg, .chat-close > svg {
+    display: block; flex: 0 0 auto; margin: 0;
+}
 /* legenda, ca pe iPhone */
 #mrLegenda {
     position: absolute; z-index: 1200; left: 14px;
@@ -7000,8 +7014,10 @@ input, textarea, select, [contenteditable="true"] {
         <button class="mj-rot" id="mjHarta" title="Hărți" aria-label="Hărți">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                  stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/>
-                <path d="M9 4v13M15 6.5v13"/>
+                <g transform="translate(0 0.25)">
+                    <path d="M9 4 3 6.5v13L9 17l6 2.5 6-2.5v-13L15 6.5 9 4z"/>
+                    <path d="M9 4v13M15 6.5v13"/>
+                </g>
             </svg>
         </button>
         <div class="mj-pilula" id="mjLoc">
@@ -7030,7 +7046,7 @@ input, textarea, select, [contenteditable="true"] {
         <button class="mr-btn" id="mrStraturi" title="Straturi" aria-label="Straturi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
                  stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>
+                <g transform="translate(0 1.5)"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></g>
             </svg>
         </button>
         <button class="mr-btn" id="mrCentru" title="Locația mea" aria-label="Locația mea">
@@ -7967,10 +7983,14 @@ function actualizeazaLuna() {
     var banda = document.getElementById('mlBanda');
     if (banda) banda.style.transform = 'translateX(' + (-_lunaZi * PAS_ZI) + 'px)';
 
-    // valorile se recalculează doar când chiar s-a schimbat ziua
+    // Valorile se recalculează când s-a schimbat ziua SAU locația —
+    // răsăritul și apusul Lunii depind de coordonate, deci la alt oraș
+    // trebuie refăcute chiar dacă rămânem în aceeași zi.
     var ziIntreaga = Math.round(_lunaZi);
-    if (box._zi !== ziIntreaga) {
+    var cheieLoc = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
+    if (box._zi !== ziIntreaga || box._loc !== cheieLoc) {
         box._zi = ziIntreaga;
+        box._loc = cheieLoc;
         var msZi = Date.now() + ziIntreaga * 86400000;
         var fz = lunaFaza(msZi);
         var ra = lunaRasaritApus(LOC.lat, LOC.lon, msZi);
@@ -8672,12 +8692,13 @@ function mobHartaAnm(id) {
                 orizontal = Math.abs(dx) > Math.abs(dy) * 1.3;
                 if (!orizontal) { anulat = true; return; }
             }
-            // spre capătul listei nu se mai poate: lăsăm doar o urmă de
-            // mișcare, cât să se simtă că e blocat, fără să treacă mai departe
+            // La capătul listei ecranul stă complet pe loc — nici măcar
+            // nu se clatină. Pe primul oraș nu se glisează spre dreapta,
+            // pe ultimul nu se glisează spre stânga.
             var dir = dx < 0 ? 1 : -1;
-            mutat = poateTreceLa(dir) ? dx * 0.85 : dx * 0.16;
-            var opac = poateTreceLa(dir)
-                ? Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9)) : 1;
+            if (!poateTreceLa(dir)) { mobMuta(0, 1, false); return; }
+            mutat = dx * 0.85;
+            var opac = Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9));
             mobMuta(mutat, opac, false);
         }, { passive: true });
 
