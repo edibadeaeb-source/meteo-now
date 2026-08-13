@@ -70,6 +70,13 @@
         return s + (faraUnitate ? '°' : '°' + UNIT);
     }
     /** Diferență de temperatură (interval), nu valoare absolută. */
+    // mărimea diferenţei, FĂRĂ semn — pentru propoziţii de tipul
+    // „cu 5°C mai cald", unde semnul ar fi de prisos
+    function fDifAbs(dc, zecimale) {
+        if (dc === null || dc === undefined || isNaN(dc)) return '--';
+        var v = Math.abs(UNIT === 'F' ? dc * 9 / 5 : dc);
+        return v.toFixed(zecimale === undefined ? 1 : zecimale) + '°' + UNIT;
+    }
     function fDif(dc, zecimale) {
         if (dc === null || dc === undefined || isNaN(dc)) return '--';
         var v = UNIT === 'F' ? dc * 9 / 5 : dc;
@@ -2771,12 +2778,12 @@ var REGULI_SFAT = [
       en: function() { return 'Hot and humid — sweat cannot evaporate, so your body struggles to cool down. Take it slow and sip often.'; } },
 
     { id: 'diffIeri', nivel: 1, ico: '📉', cand: function(c) { return c.difIeri != null && Math.abs(c.difIeri) >= 6; },
-      ro: function(c) { return 'Azi e cu <b>' + fDif(Math.abs(c.difIeri), 0) + '</b> mai ' + (c.difIeri > 0 ? 'cald' : 'rece') + ' decât ieri. Verifică ce ai pus pe tine înainte să ieși.'; },
-      en: function(c) { return 'Today is <b>' + fDif(Math.abs(c.difIeri), 0) + '</b> ' + (c.difIeri > 0 ? 'warmer' : 'colder') + ' than yesterday. Double-check what you are wearing.'; } },
+      ro: function(c) { return 'Azi e cu <b>' + fDifAbs(c.difIeri, 0) + '</b> mai ' + (c.difIeri > 0 ? 'cald' : 'rece') + ' decât ieri. Verifică ce ai pus pe tine înainte să ieși.'; },
+      en: function(c) { return 'Today is <b>' + fDifAbs(c.difIeri, 0) + '</b> ' + (c.difIeri > 0 ? 'warmer' : 'colder') + ' than yesterday. Double-check what you are wearing.'; } },
 
     { id: 'anomalie', nivel: 1, ico: '📊', cand: function(c) { return c.abatere != null && Math.abs(c.abatere) >= 5; },
-      ro: function(c) { return 'Ziua asta e cu <b>' + fDif(Math.abs(c.abatere), 1) + '</b> ' + (c.abatere > 0 ? 'peste' : 'sub') + ' normalul ultimilor 30 de ani. Nu e o zi obișnuită de ' + c.ziLuna + '.'; },
-      en: function(c) { return 'Today is <b>' + fDif(Math.abs(c.abatere), 1) + '</b> ' + (c.abatere > 0 ? 'above' : 'below') + ' the 30-year normal. Not your average ' + c.ziLuna + '.'; } },
+      ro: function(c) { return 'Ziua asta e cu <b>' + fDifAbs(c.abatere, 1) + '</b> ' + (c.abatere > 0 ? 'peste' : 'sub') + ' normalul ultimilor 30 de ani. Nu e o zi obișnuită de ' + c.ziLuna + '.'; },
+      en: function(c) { return 'Today is <b>' + fDifAbs(c.abatere, 1) + '</b> ' + (c.abatere > 0 ? 'above' : 'below') + ' the 30-year normal. Not your average ' + c.ziLuna + '.'; } },
 
     { id: 'apusCurand', nivel: 1, ico: '🌇', cand: function(c) { return c.minPanaApus != null && c.minPanaApus > 0 && c.minPanaApus <= 60; },
       ro: function(c) { return 'Apusul e peste <b>' + c.minPanaApus + ' de minute</b>. Dacă voiai o plimbare, acum e lumina bună.'; },
@@ -6983,7 +6990,13 @@ input, textarea, select, [contenteditable="true"] {
     display: flex; align-items: center; justify-content: center;
 }
 .mo-sterge:hover { background: rgba(229,72,77,0.45); color: #fff; }
-.mo-cauta { position: relative; margin-bottom: 12px; }
+/* câmpul de căutare stă lipit sus, ca să rămână vizibil și când lista
+   e lungă, și când urcă tastatura */
+.mo-cauta {
+    position: sticky; top: 0; z-index: 6; margin-bottom: 12px;
+    padding-bottom: 8px;
+    background: linear-gradient(180deg, rgba(30,40,74,0.98) 72%, rgba(30,40,74,0));
+}
 .mo-cauta input {
     width: 100%; padding: 13px 15px; border-radius: 15px; font-family: inherit;
     /* 16px fix: sub această valoare, iPhone-ul mărește singur pagina când
@@ -7014,6 +7027,8 @@ input, textarea, select, [contenteditable="true"] {
 #mobFoaie.deschis { display: block; }
 .mf-corp {
     position: absolute; left: 0; right: 0; bottom: 0; max-height: 88vh; overflow-y: auto;
+    /* când urcă tastatura, foaia se ridică odată cu ea */
+    transition: transform 0.36s cubic-bezier(0.2, 0.9, 0.25, 1), max-height 0.3s ease;
     border-radius: 26px 26px 0 0; padding: 8px 16px calc(26px + env(safe-area-inset-bottom, 0px));
     background: rgba(30, 40, 74, 0.86);
     -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
@@ -7795,7 +7810,7 @@ function mobCardClima() {
     return '<div class="mb-card apasabil" data-foaie="clima">' +
         '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span><span class="mbc-dr">›</span></div>' +
         '<div style="display:flex;align-items:baseline;gap:8px;">' +
-            '<span class="mb-val" style="font-size:1.9rem;">' + (cald ? '+' : '−') + fDif(Math.abs(ab), 1) + '</span>' +
+            '<span class="mb-val" style="font-size:1.9rem;">' + fDif(ab, 1) + '</span>' +
             '<span style="font-size:0.82rem;color:rgba(255,255,255,0.72);">' + T('fataDeNormal') + '</span>' +
         '</div>' +
         '<div style="font-size:0.8rem;color:rgba(255,255,255,0.8);margin-top:3px;">' +
@@ -8336,7 +8351,7 @@ function mobGrila() {
              c.apparent_temperature > c.temperature_2m + 0.5 ? T('pareMaiCald') :
              c.apparent_temperature < c.temperature_2m - 0.5 ? T('pareMaiRece') : T('caTemperaturaReala'));
     if (rez) {
-        h += mic('📈', T('valoriMedii'), (rez.abatere >= 0 ? '+' : '−') + fDif(Math.abs(rez.abatere), 0), T('fataDeMedia'),
+        h += mic('📈', T('valoriMedii'), fDif(rez.abatere, 0), T('fataDeMedia'),
                  T('azi2') + ' max ' + Math.round(cv(rez.maxAzi)) + '° · ' + T('medie') + ' max ' + Math.round(cv(rez.media)) + '°');
     }
     h += mic('💧', T('precipitatii'), (zi.precipitation_sum[0] || 0).toFixed(1) + ' <small>mm</small>', T('astazi'),
@@ -8611,6 +8626,8 @@ function mobDeschideFoaie(care) {
             '</div>';
     }
     else if (care === 'orase') { mobFoaieOrase(); }
+    // foaia se deschide mereu de sus: câmpul de căutare e primul lucru vizibil
+    try { document.getElementById('mfCorp').scrollTop = 0; } catch (e) {}
     f.classList.add('deschis');
     blocheazaFundal();
     if (care === 'anm') setTimeout(function() { mobHartaAnm('mfHartaAnm'); }, 300);
@@ -8665,6 +8682,41 @@ function mobFoaieOrase() {
 
     // căutarea unui oraș nou
     var inp = document.getElementById('moCauta'), rez = document.getElementById('moRez'), t = null;
+
+    /* Tastatura acoperă jumătate de ecran. `visualViewport` ne spune exact
+       cât spațiu a rămas, așa că ridicăm foaia cu atât — câmpul de căutare
+       și primele rezultate rămân vizibile. */
+    (function() {
+        var corp = document.getElementById('mfCorp'), vv = window.visualViewport;
+        if (!corp) return;
+        var potriveste = function() {
+            if (!vv) return;
+            var acoperit = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+            if (acoperit > 90) {
+                corp.style.transform = 'translateY(' + (-acoperit) + 'px)';
+                corp.style.maxHeight = (vv.height - 24) + 'px';
+            } else {
+                corp.style.transform = '';
+                corp.style.maxHeight = '';
+            }
+        };
+        if (vv) {
+            vv.addEventListener('resize', potriveste);
+            vv.addEventListener('scroll', potriveste);
+        }
+        inp.addEventListener('focus', function() {
+            setTimeout(potriveste, 120);
+            setTimeout(function() {
+                corp.scrollTop = 0;                    // câmpul rămâne sus, în văzul tău
+                potriveste();
+            }, 340);
+        });
+        inp.addEventListener('blur', function() {
+            setTimeout(function() {
+                corp.style.transform = ''; corp.style.maxHeight = '';
+            }, 120);
+        });
+    })();
     inp.addEventListener('input', function() {
         clearTimeout(t);
         var q = inp.value.trim();
