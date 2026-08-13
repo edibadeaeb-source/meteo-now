@@ -11,12 +11,26 @@
     // ── Variabile globale definite DEVREME ──
     // Sunt folosite de mai multe blocuri de script; dacă lipsesc la momentul
     // rulării, blocul respectiv se oprește (și odată cu el, asistentul AI).
+    /* Limba: dacă utilizatorul a ales una, o respectăm. Altfel, la prima
+       deschidere, o luăm din setările telefonului — verificăm toată lista
+       de limbi preferate, nu doar prima, fiindcă pe unele telefoane prima
+       e cea a sistemului, nu cea aleasă de om. Româna dacă apare undeva
+       în listă, engleza în rest. */
     var LANG = (function () {
         try {
             var s = localStorage.getItem('meteo-lang');
-            if (s) return s;
+            if (s === 'ro' || s === 'en') return s;
         } catch (e) {}
-        return (navigator.language || 'ro').toLowerCase().indexOf('ro') === 0 ? 'ro' : 'en';
+        try {
+            var lista = (navigator.languages && navigator.languages.length)
+                        ? navigator.languages : [navigator.language || ''];
+            for (var i = 0; i < lista.length; i++) {
+                var l = String(lista[i]).toLowerCase();
+                if (l.indexOf('ro') === 0) return 'ro';       // ro, ro-RO, ro-MD
+                if (l.indexOf('en') === 0) return 'en';
+            }
+        } catch (e) {}
+        return 'en';                                          // implicit, aplicația e mondială
     })();
     var TGV = { lat: 44.9266, lon: 25.4566 };      // coordonatele locației curente
     try {
@@ -1376,6 +1390,15 @@
                     <button data-theme-mode="dark">🌙 Întunecat</button>
                 </div>
                 <div class="set-note">„Automat" urmează setarea telefonului.</div>
+            </div>
+
+            <div class="set-group">
+                <div class="set-label" data-i18n="setLimba">Limbă</div>
+                <div class="seg" id="langSeg">
+                    <button data-lang="ro">🇷🇴 Română</button>
+                    <button data-lang="en">🇬🇧 English</button>
+                </div>
+                <div class="set-note" data-i18n="setLimbaNota">La prima deschidere se alege automat după limba telefonului.</div>
             </div>
 
             <div class="set-group">
@@ -5433,6 +5456,7 @@ var I18N = {
         avToate: 'Toate', avertizare: 'Avertizare', faraAvert: 'fără avertizări',
         niciunaAvert: 'nicio avertizare în vigoare',
         spEticheta: 'Vremea la tine', spOk: 'Am înțeles', spUrmator: 'Următorul', spGata: 'Gata',
+        sterge: 'Șterge', setLimba: 'Limbă', setLimbaNota: 'La prima deschidere se alege automat după limba telefonului.',
         // ── interfața de telefon ──
         azi2: 'Azi', acum: 'Acum', maxScurt: 'Max', minScurt: 'Min',
         conditiiMeteo: 'Condiții meteo', temperatura: 'Temperatură', sanseDePloaie: 'Șanse de ploaie',
@@ -5547,6 +5571,7 @@ var I18N = {
         avToate: 'All', avertizare: 'Warning', faraAvert: 'no warnings',
         niciunaAvert: 'no warnings in force',
         spEticheta: 'Your weather', spOk: 'Got it', spUrmator: 'Next', spGata: 'Done',
+        sterge: 'Delete', setLimba: 'Language', setLimbaNota: 'Chosen automatically from your phone language on first launch.',
         // ── phone interface ──
         azi2: 'Today', acum: 'Now', maxScurt: 'H', minScurt: 'L',
         conditiiMeteo: 'Conditions', temperatura: 'Temperature', sanseDePloaie: 'Chance of rain',
@@ -5667,10 +5692,37 @@ function aplicaLimba(l) {
     try { deseneazaRecente(); } catch (e) {}
     try { analizeazaZiua(); } catch (e) {}
     try { randeazaSfaturi(); } catch (e) {}
-    try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
+    try { marcheazaLimba(); } catch (e) {}
+    // interfața de telefon se reconstruiește integral, deci și textele
+    // generate din JS (carduri, lună, avertizări) trec în limba nouă
+    try { if (typeof mobRandare === 'function') { _texLuna.stare = _texLuna.stare; mobRandare(); } } catch (e) {}
+    try { if (typeof deschideRadarPlin === 'function' && _mrHarta) {
+        document.getElementById('mrLegTit').textContent = T('precipitatii');
+        document.getElementById('mrL1').textContent = T('legExtreme');
+        document.getElementById('mrL2').textContent = T('legAbundente');
+        document.getElementById('mrL3').textContent = T('legModerate');
+        document.getElementById('mrL4').textContent = T('legSlabe');
+    } } catch (e) {}
 }
 document.getElementById('langRO').addEventListener('click', function() { aplicaLimba('ro'); });
 document.getElementById('langEN').addEventListener('click', function() { aplicaLimba('en'); });
+
+/* Selectorul de limbă din Setări — pe telefon bara de sus e ascunsă,
+   deci butoanele RO/EN de acolo nu mai sunt accesibile. */
+(function() {
+    var seg = document.getElementById('langSeg');
+    if (!seg) return;
+    seg.querySelectorAll('button').forEach(function(b) {
+        b.addEventListener('click', function() { aplicaLimba(b.getAttribute('data-lang')); });
+    });
+})();
+function marcheazaLimba() {
+    var seg = document.getElementById('langSeg');
+    if (!seg) return;
+    seg.querySelectorAll('button').forEach(function(b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === LANG);
+    });
+}
 
 // mesajul discret: se închide la apăsare, la X sau cu o glisare în sus
 (function() {
@@ -6000,6 +6052,7 @@ function analizeazaZiua() {
     var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
     if (_ccUltimaLoc === cheie && _ccDate) {     // aceeași locație → doar redesenăm
         deseneazaAnaliza(_ccDate);
+        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
         return;
     }
     _ccUltimaLoc = cheie;
@@ -6061,6 +6114,10 @@ function analizeazaZiua() {
         };
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
+        // analiza vine după primul randat al interfeței mobile (durează:
+        // 30 de ani de arhivă). Fără linia asta, cardul „Cât de neobișnuită
+        // e ziua" nu mai apărea deloc pe telefon.
+        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
     }).catch(function(e) {
         _ccUltimaLoc = null;                     // permitem reîncercarea
         document.getElementById('ccCorp').innerHTML =
@@ -6280,6 +6337,12 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
 
 // ── APLICĂ TEMA SALVATĂ ──
 applyTheme(PREF.get('theme', 'system'));
+
+/* Limba: la prima deschidere se ia din setările telefonului (asta face
+   deja blocul din <head>), aici doar marcăm butonul potrivit în Setări
+   și aplicăm toate textele o dată, la pornire. */
+try { marcheazaLimba(); } catch (e) {}
+try { aplicaLimba(LANG); } catch (e) {}
 </script>
 
 <!-- ══════════════════════════════════════════════════════════════════
@@ -6905,7 +6968,7 @@ input, textarea, select, [contenteditable="true"] {
         <button class="mr-btn" id="mrCentru" title="Locația mea">➤</button>
     </div>
     <div id="mrLegenda">
-        <div class="l-tit" id="mrLegTit">Precipitații</div>
+        <div class="l-tit" id="mrLegTit">—</div>
         <div class="l-corp">
             <div class="l-bara"></div>
             <div class="l-et">
@@ -8213,7 +8276,7 @@ function mobFoaieOrase() {
              '<div class="mo-st"><div class="mo-nume">' + (i === curent ? '➤ ' : '') + (o.nume || '') + '</div>' +
              '<div class="mo-sub">' + [o.admin, o.tara].filter(Boolean).join(', ') + '</div></div>' +
              '<div class="mo-t" id="moT' + i + '">–</div>' +
-             (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="Șterge">✕</button>' : '') +
+             (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="' + T('sterge') + '">✕</button>' : '') +
              '</div>';
     });
     document.getElementById('mfContinut').innerHTML = h;
