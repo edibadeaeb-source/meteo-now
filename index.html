@@ -1222,16 +1222,30 @@
            specificitate). Pe desktop rămâne panoul clasic.
            ══════════════════════════════════════════════════════ */
         @media (max-width: 760px) {
-            .sheet-backdrop { align-items: flex-end; padding: 0; background: rgba(4, 8, 22, 0.5); }
+            /* fundal mai transparent, cu blur: aplicația rămâne vizibilă în spate */
+            .sheet-backdrop {
+                align-items: flex-end; padding: 0;
+                background: rgba(6, 12, 30, 0.28);
+                -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+            }
             .sheet {
-                width: 100%; max-height: 90vh; border: none;
+                width: 100%; max-height: 88vh; border: none;
                 border-top: 1px solid rgba(255,255,255,0.20);
                 border-radius: 26px 26px 0 0;
                 background: rgba(30, 40, 74, 0.82);
                 -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
                 box-shadow: 0 -18px 50px rgba(0,0,0,0.45);
                 color: #fff;
-                padding-bottom: env(safe-area-inset-bottom, 0px);
+                padding-bottom: 0;
+                display: flex; flex-direction: column;
+            }
+            /* antetul rămâne fix, doar conținutul se derulează;
+               ultimul grup nu mai e tăiat de bara de jos a telefonului */
+            .sheet-head { flex-shrink: 0; }
+            .sheet-body {
+                overflow-y: auto; -webkit-overflow-scrolling: touch;
+                padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+                overscroll-behavior: contain;
             }
             .sheet-head { border-bottom: 1px solid rgba(255,255,255,0.14); padding: 18px 18px 14px; }
             .sheet-head h3 { color: #fff; }
@@ -1474,6 +1488,21 @@
         </div>
     </div>
 </header>
+
+<!-- ═══ NOUTĂȚI — se arată o singură dată, după o versiune nouă ═══ -->
+<div id="noutati">
+    <div class="nt-card">
+        <div class="nt-sus">
+            <img class="nt-logo" src="icon-192.png" alt="METEO NOW">
+            <div>
+                <div class="nt-et" id="ntEt">Ce e nou</div>
+                <div class="nt-titlu">METEO NOW</div>
+            </div>
+        </div>
+        <div class="nt-lista" id="ntLista"></div>
+        <button class="nt-btn" id="ntOk">Începem</button>
+    </div>
+</div>
 
 <!-- ═══ MESAJ DISCRET — sfatul potrivit vremii de acum ═══ -->
 <div id="sfatToast" role="status" aria-live="polite">
@@ -3402,36 +3431,16 @@ setInterval(function() {
     </div>
 
 <script>
-// Cand chat-ul e deschis, blocheaza zoom si scroll
-var savedScrollY = 0;
+/* Când asistentul e deschis, pagina din spate nu se mai derulează.
+   Folosim același mecanism ca la celelalte panouri — varianta veche muta
+   body-ul cu `position: fixed` și lăsa o bandă neagră sub fereastră. */
 function setChatLock(locked) {
     var meta = document.querySelector('meta[name="viewport"]');
     if (locked) {
-        // Salvam pozitia curenta de scroll
-        savedScrollY = window.scrollY || document.documentElement.scrollTop;
-        document.body.style.position = 'fixed';
-        document.body.style.top = '-' + savedScrollY + 'px';
-        document.body.style.left = '0';
-        document.body.style.right = '0';
-        document.body.style.width = '100%';
-        // Lock viewport zoom
+        if (typeof blocheazaFundal === 'function') blocheazaFundal();
         meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     } else {
-        // Oprim temporar derularea lină, altfel revenirea se vede ca un salt sus-jos
-        var html = document.documentElement;
-        var prevBehavior = html.style.scrollBehavior;
-        html.style.scrollBehavior = 'auto';
-
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.left = '';
-        document.body.style.right = '';
-        document.body.style.width = '';
-        // Restauram pozitia salvata, instantaneu (fara animatie)
-        window.scrollTo(0, savedScrollY);
-
-        // Redam derularea lină după ce s-a aplicat poziția
-        requestAnimationFrame(function() { html.style.scrollBehavior = prevBehavior || ''; });
+        if (typeof deblocheazaFundal === 'function') deblocheazaFundal();
         meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
     }
 }
@@ -5074,25 +5083,33 @@ var sheet = document.getElementById('settingsSheet');
 
 /* Cât e deschis un panou, pagina din spate nu trebuie să se miște.
    Reținem unde erai și te punem exact acolo la închidere. */
-var _scrollBlocat = 0, _nrPanouri = 0;
+/* Blocăm derularea FĂRĂ să scoatem pagina din flux.
+   Varianta cu `position: fixed` pe body scurta pagina: sub panou rămânea
+   o bandă neagră, fiindcă body-ul nu mai acoperea tot ecranul. Acum doar
+   oprim derularea, iar aplicația rămâne vizibilă în spate, întreagă. */
+var _nrPanouri = 0, _opresteAtingerea = null;
 function blocheazaFundal() {
     if (_nrPanouri++ > 0) return;
-    _scrollBlocat = window.scrollY || document.documentElement.scrollTop || 0;
-    document.body.style.position = 'fixed';
-    document.body.style.top = (-_scrollBlocat) + 'px';
-    document.body.style.left = '0';
-    document.body.style.right = '0';
-    document.body.style.width = '100%';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    // pe iOS, `overflow: hidden` singur nu oprește derularea prin atingere
+    _opresteAtingerea = function(e) {
+        var inPanou = e.target.closest('.sheet, .mf-corp, .chat-window, #mobRadarPlin, .loc-panel');
+        if (!inPanou) e.preventDefault();
+    };
+    document.addEventListener('touchmove', _opresteAtingerea, { passive: false });
 }
 function deblocheazaFundal() {
     if (_nrPanouri > 0) _nrPanouri--;
     if (_nrPanouri > 0) return;
-    document.body.style.position = '';
-    document.body.style.top = '';
-    document.body.style.left = '';
-    document.body.style.right = '';
-    document.body.style.width = '';
-    window.scrollTo(0, _scrollBlocat);
+    document.documentElement.style.overflow = '';
+    document.body.style.overflow = '';
+    document.body.style.overscrollBehavior = '';
+    if (_opresteAtingerea) {
+        document.removeEventListener('touchmove', _opresteAtingerea, { passive: false });
+        _opresteAtingerea = null;
+    }
 }
 
 function deschideSetari() { sheet.classList.add('open'); blocheazaFundal(); }
@@ -6374,6 +6391,61 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
     }
 })();
 
+/* ══════════════════════════════════════════════════════════════
+   NOUTĂȚI
+   Se arată o singură dată pentru fiecare versiune. Textele sunt
+   scrise pentru om, nu pentru programator: ce câștigă el, nu ce
+   am schimbat eu în cod.
+   ══════════════════════════════════════════════════════════════ */
+var VERSIUNE_NOUTATI = '2026.08.13';
+function aratăNoutati(fortat) {
+    var box = document.getElementById('noutati');
+    if (!box) return;
+    try {
+        if (!fortat && localStorage.getItem('meteo-noutati') === VERSIUNE_NOUTATI) return;
+    } catch (e) {}
+
+    var en = LANG === 'en';
+    var puncte = en ? [
+        ['🌍', 'Any city in the world', 'Save your cities and swipe between them. Everything follows — hours, forecast, maps.'],
+        ['🌙', 'The Moon, for real', 'A 3D globe built from NASA Lunar Reconnaissance Orbiter data. Drag the timeline to watch it change, day by day.'],
+        ['📊', 'How unusual is today', 'We compare today with the last 30 years for the same date. No other weather app tells you this.'],
+        ['⚠️', 'Official ANM warnings', 'For Romania: the exact affected areas on the map, and a notification when a new code is issued.'],
+        ['🔔', 'A daily brief', 'Morning and evening, plus a nudge when the weather actually calls for it.']
+    ] : [
+        ['🌍', 'Orice oraș din lume', 'Îți salvezi orașele și treci între ele cu degetul. Se schimbă tot — orele, prognoza, hărțile.'],
+        ['🌙', 'Luna, pe bune', 'Un glob 3D construit din datele sondei NASA care cartografiază Luna. Tragi de riglă și vezi cum se schimbă, zi cu zi.'],
+        ['📊', 'Cât de neobișnuită e ziua', 'Comparăm ziua de azi cu ultimii 30 de ani, pentru aceeași dată. Nicio altă aplicație meteo nu-ți spune asta.'],
+        ['⚠️', 'Avertizări oficiale ANM', 'Pentru România: zonele exact afectate pe hartă și notificare când se emite un cod nou.'],
+        ['🔔', 'Rezumatul zilei', 'Dimineața și seara, plus un semn atunci când vremea chiar o cere.']
+    ];
+
+    document.getElementById('ntEt').textContent = en ? 'What’s new' : 'Ce e nou';
+    document.getElementById('ntOk').textContent = en ? 'Let’s go' : 'Începem';
+    document.getElementById('ntLista').innerHTML = puncte.map(function(p) {
+        return '<div class="nt-rand"><div class="nt-ico">' + p[0] + '</div>' +
+               '<div><b>' + p[1] + '</b><span>' + p[2] + '</span></div></div>';
+    }).join('');
+
+    box.classList.add('deschis');
+    blocheazaFundal();
+}
+function inchideNoutati() {
+    var box = document.getElementById('noutati');
+    if (!box || !box.classList.contains('deschis')) return;
+    box.classList.remove('deschis');
+    deblocheazaFundal();
+    try { localStorage.setItem('meteo-noutati', VERSIUNE_NOUTATI); } catch (e) {}
+}
+(function() {
+    var b = document.getElementById('ntOk');
+    if (b) b.addEventListener('click', inchideNoutati);
+    var box = document.getElementById('noutati');
+    if (box) box.addEventListener('click', function(e) { if (e.target === box) inchideNoutati(); });
+    // după splash, ca să nu se suprapună două ferestre
+    setTimeout(function() { try { aratăNoutati(false); } catch (e) {} }, 1800);
+})();
+
 // ── APLICĂ TEMA SALVATĂ ──
 applyTheme(PREF.get('theme', 'system'));
 
@@ -6407,14 +6479,64 @@ try { aplicaLimba(LANG); } catch (e) {}
 }
 
 /* ══════════════════════════════════════════════════════════════
+   NOUTĂȚI — o singură dată, la prima deschidere după o versiune nouă
+   ══════════════════════════════════════════════════════════════ */
+#noutati {
+    position: fixed; inset: 0; z-index: 99200; display: none;
+    align-items: center; justify-content: center; padding: 22px;
+    background: rgba(6, 12, 30, 0.55);
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    opacity: 0; transition: opacity 0.4s ease;
+}
+#noutati.deschis { display: flex; opacity: 1; }
+.nt-card {
+    width: min(400px, 100%); max-height: 84vh; overflow-y: auto;
+    border-radius: 26px; padding: 22px 20px 18px; color: #fff;
+    background: rgba(30, 40, 74, 0.86);
+    -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.20);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.26);
+    transform: translateY(18px) scale(0.97);
+    transition: transform 0.45s cubic-bezier(0.2, 1.15, 0.3, 1);
+}
+#noutati.deschis .nt-card { transform: none; }
+.nt-sus { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.nt-logo { width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0; }
+.nt-et { font-size: 0.68rem; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase;
+         color: rgba(255,255,255,0.62); }
+.nt-titlu { font-size: 1.3rem; font-weight: 800; letter-spacing: 0.5px; }
+.nt-lista { display: flex; flex-direction: column; gap: 15px; }
+.nt-rand { display: flex; gap: 13px; align-items: flex-start; }
+.nt-ico {
+    width: 34px; height: 34px; border-radius: 11px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+    background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.16);
+}
+.nt-rand b { display: block; font-size: 0.92rem; font-weight: 700; margin-bottom: 1px; }
+.nt-rand span { font-size: 0.83rem; color: rgba(255,255,255,0.74); line-height: 1.45; }
+.nt-btn {
+    width: 100%; margin-top: 20px; padding: 14px; border-radius: 15px; cursor: pointer;
+    border: none; background: #fff; color: #16204a;
+    font-size: 0.95rem; font-weight: 800; font-family: inherit;
+    transition: transform 0.3s cubic-bezier(0.33,0.9,0.35,1);
+}
+.nt-btn:active { transform: scale(0.96); }
+
+/* ══════════════════════════════════════════════════════════════
    FĂRĂ SELECTARE ȘI FĂRĂ COPIERE
    Aplicația se citește, nu se copiază — ca pe iPhone. Blocăm
    selecția textului, meniul de la apăsare lungă pe imagini și
    tragerea lor afară. Câmpurile de scris rămân normale.
    ══════════════════════════════════════════════════════════════ */
-#mobApp, #mobFoaie, #mobRadarPlin, #sfatToast, .sheet, .chat-window, #splash, #welcome {
+#mobApp, #mobFoaie, #mobRadarPlin, #sfatToast, .sheet, .chat-window,
+.chat-fab, .sheet-backdrop, #splash, #welcome {
     -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
     -webkit-touch-callout: none;
+}
+/* butonul asistentului nu se selectează și nu se trage nicăieri */
+.chat-fab, .chat-fab * {
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-user-drag: none;
 }
 #mobApp img, #mobFoaie img, #mobRadarPlin img, .chat-window img, canvas {
     -webkit-user-drag: none; user-select: none; pointer-events: auto;
@@ -6453,7 +6575,7 @@ input, textarea, select, [contenteditable="true"] {
 
     /* ── asistentul AI, în aceeași sticlă ── */
     .chat-window {
-        background: rgba(30, 40, 74, 0.80) !important;
+        background: rgba(30, 40, 74, 0.66) !important;
         -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
         border: 1px solid rgba(255,255,255,0.18) !important;
         box-shadow: 0 -18px 50px rgba(0,0,0,0.45) !important;
@@ -6562,10 +6684,19 @@ input, textarea, select, [contenteditable="true"] {
 /* ── banda pe ore ── */
 .mb-seg { display: flex; gap: 2px; background: rgba(255,255,255,0.10); border-radius: 999px; padding: 3px; margin-left: auto; }
 .mb-seg button {
-    border: none; background: transparent; color: rgba(255,255,255,0.6);
-    width: 34px; height: 26px; border-radius: 999px; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+    border: none; background: transparent; color: rgba(255,255,255,0.62);
+    width: 40px; height: 28px; border-radius: 999px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; padding: 0; line-height: 0;
 }
-.mb-seg button.activ { background: rgba(255,255,255,0.24); color: #fff; }
+.mb-seg button svg { width: 17px; height: 17px; display: block; }
+.mb-seg button.activ { background: rgba(255,255,255,0.26); color: #fff; }
+/* despărțitorul dintre ultimele două, ca pe iPhone */
+.mb-seg button:last-child { position: relative; }
+.mb-seg button:last-child::before {
+    content: ''; position: absolute; left: -2px; top: 6px; bottom: 6px;
+    width: 1px; background: rgba(255,255,255,0.18);
+}
+.mb-seg button.activ + button::before, .mb-seg button:last-child.activ::before { opacity: 0; }
 .mb-ore { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; }
 .mb-ore::-webkit-scrollbar { display: none; }
 .mb-ora { flex: 0 0 auto; width: 56px; text-align: center; padding: 4px 0; }
@@ -7454,9 +7585,14 @@ function mobCardOre() {
 
     var h = '<div class="mb-cap"><span>' + titluri[_mobOraMod] + '</span>' +
         '<div class="mb-seg" id="mbSeg">' +
-        '<button data-m="temp" class="' + (_mobOraMod==='temp'?'activ':'') + '">☁</button>' +
-        '<button data-m="precip" class="' + (_mobOraMod==='precip'?'activ':'') + '">💧</button>' +
-        '<button data-m="vant" class="' + (_mobOraMod==='vant'?'activ':'') + '">🌬</button>' +
+        '<button data-m="temp" aria-label="' + T('conditiiMeteo') + '" class="' + (_mobOraMod==='temp'?'activ':'') + '">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.2 10.1a5.2 5.2 0 0 1 .3 10.4H7.4a4.4 4.4 0 0 1-.5-8.8 5.6 5.6 0 0 1 10.3-1.6z"/>' +
+            '<circle cx="17.3" cy="6.6" r="3"/></svg></button>' +
+        '<button data-m="precip" aria-label="' + T('precipitatii') + '" class="' + (_mobOraMod==='precip'?'activ':'') + '">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6c3.2 4 5.6 7 5.6 9.9a5.6 5.6 0 1 1-11.2 0c0-2.9 2.4-5.9 5.6-9.9z"/></svg></button>' +
+        '<button data-m="vant" aria-label="' + T('vant') + '" class="' + (_mobOraMod==='vant'?'activ':'') + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">' +
+            '<path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12.5h14a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 17h8"/></svg></button>' +
         '</div></div>' +
         '<div style="font-size:0.72rem;color:rgba(255,255,255,0.6);margin:-6px 0 8px;">' + subt[_mobOraMod] + '</div>' +
         '<div class="mb-ore">';
@@ -7556,7 +7692,15 @@ function mobCardRadar() {
 
 /* ══ CÂT DE NEOBIȘNUITĂ E ZIUA — compact ══ */
 function mobCardClima() {
-    if (typeof _ccDate === 'undefined' || !_ccDate) return '';
+    /* Cardul rămâne MEREU pe pagină. Înainte dispărea de tot cât timp se
+       aduceau cei 30 de ani de arhivă — și dacă apelul întârzia sau pica,
+       nu mai revenea deloc. Acum arată că se încarcă și cere singur datele. */
+    if (typeof _ccDate === 'undefined' || !_ccDate) {
+        try { if (typeof analizeazaZiua === 'function') analizeazaZiua(); } catch (e) {}
+        return '<div class="mb-card">' +
+            '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span></div>' +
+            '<div class="mb-nota" style="padding-top:2px;">' + T('ccIncarca') + '</div></div>';
+    }
     var d = _ccDate, ab = d.abatere, cald = ab >= 0;
     var poz = Math.max(2, Math.min(98, 50 + ((d.z || 0) / 3) * 50));
     return '<div class="mb-card apasabil" data-foaie="clima">' +
