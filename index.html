@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.10.3">
+    <meta name="application-version" content="2026.09.11.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -4077,6 +4077,22 @@ function refreshWarnings() {
         }).join('');
         document.getElementById('anmWarnList').innerHTML = listHtml || '<div style="color:#666;">Nu există avertizări meteorologice în vigoare în acest moment.</div>';
         window._anmWarns = warns;
+        _avWarns = warns;
+        if (_avSel >= warns.length) _avSel = -1;
+        /* Cererea ANM este asincronă. Interfața mobilă trebuie actualizată
+           după sosirea datelor, nu imediat după pornirea cererii. */
+        try {
+            if (typeof esteMobil === 'function' && esteMobil()) {
+                _ultimaRandare = 0;
+                mobRandare();
+                var foaieMob = document.getElementById('mobFoaie');
+                if (foaieMob && foaieMob.classList.contains('deschis') &&
+                    foaieMob.getAttribute('data-tip') === 'anm' &&
+                    typeof mobUmpleFoaieAnm === 'function') {
+                    mobUmpleFoaieAnm();
+                }
+            }
+        } catch (e) {}
     }).catch(function(e) {
         console.error('ANM avertizari:', e);
         document.getElementById('warnTypes').innerHTML = '• datele ANM nu au putut fi încărcate — verifică consola (F12) și ruta /api/anm/avertizari-generale';
@@ -7563,11 +7579,9 @@ function mobAnmSecundar() {
             loadJudeteGeo().then(function(g) {
                 _judeteGeo = g;
                 refreshWarnings();
-                mobRandare();
-            }).catch(function(e) { console.error('judete:', e); });
+            }).catch(function(e) { _mobAnmLa = 0; console.error('judete:', e); });
         } else if (!window._anmWarns) {
             refreshWarnings();
-            mobRandare();
         }
     } catch (e) { console.error('ANM mobil:', e); }
 }
@@ -8897,25 +8911,40 @@ function mobHartaRadar(id) {
 }
 
 /* ── foaia de detalii ── */
+function mobUmpleFoaieAnm() {
+    var t = document.getElementById('mfTitlu'), c = document.getElementById('mfContinut');
+    if (!t || !c) return;
+    try {
+        if (_mobHarti.mfHartaAnm) {
+            _mobHarti.mfHartaAnm.remove();
+            delete _mobHarti.mfHartaAnm;
+        }
+    } catch (e) {}
+    t.textContent = T('avertMeteo');
+    var h = '';
+    (window._anmWarns || []).forEach(function(w) {
+        var lv = (typeof nivelAvert === 'function') ? nivelAvert(w) : 1;
+        var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
+        var d = anmDetalii(w);
+        h += '<div class="mb-card"><div class="mb-cap"><span>' + (w.numeTipMesaj || T('avertizare')) + '</span>' +
+             '<span class="mbc-dr" style="color:' + WARN_COLS[lv] + ';font-weight:800;">' + NUME[lv] + '</span></div>' +
+             (d.fenomene ? '<div style="font-size:0.9rem;line-height:1.5;font-weight:600;">' + d.fenomene + '</div>' : '') +
+             (d.interval ? '<div style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-top:5px;">🕐 ' + d.interval + '</div>' : '') +
+             (d.zone ? '<div class="mb-nota">📍 ' + d.zone + '</div>' : '') +
+             (d.rezumat ? '<div class="mb-nota">' + d.rezumat + '</div>' : '') + '</div>';
+    });
+    if (!h) h = '<div class="mb-card"><div class="mb-nota" style="padding-top:0;">' + T('niciunaAvert') + '</div></div>';
+    h += '<div class="mb-card"><div class="mb-cap"><span>' + T('hartaAvert') + '</span></div>' +
+         '<div class="mb-harta" id="mfHartaAnm" style="height:280px;"></div></div>';
+    c.innerHTML = h;
+    setTimeout(function() { mobHartaAnm('mfHartaAnm'); }, 120);
+}
+
 function mobDeschideFoaie(care) {
     var f = document.getElementById('mobFoaie');
     var t = document.getElementById('mfTitlu'), c = document.getElementById('mfContinut');
     if (care === 'anm') {
-        t.textContent = T('avertMeteo');
-        var h = '';
-        (window._anmWarns || []).forEach(function(w) {
-            var lv = (typeof nivelAvert === 'function') ? nivelAvert(w) : 1;
-            var NUME = ['', T('codGalben'), T('codPortocaliu'), T('codRosu')];
-            var d = anmDetalii(w);
-            h += '<div class="mb-card"><div class="mb-cap"><span>' + (w.numeTipMesaj || '') + '</span>' +
-                 '<span class="mbc-dr" style="color:' + WARN_COLS[lv] + ';font-weight:800;">' + NUME[lv] + '</span></div>' +
-                 (d.fenomene ? '<div style="font-size:0.9rem;line-height:1.5;font-weight:600;">' + d.fenomene + '</div>' : '') +
-                 (d.interval ? '<div style="font-size:0.8rem;color:rgba(255,255,255,0.7);margin-top:5px;">🕐 ' + d.interval + '</div>' : '') +
-                 (d.rezumat ? '<div class="mb-nota">' + d.rezumat + '</div>' : '') + '</div>';
-        });
-        h += '<div class="mb-card"><div class="mb-cap"><span>' + T('hartaAvert') + '</span></div>' +
-             '<div class="mb-harta" id="mfHartaAnm" style="height:280px;"></div></div>';
-        c.innerHTML = h;
+        mobUmpleFoaieAnm();
     } else if (care === 'radar') {
         deschideRadarPlin();          // harta merge pe tot ecranul, ca pe iPhone
         return;
@@ -8936,9 +8965,9 @@ function mobDeschideFoaie(care) {
     else if (care === 'orase') { mobFoaieOrase(); }
     // foaia se deschide mereu de sus: câmpul de căutare e primul lucru vizibil
     try { document.getElementById('mfCorp').scrollTop = 0; } catch (e) {}
+    f.setAttribute('data-tip', care);
     f.classList.add('deschis');
     blocheazaFundal();
-    if (care === 'anm') setTimeout(function() { mobHartaAnm('mfHartaAnm'); }, 300);
 }
 
 /* ══ LISTA DE ORAȘE ══ */
@@ -9059,6 +9088,13 @@ function mobInchideFoaie() {
     var f = document.getElementById('mobFoaie');
     if (!f.classList.contains('deschis')) return;
     f.classList.remove('deschis');
+    f.removeAttribute('data-tip');
+    try {
+        if (_mobHarti.mfHartaAnm) {
+            _mobHarti.mfHartaAnm.remove();
+            delete _mobHarti.mfHartaAnm;
+        }
+    } catch (e) {}
     deblocheazaFundal();
 }
 
@@ -9069,6 +9105,7 @@ function mobInchideFoaie() {
    ══════════════════════════════════════════════════════════════ */
 var _mrHarta = null, _mrStratRadar = null, _mrTipFundal = 0, _mrScroll = 0;
 var _mrRadarLa = 0, _mrMarcajeLayer = null, _mrMarcajeGeneratie = 0;
+var _radarFundalBlocat = false;
 
 /* Zoomul e FIX, ca pe iPhone: nu se mărește și nu se micșorează.
    9 e limita până la care RainViewer mai are dale; peste ea apărea
@@ -9112,9 +9149,11 @@ function deschideRadarPlin() {
     // Blocăm derularea paginii din spate. Fără asta, harta se inițializa
     // cu dimensiunile greșite și rămânea o fâșie goală sus, iar butoanele
     // păreau că „fug" până derulai.
-    blocheazaFundal();
-
-    box.classList.add('deschis');
+    if (!box.classList.contains('deschis')) {
+        blocheazaFundal();
+        _radarFundalBlocat = true;
+        box.classList.add('deschis');
+    }
     if (_mrHarta) {
         _mrHarta.setView([LOC.lat, LOC.lon], MR_ZOOM, { animate: false });
         fundalGri(_mrHarta, _mrTipFundal, true);
@@ -9148,7 +9187,10 @@ function deschideRadarPlin() {
 }
 function inchideRadarPlin() {
     document.getElementById('mobRadarPlin').classList.remove('deschis');
-    deblocheazaFundal();
+    if (_radarFundalBlocat) {
+        _radarFundalBlocat = false;
+        deblocheazaFundal();
+    }
 }
 function mrRadar() {
     if (_mrStratRadar && Date.now() - _mrRadarLa < 10 * 60 * 1000) return;
