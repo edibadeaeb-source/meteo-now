@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.11.1">
+    <meta name="application-version" content="2026.09.11.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1245,15 +1245,17 @@
                 box-shadow: 0 -18px 50px rgba(0,0,0,0.45);
                 color: #fff;
                 padding-bottom: 0;
-                display: flex; flex-direction: column;
+                display: flex; flex-direction: column; overflow: hidden;
             }
             /* antetul rămâne fix, doar conținutul se derulează;
                ultimul grup nu mai e tăiat de bara de jos a telefonului */
             .sheet-head { flex-shrink: 0; }
             .sheet-body {
+                flex: 1 1 auto; min-height: 0;
                 overflow-y: auto; -webkit-overflow-scrolling: touch;
                 padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
-                overscroll-behavior: contain;
+                overscroll-behavior: contain; touch-action: pan-y;
+                contain: layout paint; transform: translateZ(0);
             }
             .sheet-head { border-bottom: 1px solid rgba(255,255,255,0.14); padding: 18px 18px 14px; }
             .sheet-head h3 { color: #fff; }
@@ -1268,7 +1270,17 @@
                 border: 1px solid rgba(255,255,255,0.14);
                 border-radius: 18px; padding: 13px 14px 10px; margin-bottom: 12px;
                 box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
+                content-visibility: auto; contain-intrinsic-size: 110px;
             }
+            /* În timpul inerției reducem efectele care cer recompunerea
+               fiecărui cadru. Aspectul complet revine după oprire. */
+            .sheet.deruleaza {
+                background: rgba(30, 40, 74, 0.96);
+                -webkit-backdrop-filter: blur(8px) saturate(130%);
+                backdrop-filter: blur(8px) saturate(130%);
+                box-shadow: none;
+            }
+            .sheet.deruleaza .set-group { box-shadow: none; }
             .set-group .set-row:last-of-type { border-bottom: none; }
             .seg { background: rgba(255,255,255,0.10); border-radius: 12px; padding: 3px; gap: 3px; }
             .seg button { background: transparent; border: none; color: rgba(255,255,255,0.72); border-radius: 10px; }
@@ -5147,6 +5159,26 @@ document.getElementById('settingsClose').addEventListener('click', inchideSetari
 sheet.addEventListener('click', function(e) { if (e.target === sheet) inchideSetari(); });
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSetari(); });
 
+/* Clasa este comutată cel mult o dată pe cadru. GPU-ul primește o
+   suprafață stabilă în timpul inerției, apoi sticla completă revine. */
+(function() {
+    var corp = sheet && sheet.querySelector('.sheet');
+    var lista = sheet && sheet.querySelector('.sheet-body');
+    if (!corp || !lista) return;
+    var cadru = null, oprire = null;
+    lista.addEventListener('scroll', function() {
+        if (!cadru) cadru = requestAnimationFrame(function() {
+            cadru = null;
+            corp.classList.add('deruleaza');
+        });
+        clearTimeout(oprire);
+        oprire = setTimeout(function() { corp.classList.remove('deruleaza'); }, 220);
+    }, { passive: true });
+    sheet.addEventListener('transitionend', function() {
+        if (!sheet.classList.contains('open')) corp.classList.remove('deruleaza');
+    });
+})();
+
 // ── SETĂRI: comutatoare ──
 function bindSwitch(id, key, onChange) {
     var el = document.getElementById(id);
@@ -8133,15 +8165,21 @@ function incarcaTexturiLuna(cand) {
    ══════════════════════════════════════════════════════════════ */
 var L3 = { gata: false, incarca: false, scena: null, cam: null, rand: null,
            luna: null, lumina: null, rotY: 0, rotX: 0, anim: null };
+var _threeAsteapta = [];
 
 function incarcaThree(cand) {
     if (window.THREE) { cand(); return; }
+    if (cand) _threeAsteapta = [cand];
     if (L3.incarca) return;
     L3.incarca = true;
     var s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.onload = function() { L3.incarca = false; cand(); };
-    s.onerror = function() { L3.incarca = false; L3.gata = false; };
+    s.onload = function() {
+        L3.incarca = false;
+        var lista = _threeAsteapta.splice(0);
+        lista.forEach(function(fn) { try { fn(); } catch (e) {} });
+    };
+    s.onerror = function() { L3.incarca = false; L3.gata = false; _threeAsteapta = []; };
     document.head.appendChild(s);
 }
 
@@ -8199,8 +8237,9 @@ function creeazaLuna3D(container, latura) {
     var texRel = incarcator.load(http ? 'api/moon/elev'  : 'moon_elev.jpg',  candSoseste, undefined, candEsueaza);
     texCol.anisotropy = 4;
 
-    // 256×128 segmente → relieful se vede pe siluetă, nu doar în umbre
-    var geo = new THREE.SphereGeometry(1, 256, 128);
+    // La 200 px, 128×64 păstrează conturul și relieful vizibile, dar
+    // construiește de patru ori mai puține fețe decât geometria veche.
+    var geo = new THREE.SphereGeometry(1, 128, 64);
     var mat = new THREE.MeshStandardMaterial({
         color: 0xd8d4c8,                              // ca sfera să nu fie neagră până sosesc texturile
         map: texCol,
@@ -8264,6 +8303,10 @@ function deseneazaCadru3D() {
         L3.rand.render(L3.scena, L3.cam);
     });
 }
+
+document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && L3.gata) requestAnimationFrame(deseneazaCadru3D);
+});
 
 /* Poziționează Soarele după fază și redesenează. */
 function pozitieSoare3D(faza) {
@@ -8693,9 +8736,9 @@ function mobCandVizibil(id, fn, margine) {
 
 function mobDetaseazaHarti() {
     var pastrate = {};
-    ['mbRadar', 'mbHartaAnmJos'].forEach(function(id) {
+    ['mbRadar', 'mbHartaAnmJos', 'mbLuna'].forEach(function(id) {
         var el = document.getElementById(id);
-        if (el && _mobHarti[id]) {
+        if (el && (_mobHarti[id] || (id === 'mbLuna' && el._construit))) {
             pastrate[id] = el;
             el.remove();
         }
@@ -8844,17 +8887,18 @@ function mobLeaga() {
             });
         });
     }
-    // Hărțile sunt pregătite la intrarea în aplicație, după primul cadru
-    // liber, apoi sunt păstrate între orașe. Three.js rămâne la vedere,
-    // fiind mult mai greu decât cele două hărți 2D.
+    // Hărțile și Luna sunt pregătite după primele cadre libere și apoi
+    // rămân în memorie între orașe și actualizările cardurilor.
     try { deseneazaLuna(true); } catch (e) { console.error('luna:', e); }
     mobilCandLinistit(function() { mobHartaRadar('mbRadar'); }, 80);
     mobilCandLinistit(function() { mobHartaAnm('mbHartaAnmJos'); }, 260);
-    mobCandVizibil('ml3D', function() {
-        incarcaThree(function() {
-            try { L3.gata = false; deseneazaLuna(false); } catch (e) { console.error('luna:', e); }
-        });
-    }, '300px 0px');
+    if (!L3.gata || !document.querySelector('#ml3D canvas')) {
+        mobilCandLinistit(function() {
+            incarcaThree(function() {
+                try { deseneazaLuna(false); } catch (e) { console.error('luna:', e); }
+            });
+        }, 420);
+    }
 }
 
 /* ── hărțile din interfața mobilă ── */
