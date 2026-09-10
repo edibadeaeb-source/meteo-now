@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.10.1">
+    <meta name="application-version" content="2026.09.10.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -5297,17 +5297,42 @@ async function pushSubscribe() {
     if (!r.ok) { pushNote('Serverul nu are notificările configurate.', 'var(--red)'); return false; }
     var key = (await r.json()).publicKey;
     var sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-        sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: b64ToUint8(key)
-        });
-    }
+    if (!sub) sub = await creeazaAbonamentPush(reg, key);
     await trimiteAbonament(sub);
     pushNote(LANG === 'en'
         ? '✅ On. Daily brief plus alerts for ' + (LOC.nume || 'your location') + '.'
         : '✅ Activat. Primești rezumatul zilei și alertele pentru ' + (LOC.nume || 'locația ta') + '.', 'var(--green)');
     return true;
+}
+
+/* Unele versiuni Chromium/Android confirmă permisiunea înainte ca serviciul
+   Google Push să întoarcă abonamentul. Reîncercăm scurt și întrebăm din nou
+   PushManager după fiecare tentativă, în loc să raportăm imediat o eroare. */
+async function creeazaAbonamentPush(reg, key) {
+    var optiuni = { userVisibleOnly: true, applicationServerKey: b64ToUint8(key) };
+    var ultimaEroare = null;
+    for (var incercare = 0; incercare < 3; incercare++) {
+        try {
+            var sub = await reg.pushManager.subscribe(optiuni);
+            if (sub) return sub;
+        } catch (e) {
+            ultimaEroare = e;
+            try {
+                var existent = await reg.pushManager.getSubscription();
+                if (existent) return existent;
+            } catch (ignorat) {}
+            if (/denied|permission|NotAllowedError/i.test(String(e && (e.name + ' ' + e.message)))) throw e;
+        }
+        await new Promise(function(resolve) { setTimeout(resolve, 350 + incercare * 450); });
+        try {
+            var aparut = await reg.pushManager.getSubscription();
+            if (aparut) return aparut;
+        } catch (ignorat2) {}
+    }
+    if (ultimaEroare) throw ultimaEroare;
+    throw new Error(LANG === 'en'
+        ? 'Android push did not respond. Check that Google Play services are enabled, then try again.'
+        : 'Serviciul push Android nu a răspuns. Verifică să fie active Serviciile Google Play, apoi încearcă din nou.');
 }
 
 /* Trimitem serverului și LOCAȚIA, nu doar adresa de livrare — altfel toți
@@ -5891,6 +5916,14 @@ function seteazaLocatie(loc, reincarca) {
     if (sub) sub.textContent = [LOC.admin, tariNume(LOC.tara)].filter(Boolean).join(', ');
     var chip = document.getElementById('locChipText');
     if (chip) chip.textContent = LOC.nume;
+    ['mbOras', 'mbBaraOras', 'mjLocText'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = LOC.nume || '';
+    });
+    var mbTemp = document.getElementById('mbTemp');
+    if (mbTemp && typeof mobDateDinCache === 'function' && !mobDateDinCache(LOC)) {
+        mbTemp.innerHTML = '…<sup>°</sup>';
+    }
     document.title = 'METEO NOW · ' + LOC.nume;
 
     aplicaVizibilitateSectiuni();
@@ -5900,8 +5933,6 @@ function seteazaLocatie(loc, reincarca) {
     // Luna revine la ziua de azi: dacă derulasei prin zile pentru un oraș,
     // n-are sens să rămâi acolo când te muți în alt fus orar
     try { _lunaZi = 0; } catch (e) {}
-    // schimbarea orașului trebuie să se vadă pe loc, fără așteptare
-    try { if (typeof mobIncarca === 'function') { MOBD = null; _ultimaRandare = 0; mobIncarca(); } } catch (e) {}
     if (reincarca !== false) reincarcaTot();
 }
 
@@ -5940,6 +5971,20 @@ function aplicaVizibilitateSectiuni() {
 
 /** Reîncarcă toate datele pentru noua locație. */
 function reincarcaTot() {
+    /* Pe telefon interfața desktop este ascunsă. Pornirea tuturor celor
+       nouă fluxuri desktop la fiecare glisare între orașe bloca firul
+       principal și întârzia exact tranziția pe care utilizatorul o vede. */
+    if (typeof esteMobil === 'function' && esteMobil()) {
+        try { mobIncarca(); } catch (e) {}
+        try { actualizeazaChat(); } catch (e) {}
+        if (typeof mobilCandLinistit === 'function') {
+            mobilCandLinistit(function() {
+                try { aflaFusOrar(); } catch (e) {}
+                try { analizeazaZiua(); } catch (e) {}
+            }, 500);
+        }
+        return;
+    }
     try { fetchWeather(); } catch (e) {}
     try { loadTenDay(); } catch (e) {}
     try { loadLongRange('weeks'); longData = null; } catch (e) {}
@@ -6185,7 +6230,7 @@ function analizeazaZiua() {
         _ccUltimaLoc = cheie; _ccDate = gata;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: gata.abatere }); } catch (e) {}
-        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
+        try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
         return;
     }
 
@@ -6267,7 +6312,7 @@ function analizeazaZiua() {
         _ccInCurs = false;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
-        try { if (typeof mobRandare === 'function') mobRandare(); } catch (e) {}
+        try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
     }).catch(function(e) {
         _ccInCurs = false;
         _ccUltimaLoc = null;
@@ -7463,9 +7508,16 @@ function mobPuncte() {
     box.innerHTML = h;
 }
 
-function mobIncarca() {
-    if (!esteMobil()) return;
-    var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+var _mobCache = {};
+var _mobCerereId = 0;
+var _mobController = null;
+var _mobAnmLa = 0;
+
+function mobCheieLoc(loc) {
+    return (+loc.lat).toFixed(3) + ',' + (+loc.lon).toFixed(3);
+}
+function mobUrl(loc) {
+    return 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon +
         '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,precipitation,' +
         'weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index' +
         '&hourly=temperature_2m,weather_code,precipitation_probability,precipitation,' +
@@ -7473,28 +7525,89 @@ function mobIncarca() {
         '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,' +
         'precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max' +
         '&forecast_days=10&timezone=auto';
-    fetch(u).then(function(r) { return r.json(); }).then(function(d) {
-        MOBD = d;
-        mobRandare();
-    }).catch(function(e) { console.error('mobil:', e); });
-
-    /* Datele ANM veneau prin harta de desktop, care pe telefon e ascunsă —
-       dacă inițializarea ei eșua, rămâneam fără județe și fără texte.
-       Acum interfața mobilă și le aduce singură, dacă lipsesc. */
-    if (esteRomania()) {
-        try {
-            if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
-                loadJudeteGeo().then(function(g) {
-                    _judeteGeo = g;
-                    refreshWarnings();
-                    setTimeout(function() { try { mobRandare(); } catch (e) {} }, 900);
-                }).catch(function(e) { console.error('judete:', e); });
-            } else if (!window._anmWarns) {
-                refreshWarnings();
-                setTimeout(function() { try { mobRandare(); } catch (e) {} }, 900);
-            }
-        } catch (e) { console.error('ANM mobil:', e); }
+}
+function mobDateDinCache(loc) {
+    var x = _mobCache[mobCheieLoc(loc)];
+    return x && Date.now() - x.t < 10 * 60 * 1000 ? x.d : null;
+}
+function mobPuneCache(loc, d) {
+    if (d && d.current && d.hourly && d.daily) {
+        _mobCache[mobCheieLoc(loc)] = { t: Date.now(), d: d };
     }
+}
+function mobPrefetchVecini() {
+    var conex = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conex && conex.saveData) return;
+    var l = oraseSalvate(), i = indexOrasCurent();
+    if (i < 0) return;
+    [l[i - 1], l[i + 1]].filter(Boolean).forEach(function(loc) {
+        if (mobDateDinCache(loc)) return;
+        mobilCandLinistit(function() {
+            if (mobDateDinCache(loc)) return;
+            fetch(mobUrl(loc)).then(function(r) {
+                if (!r.ok) throw new Error('meteo: ' + r.status);
+                return r.json();
+            }).then(function(d) { mobPuneCache(loc, d); }).catch(function() {});
+        }, 250);
+    });
+}
+function mobAnmSecundar() {
+    if (!esteRomania() || Date.now() - _mobAnmLa < 5 * 60 * 1000) return;
+    _mobAnmLa = Date.now();
+    try {
+        if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
+            loadJudeteGeo().then(function(g) {
+                _judeteGeo = g;
+                refreshWarnings();
+                mobRandare();
+            }).catch(function(e) { console.error('judete:', e); });
+        } else if (!window._anmWarns) {
+            refreshWarnings();
+            mobRandare();
+        }
+    } catch (e) { console.error('ANM mobil:', e); }
+}
+function mobIncarca() {
+    if (!esteMobil()) return Promise.resolve(null);
+    var locCeruta = {
+        nume: LOC.nume, tara: LOC.tara, admin: LOC.admin,
+        lat: +LOC.lat, lon: +LOC.lon
+    };
+    var cheie = mobCheieLoc(locCeruta);
+    var dinCache = mobDateDinCache(locCeruta);
+    if (dinCache) {
+        MOBD = dinCache;
+        if (dinCache.timezone) LOC.tz = dinCache.timezone;
+        _ultimaRandare = 0;
+        mobRandare();
+        mobPrefetchVecini();
+        mobilCandLinistit(mobAnmSecundar, 700);
+        return Promise.resolve(dinCache);
+    }
+
+    if (_mobController) {
+        try { _mobController.abort(); } catch (e) {}
+    }
+    _mobController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var idCerere = ++_mobCerereId;
+    var opt = _mobController ? { signal: _mobController.signal } : {};
+    return fetch(mobUrl(locCeruta), opt).then(function(r) {
+        if (!r.ok) throw new Error('meteo: ' + r.status);
+        return r.json();
+    }).then(function(d) {
+        mobPuneCache(locCeruta, d);
+        if (idCerere !== _mobCerereId || cheie !== mobCheieLoc(LOC)) return d;
+        MOBD = d;
+        if (d.timezone) LOC.tz = d.timezone;
+        _ultimaRandare = 0;
+        mobRandare();
+        mobPrefetchVecini();
+        mobilCandLinistit(mobAnmSecundar, 700);
+        return d;
+    }).catch(function(e) {
+        if (!e || e.name !== 'AbortError') console.error('mobil:', e);
+        return null;
+    });
 }
 
 /* ── fundalul-cer, după oră și vreme ── */
@@ -7843,13 +7956,13 @@ function mobCardClima() {
         if (!_ccInCurs && Date.now() - _ccEsuatLa > 180000) {
             setTimeout(function() { try { analizeazaZiua(); } catch (e) {} }, 0);
         }
-        return '<div class="mb-card">' +
+        return '<div class="mb-card" id="mbCardClima">' +
             '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span></div>' +
             '<div class="mb-nota" style="padding-top:2px;">' + T('ccIncarca') + '</div></div>';
     }
     var d = _ccDate, ab = d.abatere, cald = ab >= 0;
     var poz = Math.max(2, Math.min(98, 50 + ((d.z || 0) / 3) * 50));
-    return '<div class="mb-card apasabil" data-foaie="clima">' +
+    return '<div class="mb-card apasabil" id="mbCardClima" data-foaie="clima">' +
         '<div class="mb-cap"><span class="mbc-ico">📊</span><span>' + T('ccTitlu') + '</span><span class="mbc-dr">›</span></div>' +
         '<div style="display:flex;align-items:baseline;gap:8px;">' +
             '<span class="mb-val" style="font-size:1.9rem;">' + fDif(ab, 1) + '</span>' +
@@ -7864,6 +7977,20 @@ function mobCardClima() {
             '</span><span>' + T('ccMultMaiCald') + '</span></div>' +
         '</div>' +
         '</div>';
+}
+
+function mobActualizeazaClima() {
+    if (!esteMobil()) return;
+    var vechi = document.getElementById('mbCardClima');
+    if (!vechi) return;
+    var tmp = document.createElement('div');
+    tmp.innerHTML = mobCardClima();
+    var nou = tmp.firstElementChild;
+    if (!nou) return;
+    vechi.replaceWith(nou);
+    if (nou.hasAttribute('data-foaie')) {
+        nou.addEventListener('click', function() { mobDeschideFoaie('clima'); });
+    }
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -8232,7 +8359,7 @@ var _lunaZi = 0;          // câte zile față de azi arătăm (poate fi fracți
 function mobCardLuna() {
     return '<div class="mb-card mb-luna" id="mbLuna"></div>';
 }
-function deseneazaLuna() {
+function deseneazaLuna(amana3D) {
     var box = document.getElementById('mbLuna');
     if (!box) return;
     var LATURA = 200;
@@ -8278,7 +8405,9 @@ function deseneazaLuna() {
     // 3D: creat o dată, apoi doar mutăm lumina
     var box3 = document.getElementById('ml3D');
     if (box3 && window.THREE && (!L3.gata || !box3.firstChild)) creeazaLuna3D(box3, LATURA);
-    if (!window.THREE) incarcaThree(function() { L3.gata = false; deseneazaLuna(); });
+    if (!window.THREE && !amana3D) {
+        incarcaThree(function() { L3.gata = false; deseneazaLuna(false); });
+    }
 
     actualizeazaLuna();
 }
@@ -8498,6 +8627,51 @@ function ora_curenta_index() {
    să se întâmple des. Dacă vin mai multe cereri într-o secundă, le unim
    într-una singură. Fără asta, cardurile clipeau. */
 var _tRandare = null, _ultimaRandare = 0;
+var _mobObservatori = [];
+
+function mobOpresteObservatori() {
+    _mobObservatori.forEach(function(o) { try { o.disconnect(); } catch (e) {} });
+    _mobObservatori = [];
+}
+
+/* Rulează lucrul greu după ce degetul s-a oprit și motorul browserului
+   are timp liber. Astfel o hartă sau Three.js nu mai poate ocupa cadrul
+   în mijlocul unei derulări rapide. */
+function mobilCandLinistit(fn, intarziere) {
+    var incercari = 0;
+    function incearca() {
+        if (performance.now() < _mobilScrollPana && incercari++ < 24) {
+            setTimeout(incearca, 100);
+            return;
+        }
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(function() {
+                if (performance.now() < _mobilScrollPana && incercari++ < 24) incearca();
+                else fn();
+            }, { timeout: 900 });
+        } else {
+            setTimeout(fn, 0);
+        }
+    }
+    setTimeout(incearca, intarziere || 0);
+}
+
+function mobCandVizibil(id, fn, margine) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (!('IntersectionObserver' in window)) {
+        mobilCandLinistit(function() { if (el.isConnected) fn(); }, 250);
+        return;
+    }
+    var obs = new IntersectionObserver(function(intrari) {
+        if (!intrari.some(function(x) { return x.isIntersecting; })) return;
+        obs.disconnect();
+        mobilCandLinistit(function() { if (el.isConnected) fn(); }, 0);
+    }, { rootMargin: margine || '220px 0px' });
+    obs.observe(el);
+    _mobObservatori.push(obs);
+}
+
 function mobRandare() {
     var acum = Date.now();
     if (performance.now() < _mobilScrollPana || document.querySelector('#mbLuna :active')) {
@@ -8513,6 +8687,7 @@ function mobRandare() {
 }
 function mobRandareAcum() {
     if (!esteMobil() || !MOBD) return;
+    mobOpresteObservatori();
     // Hărțile vechi trebuie distruse înainte să rescriem pagina, altfel
     // Leaflet rămâne agățat de containere care nu mai există și harta
     // păstrează orașul și zoom-ul anterioare.
@@ -8631,10 +8806,16 @@ function mobLeaga() {
             });
         });
     }
-    // hărțile din carduri
-    setTimeout(function() { mobHartaRadar('mbRadar'); }, 120);
-    setTimeout(function() { mobHartaAnm('mbHartaAnmJos'); }, 400);
-    try { deseneazaLuna(); } catch (e) { console.error('luna:', e); }
+    // Scheletul și valorile Lunii sunt ieftine; WebGL și hărțile pornesc
+    // numai când cardul lor se apropie de ecran.
+    try { deseneazaLuna(true); } catch (e) { console.error('luna:', e); }
+    mobCandVizibil('mbRadar', function() { mobHartaRadar('mbRadar'); });
+    mobCandVizibil('mbHartaAnmJos', function() { mobHartaAnm('mbHartaAnmJos'); });
+    mobCandVizibil('ml3D', function() {
+        incarcaThree(function() {
+            try { L3.gata = false; deseneazaLuna(false); } catch (e) { console.error('luna:', e); }
+        });
+    }, '300px 0px');
 }
 
 /* ── hărțile din interfața mobilă ── */
@@ -9194,8 +9375,6 @@ function mobHartaAnm(id) {
 if (esteMobil()) {
     setTimeout(mobIncarca, 300);
     setInterval(mobIncarca, 10 * 60 * 1000);
-    // aducem three.js din timp, ca Luna 3D să fie gata când ajungi la ea
-    setTimeout(function() { incarcaThree(function() { try { deseneazaLuna(); } catch (e) {} }); }, 2500);
 }
 // dacă ecranul devine îngust (rotire, fereastră redimensionată), pornim și atunci
 /* Pe telefon, `resize` se declanșează de zeci de ori: la fiecare derulare,
