@@ -2,6 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
+    <meta name="application-version" content="2026.09.10.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1054,7 +1055,7 @@
             display: flex; flex-direction: column; align-items: center; gap: 16px;
             padding: 34px 40px 30px; border-radius: 30px;
             background: rgba(255, 255, 255, 0.11);
-            -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+            -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
             border: 1px solid rgba(255, 255, 255, 0.20);
             box-shadow: 0 24px 60px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.28);
         }
@@ -4948,7 +4949,7 @@ window.addEventListener('orientationchange', function() { setTimeout(invalidateA
 /** Opțiuni de formatare a orei, în fusul orașului selectat. */
 function optOra() {
     var o = { hour: '2-digit', minute: '2-digit' };
-    if (LOC && LOC.tz) o.timeZone = LOC.tz;
+    if (typeof LOC !== 'undefined' && LOC && LOC.tz) o.timeZone = LOC.tz;
     return o;
 }
 function liveClock() {
@@ -4957,7 +4958,7 @@ function liveClock() {
     // ora LOCALĂ a orașului selectat (fusul vine de la Open-Meteo)
     var opt = { hour: '2-digit', minute: '2-digit', second: '2-digit' };
     var optD = { weekday: 'long', day: '2-digit', month: '2-digit' };
-    if (LOC && LOC.tz) { opt.timeZone = LOC.tz; optD.timeZone = LOC.tz; }
+    if (typeof LOC !== 'undefined' && LOC && LOC.tz) { opt.timeZone = LOC.tz; optD.timeZone = LOC.tz; }
 
     var el = document.getElementById('heroDate');
     if (el) {
@@ -5311,17 +5312,42 @@ async function pushSubscribe() {
 
 /* Trimitem serverului și LOCAȚIA, nu doar adresa de livrare — altfel toți
    utilizatorii ar primi vremea din Târgoviște, oriunde s-ar afla. */
+function abonamentPushJSON(sub) {
+    if (!sub) throw new Error(LANG === 'en' ? 'The browser did not return a push subscription. Try again.' : 'Browserul nu a returnat un abonament. Încearcă din nou.');
+    var date = null;
+    try { date = typeof sub.toJSON === 'function' ? sub.toJSON() : sub; } catch (e) {}
+    date = date && typeof date === 'object' ? date : {};
+    var keys = date.keys || {};
+    function cheie(nume) {
+        if (keys[nume]) return keys[nume];
+        var raw = typeof sub.getKey === 'function' ? sub.getKey(nume) : null;
+        if (!raw) return '';
+        var text = '';
+        new Uint8Array(raw).forEach(function(b) { text += String.fromCharCode(b); });
+        return btoa(text).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    var corp = { endpoint: date.endpoint || sub.endpoint,
+                 keys: { p256dh: cheie('p256dh'), auth: cheie('auth') } };
+    if (!corp.endpoint || !corp.keys.p256dh || !corp.keys.auth) {
+        throw new Error(LANG === 'en' ? 'The browser returned an incomplete push subscription. Try again.' : 'Browserul a returnat un abonament incomplet. Încearcă din nou.');
+    }
+    return corp;
+}
 async function trimiteAbonament(sub) {
-    var corp = JSON.parse(JSON.stringify(sub));
+    var corp = abonamentPushJSON(sub);
     corp.lat = LOC.lat; corp.lon = LOC.lon;
     corp.nume = LOC.nume || ''; corp.tara = LOC.tara || '';
     corp.judet = (typeof judetulLocatiei === 'function' ? judetulLocatiei() : null) || '';
     corp.limba = LANG; corp.unitate = UNIT;
     corp.fus = (LOC.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-    await fetch('api/push/subscribe', {
+    var r = await fetch('api/push/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(corp)
     });
+    var rezultat = await r.json().catch(function() { return null; });
+    if (!r.ok || !rezultat || rezultat.ok !== true) {
+        throw new Error(LANG === 'en' ? 'The server could not save notifications. Try again shortly.' : 'Serverul nu a putut salva notificările. Încearcă din nou în câteva momente.');
+    }
 }
 
 /* Când utilizatorul schimbă orașul, actualizăm și abonamentul,
@@ -5331,7 +5357,7 @@ async function actualizeazaLocatiaPush() {
         if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
-        if (sub) await trimiteAbonament(sub.toJSON ? sub.toJSON() : sub);
+        if (sub) await trimiteAbonament(sub);
     } catch (e) {}
 }
 async function pushUnsubscribe() {
@@ -5407,10 +5433,17 @@ function stopLocalAlerts() {
     // starea reală: abonat sau nu
     navigator.serviceWorker.ready.then(function(reg) {
         return reg.pushManager.getSubscription();
-    }).then(function(sub) {
-        el.checked = !!sub && Notification.permission === 'granted';
-        if (el.checked) pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
-    }).catch(function() {});
+    }).then(async function(sub) {
+        el.checked = false;
+        if (sub && Notification.permission === 'granted') {
+            await trimiteAbonament(sub);
+            el.checked = true;
+            pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
+        }
+    }).catch(function() {
+        el.checked = false;
+        pushNote(LANG === 'en' ? 'Notifications could not be verified. Try enabling them again.' : 'Notificările nu au putut fi confirmate. Încearcă să le activezi din nou.', 'var(--amber)');
+    });
 
     el.addEventListener('change', async function() {
         el.disabled = true;
@@ -6734,9 +6767,18 @@ input, textarea, select, [contenteditable="true"] {
 .mb-temp sup { font-size: 0.42em; font-weight: 200; vertical-align: super; letter-spacing: 0; }
 .mb-stare { font-size: 1.28rem; font-weight: 400; color: rgba(255,255,255,0.92); margin-top: 2px; }
 .mb-mm { font-size: 1.28rem; font-weight: 500; color: rgba(255,255,255,0.92); margin-top: 1px; }
-.mb-hero.mic .mb-temp, .mb-hero.mic .mb-mm { display: none; }
-.mb-hero.mic .mb-oras { font-size: 1.55rem; }
-.mb-hero.mic .mb-stare { font-size: 0.95rem; opacity: 0.75; }
+/* Antetul își păstrează înălțimea: scrollul nu mai mută conținutul de sub deget. */
+.mb-hero .mb-temp, .mb-hero .mb-mm { transition: opacity 0.18s ease; }
+.mb-hero.mic .mb-temp, .mb-hero.mic .mb-mm { opacity: 0; }
+.mb-luna { overscroll-behavior-x: contain; }
+.ml-glob, .ml-rigla { touch-action: none; }
+@media (max-width: 760px) {
+    html { overscroll-behavior-x: none; }
+    #mobApp { overflow-x: clip; }
+    #sfatToast:not(.vizibil) { visibility: hidden; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+    #mobRadarPlin .leaflet-bottom { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* bara lipită sus, când ai derulat */
 #mobBara {
@@ -6756,7 +6798,7 @@ input, textarea, select, [contenteditable="true"] {
 .mb-card {
     margin: 0 14px 12px; border-radius: 20px; padding: 14px 16px;
     background: rgba(255, 255, 255, 0.13);
-    -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%); backdrop-filter: blur(12px) saturate(150%);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
     position: relative; overflow: hidden;
@@ -6919,16 +6961,8 @@ input, textarea, select, [contenteditable="true"] {
 .mb-harta { height: 210px; border-radius: 14px; overflow: hidden; margin: 0 -2px; }
 .mb-harta .leaflet-container { background: #55575c; }
 
-/* Fundalul hărților: gri mediu, ca pe iPhone, nu negru.
-   Dalele CARTO au uscatul aproape negru (#090909), deci simpla creștere
-   de luminozitate nu ajunge — ar trebui înmulțit cu 9 și s-ar arde
-   drumurile și denumirile. Folosim un filtru care RIDICĂ negrurile
-   (pantă + prag), păstrând diferența dintre uscat, drumuri și text.
-   Filtrăm doar panoul de fundal, ca radarul să-și țină culorile. */
-/* Valori măsurate pe dale reale: uscatul iese #575757, iar denumirile
-   ajung la 183 din 255 — practic identic cu harta din aplicația iPhone
-   (#55575c uscat). Filtru CSS simplu, fără dependențe. */
-.leaflet-fundalgri-pane { filter: brightness(4.2) contrast(0.44); }
+/* Fundal OSM în tonuri de gri; filtrul nu atinge precipitațiile sau atribuirea. */
+.leaflet-fundalgri-pane { filter: grayscale(1) invert(1) brightness(1.15) contrast(0.6); }
 
 /* ── bara plutitoare de jos ── */
 #mobJos {
@@ -7484,7 +7518,7 @@ function mobCer() {
     el.className = clasa;
     // ninsoarea are propria animație, deși fundalul rămâne „ploaie"
     var tipAnim = (cod >= 71 && cod <= 77) ? 'ninsoare' : clasa;
-    if (tipAnim !== _cerTip || !_cerAnim) porneșteCerViu(tipAnim);
+    porneșteCerViu(tipAnim);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -7493,14 +7527,17 @@ function mobCer() {
    pulsează încet, norii plutesc, ploaia cade, fulgii se leagănă,
    stelele clipesc. Se oprește singur când aplicația e în fundal.
    ══════════════════════════════════════════════════════════════ */
-var _cerAnim = null, _cerObiecte = null, _cerTip = 'noapte';
+var _cerAnim = null, _cerObiecte = null, _cerTip = 'noapte', _cerMarime = '';
+var _mobilScrollPana = 0;
 
 function mobStele(pornit) { /* păstrată — cerul viu preia rolul */ }
 
 function porneșteCerViu(tip) {
     var cv2 = document.getElementById('mobStele');
     if (!cv2 || !esteMobil()) return;
-    _cerTip = tip;
+    var marime = innerWidth + 'x' + innerHeight;
+    if (_cerAnim && _cerTip === tip && _cerMarime === marime) return;
+    _cerTip = tip; _cerMarime = marime;
     cv2.classList.add('pornit');
     var dpr = Math.min(2, window.devicePixelRatio || 1);
     var w = cv2.width = innerWidth * dpr, h = cv2.height = innerHeight * dpr;
@@ -7534,12 +7571,17 @@ function porneșteCerViu(tip) {
     }
     _cerObiecte = o;
 
-    var t = 0;
+    var t = 0, ultim = null;
+    var redus = window.matchMedia('(prefers-reduced-motion: reduce)');
+    var animatii = document.getElementById('setAnimations');
     if (_cerAnim) cancelAnimationFrame(_cerAnim);
-    (function cadru() {
+    (function cadru(acum) {
         _cerAnim = requestAnimationFrame(cadru);
-        if (document.hidden) return;                 // nu consumăm baterie degeaba
-        t += 0.016;
+        var dt = ultim === null ? 1 / 60 : Math.min(0.05, (acum - ultim) / 1000);
+        ultim = acum;
+        if (document.hidden || acum < _mobilScrollPana || redus.matches || (animatii && !animatii.checked)) return;
+        var pas = dt * 60;
+        t += dt;
         ct.clearRect(0, 0, W, H);
 
         // soarele: aureolă care respiră
@@ -7571,7 +7613,7 @@ function porneșteCerViu(tip) {
 
         // norii
         o.nori.forEach(function(nr) {
-            nr.x += nr.v;
+            nr.x += nr.v * pas;
             if (nr.x > W + 180) nr.x = -180;
             ct.fillStyle = 'rgba(255,255,255,' + nr.a + ')';
             var b = nr.s;
@@ -7585,7 +7627,7 @@ function porneșteCerViu(tip) {
         // ploaia
         ct.lineCap = 'round';
         o.pic.forEach(function(pp) {
-            pp.y += pp.v; pp.x += 0.6;
+            pp.y += pp.v * pas; pp.x += 0.6 * pas;
             if (pp.y > H) { pp.y = -14; pp.x = Math.random() * W; }
             ct.strokeStyle = 'rgba(190,215,255,' + pp.a + ')';
             ct.lineWidth = 1.3;
@@ -7594,13 +7636,13 @@ function porneșteCerViu(tip) {
 
         // ninsoarea
         o.fulgi.forEach(function(fl) {
-            fl.y += fl.v; fl.f += 0.012;
+            fl.y += fl.v * pas; fl.f += 0.012 * pas;
             var x = fl.x + Math.sin(fl.f) * fl.am;
             if (fl.y > H) { fl.y = -8; fl.x = Math.random() * W; }
             ct.beginPath(); ct.arc(x, fl.y, fl.r, 0, 6.284);
             ct.fillStyle = 'rgba(255,255,255,0.62)'; ct.fill();
         });
-    })();
+    })(performance.now());
 }
 
 /* ── culoarea barelor de temperatură, ca pe iPhone ── */
@@ -7959,6 +8001,17 @@ function incarcaThree(cand) {
 
 function creeazaLuna3D(container, latura) {
     if (!window.THREE) return false;
+    if (L3.anim) { cancelAnimationFrame(L3.anim); L3.anim = null; }
+    if (L3.rand) {
+        if (L3.luna) {
+            L3.luna.geometry.dispose();
+            ['map', 'bumpMap', 'displacementMap'].forEach(function(k) {
+                var tex = L3.luna.material[k]; if (tex) tex.dispose();
+            });
+            L3.luna.material.dispose();
+        }
+        L3.rand.dispose();
+    }
     var dpr = Math.min(2, window.devicePixelRatio || 1);
 
     var scena = new THREE.Scene();
@@ -8030,27 +8083,40 @@ function creeazaLuna3D(container, latura) {
     // o randare imediată, ca să nu rămână gol până sosesc texturile
     setTimeout(deseneazaCadru3D, 0);
 
-    // rotire cu degetul
-    var el = rand.domElement, apasat = false, px = 0, py = 0;
-    el.addEventListener('pointerdown', function(e) { apasat = true; px = e.clientX; py = e.clientY; el.setPointerCapture(e.pointerId); });
+    // Globul deține gestul până la ridicare/anulare, inclusiv în afara lui.
+    var el = rand.domElement, pointer = null, px = 0, py = 0;
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function(nume) {
+        el.addEventListener(nume, function(e) { e.stopPropagation(); }, { passive: true });
+    });
+    el.addEventListener('pointerdown', function(e) {
+        if (pointer !== null || e.isPrimary === false) return;
+        e.stopPropagation(); pointer = e.pointerId;
+        px = e.clientX; py = e.clientY; el.setPointerCapture(pointer);
+    });
     el.addEventListener('pointermove', function(e) {
-        if (!apasat) return;
+        if (e.pointerId !== pointer) return;
+        e.stopPropagation();
         L3.rotY += (e.clientX - px) * 0.0075;
         L3.rotX = Math.max(-1.2, Math.min(1.2, L3.rotX + (e.clientY - py) * 0.0075));
         px = e.clientX; py = e.clientY;
         deseneazaCadru3D();
     });
-    el.addEventListener('pointerup', function() { apasat = false; });
-    el.addEventListener('pointercancel', function() { apasat = false; });
-    el.addEventListener('dblclick', function() { L3.rotY = 0; L3.rotX = 0; deseneazaCadru3D(); });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function(nume) {
+        el.addEventListener(nume, function(e) { if (e.pointerId === pointer) { e.stopPropagation(); pointer = null; } });
+    });
+    el.addEventListener('dblclick', function(e) { e.stopPropagation(); L3.rotY = 0; L3.rotX = 0; deseneazaCadru3D(); });
     return true;
 }
 
 function deseneazaCadru3D() {
-    if (!L3.gata) return;
-    L3.luna.rotation.y = -Math.PI / 2 + L3.rotY;
-    L3.luna.rotation.x = L3.rotX;
-    L3.rand.render(L3.scena, L3.cam);
+    if (!L3.gata || L3.anim) return;
+    L3.anim = requestAnimationFrame(function() {
+        L3.anim = null;
+        if (!L3.gata || !L3.rand || !L3.rand.domElement.isConnected || document.hidden) return;
+        L3.luna.rotation.y = -Math.PI / 2 + L3.rotY;
+        L3.luna.rotation.x = L3.rotX;
+        L3.rand.render(L3.scena, L3.cam);
+    });
 }
 
 /* Poziționează Soarele după fază și redesenează. */
@@ -8265,56 +8331,61 @@ var PAS_ZI = 26;                 // pixeli pe zi
 function legRigla() {
     var rg = document.getElementById('mlRigla'), banda = document.getElementById('mlBanda');
     if (!rg || !banda) return;
-    var x0 = null, z0 = 0, ultZi = 0, cadru = null;
-
-    var start = function(x) {
-        x0 = x; z0 = _lunaZi; ultZi = Math.round(_lunaZi);
-        banda.style.transition = 'none';
-    };
-    var mut = function(x) {
-        if (x0 === null) return;
-        _lunaZi = Math.max(-14, Math.min(14, z0 + (x0 - x) / PAS_ZI));
+    var pointer = null, x0 = 0, z0 = 0, ultZi = 0, cadru = null, anim = null, tras = false;
+    function opreste() {
+        if (anim) cancelAnimationFrame(anim);
+        if (cadru) cancelAnimationFrame(cadru);
+        anim = cadru = null;
+    }
+    function aseaza(tinta, durata) {
+        opreste();
+        var de = _lunaZi, t0 = performance.now();
+        function pas(t) {
+            if (!rg.isConnected) { anim = null; return; }
+            var k = Math.min(1, (t - t0) / durata);
+            _lunaZi = de + (tinta - de) * (1 - Math.pow(1 - k, 3));
+            actualizeazaLuna();
+            anim = k < 1 ? requestAnimationFrame(pas) : null;
+        }
+        anim = requestAnimationFrame(pas);
+    }
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(function(nume) {
+        rg.addEventListener(nume, function(e) { e.stopPropagation(); }, { passive: true });
+    });
+    rg.addEventListener('pointerdown', function(e) {
+        if (pointer !== null || e.isPrimary === false) return;
+        e.stopPropagation(); opreste();
+        pointer = e.pointerId; x0 = e.clientX; z0 = _lunaZi; tras = false;
+        ultZi = Math.round(_lunaZi); banda.style.transition = 'none';
+        rg.setPointerCapture(pointer);
+    });
+    rg.addEventListener('pointermove', function(e) {
+        if (e.pointerId !== pointer) return;
+        e.stopPropagation();
+        if (Math.abs(e.clientX - x0) > 5) tras = true;
+        _lunaZi = Math.max(-14, Math.min(14, z0 + (x0 - e.clientX) / PAS_ZI));
         if (!cadru) cadru = requestAnimationFrame(function() {
             cadru = null;
+            if (!rg.isConnected) return;
             actualizeazaLuna();
             var z = Math.round(_lunaZi);
             if (z !== ultZi) { ultZi = z; vibreaza(z === 0 ? 16 : 6); }
         });
-    };
-    var gata = function() {
-        if (x0 === null) return;
-        x0 = null;
-        // alunecare fină până pe ziua cea mai apropiată
-        var tinta = Math.round(_lunaZi), de = _lunaZi, t0 = performance.now();
-        banda.style.transition = 'none';
-        (function pas(t) {
-            var k = Math.min(1, (t - t0) / 320);
-            var e = 1 - Math.pow(1 - k, 3);              // frânare lină
-            _lunaZi = de + (tinta - de) * e;
-            actualizeazaLuna();
-            if (k < 1) requestAnimationFrame(pas);
-        })(t0);
-    };
-
-    rg.addEventListener('touchstart', function(e) { e.stopPropagation(); start(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchmove',  function(e) { e.stopPropagation(); mut(e.touches[0].clientX); }, { passive: true });
-    rg.addEventListener('touchend',   function(e) { e.stopPropagation(); gata(); }, { passive: true });
-    rg.addEventListener('pointerdown', function(e) { if (e.pointerType === 'mouse') { start(e.clientX); rg.setPointerCapture(e.pointerId); } });
-    rg.addEventListener('pointermove', function(e) { if (e.pointerType === 'mouse') mut(e.clientX); });
-    rg.addEventListener('pointerup',   function(e) { if (e.pointerType === 'mouse') gata(); });
-
-    // clic pe o zi: alunecă până acolo, nu sare
-    Array.prototype.forEach.call(rg.querySelectorAll('.lr-et'), function(el) {
-        el.addEventListener('click', function() {
-            var tinta = +el.getAttribute('data-zi'), de = _lunaZi, t0 = performance.now();
-            (function pas(t) {
-                var k = Math.min(1, (t - t0) / 420);
-                var e = 1 - Math.pow(1 - k, 3);
-                _lunaZi = de + (tinta - de) * e;
-                actualizeazaLuna();
-                if (k < 1) requestAnimationFrame(pas);
-            })(t0);
+    });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function(nume) {
+        rg.addEventListener(nume, function(e) {
+            if (e.pointerId !== pointer) return;
+            e.stopPropagation(); pointer = null;
+            aseaza(Math.round(_lunaZi), 220);
         });
+    });
+    rg.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (tras) { tras = false; return; }
+        // Pointer capture can retarget the click to the ruler itself.
+        var et = document.elementFromPoint(e.clientX, e.clientY);
+        et = et && et.closest('.lr-et');
+        if (et && rg.contains(et)) aseaza(+et.getAttribute('data-zi'), 280);
     });
 }
 
@@ -8429,6 +8500,9 @@ function ora_curenta_index() {
 var _tRandare = null, _ultimaRandare = 0;
 function mobRandare() {
     var acum = Date.now();
+    if (performance.now() < _mobilScrollPana || document.querySelector('#mbLuna :active')) {
+        clearTimeout(_tRandare); _tRandare = setTimeout(mobRandare, 180); return;
+    }
     if (acum - _ultimaRandare < 900) {
         clearTimeout(_tRandare);
         _tRandare = setTimeout(mobRandare, 900 - (acum - _ultimaRandare));
@@ -8575,6 +8649,7 @@ function mobHartaRadar(id) {
                             zoom: 6.6, minZoom: 6.6, maxZoom: 6.6, center: [LOC.lat, LOC.lon] });
         fundalGri(m, 0);
         fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
+            if (!el.isConnected || _mobHarti[id] !== m) return;
             var ult = d.radar.past[d.radar.past.length - 1];
             L.tileLayer(d.host + ult.path + '/256/{z}/{x}/{y}/4/1_1.png',
                         { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(m);
@@ -8584,7 +8659,7 @@ function mobHartaRadar(id) {
                   'color:#fff;font-size:11px;font-weight:800;text-align:center;line-height:24px;">' +
                   (MOBD ? Math.round(cv(MOBD.current.temperature_2m)) + '°' : '') + '</div>' }) }).addTo(m);
         _mobHarti[id] = m;
-        setTimeout(function() { m.invalidateSize(); }, 200);
+        setTimeout(function() { if (el.isConnected && _mobHarti[id] === m) m.invalidateSize(); }, 200);
     } catch (e) { console.error('hartă mobilă:', e); }
 }
 
@@ -8772,17 +8847,21 @@ function fundalGri(map, tip) {
         map.createPane('fundalgri');
         map.getPane('fundalgri').style.zIndex = 190;
     }
+    if (!map.attributionControl) L.control.attribution({ prefix: false }).addTo(map);
     if (map._fundal) map.removeLayer(map._fundal);
     if (map._etich) { map.removeLayer(map._etich); map._etich = null; }
     if (tip === 1) {
         map._fundal = L.tileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-            { maxNativeZoom: 9, maxZoom: 9 }).addTo(map);       // satelitul rămâne nefiltrat
-        map._etich = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
-            { maxZoom: 9, opacity: 0.9 }).addTo(map);
+            { maxNativeZoom: 9, maxZoom: 9, attribution: 'Tiles &copy; Esri' }).addTo(map);
+        map._etich = L.tileLayer(
+            'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+            { maxZoom: 9, opacity: 0.9, attribution: 'Labels &copy; Esri' }).addTo(map);
     } else {
-        map._fundal = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            { maxZoom: 9, pane: 'fundalgri' }).addTo(map);
+        map._fundal = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 9, pane: 'fundalgri', updateWhenIdle: true,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+        }).addTo(map);
     }
 }
 
@@ -8919,17 +8998,24 @@ function mobHartaAnm(id) {
                 fillColor: WARN_COLS[a.lv] || '#f5c500', fillOpacity: 0.92 }).addTo(m);
         });
     } catch (e) {}
-    setTimeout(function() { m.invalidateSize(); }, 250);
+    setTimeout(function() { if (el.isConnected && _mobHarti[id] === m) m.invalidateSize(); }, 250);
 }
 
 /* ── derularea: antetul se strânge, bara de sus apare ── */
 (function() {
     var hero = document.getElementById('mbHero'), bara = document.getElementById('mobBara');
     if (!hero) return;
+    var scrollCadru = null, mic = false, vizibil = false;
     window.addEventListener('scroll', function() {
-        var y = window.scrollY || document.documentElement.scrollTop;
-        hero.classList.toggle('mic', y > 60);
-        bara.classList.toggle('vizibil', y > 150);
+        if (!esteMobil()) return;
+        _mobilScrollPana = performance.now() + 160;
+        if (scrollCadru) return;
+        scrollCadru = requestAnimationFrame(function() {
+            scrollCadru = null;
+            var y = window.scrollY;
+            if (mic !== (y > 60)) { mic = y > 60; hero.classList.toggle('mic', mic); }
+            if (vizibil !== (y > 150)) { vizibil = y > 150; bara.classList.toggle('vizibil', vizibil); }
+        });
     }, { passive: true });
 
     var f = document.getElementById('mobFoaie');
@@ -8968,58 +9054,65 @@ function mobHartaAnm(id) {
        Conținutul urmează degetul în timp real. La ridicare, dacă ai tras
        destul, alunecă până afară și intră orașul următor; dacă nu, revine
        la loc. Merge și pe pilula de jos. */
-    var x0 = null, y0 = null, anulat = false, orizontal = null, mutat = 0;
+    var x0 = null, y0 = null, orizontal = null, mutat = 0, slideCadru = null;
+    var slideOpac = 1, inTranzitie = false, poateInapoi = false, poateInainte = false;
     var zoneSlide = [document.getElementById('mobApp'), document.getElementById('mobJos')];
-
+    function reseteazaSlide() {
+        if (slideCadru) cancelAnimationFrame(slideCadru);
+        slideCadru = null; x0 = y0 = null; orizontal = null; mutat = 0;
+    }
     zoneSlide.forEach(function(zona) {
         if (!zona) return;
         zona.addEventListener('touchstart', function(e) {
-            if (e.touches.length !== 1 || oraseSalvate().length < 2 ||
-                e.target.closest('.leaflet-container, .mb-ore, .mb-seg, input, .mr-btn, .ml-rigla')) { anulat = true; return; }
-            anulat = false; orizontal = null; mutat = 0;
+            reseteazaSlide();
+            if (inTranzitie || e.touches.length !== 1 ||
+                e.target.closest('.leaflet-container, .mb-ore, .mb-avchips, .mb-seg, input, button, .mr-btn, .mb-luna')) return;
+            var orase = oraseSalvate();
+            if (orase.length < 2) return;
+            var i = orase.findIndex(function(oras) { return acelasiOras(oras, LOC); });
+            if (i < 0) i = 0;
+            poateInapoi = i > 0; poateInainte = i < orase.length - 1;
             x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
-            mobMuta(0, undefined, false);
         }, { passive: true });
-
         zona.addEventListener('touchmove', function(e) {
-            if (anulat || x0 === null) return;
-            if (e.touches.length > 1) { anulat = true; mobMuta(0, undefined, true); return; }
+            if (x0 === null) return;
+            if (e.touches.length !== 1) { reseteazaSlide(); mobMuta(0, undefined, true); return; }
             var dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
-            // hotărâm o singură dată dacă gestul e orizontal sau vertical
             if (orizontal === null) {
                 if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
                 orizontal = Math.abs(dx) > Math.abs(dy) * 1.3;
-                if (!orizontal) { anulat = true; return; }
+                if (!orizontal) { reseteazaSlide(); return; }
             }
-            // La capătul listei ecranul stă complet pe loc — nici măcar
-            // nu se clatină. Pe primul oraș nu se glisează spre dreapta,
-            // pe ultimul nu se glisează spre stânga.
-            var dir = dx < 0 ? 1 : -1;
-            if (!poateTreceLa(dir)) { mobMuta(0, 1, false); return; }
-            mutat = dx * 0.85;
-            var opac = Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9));
-            mobMuta(mutat, opac, false);
+            var permis = dx < 0 ? poateInainte : poateInapoi;
+            mutat = permis ? dx * 0.85 : 0;
+            slideOpac = permis ? Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9)) : 1;
+            if (!slideCadru) slideCadru = requestAnimationFrame(function() {
+                slideCadru = null; mobMuta(mutat, slideOpac, false);
+            });
         }, { passive: true });
-
         zona.addEventListener('touchend', function(e) {
-            if (anulat || x0 === null) { x0 = null; mobMuta(0, undefined, true); return; }
+            if (x0 === null) return;
             var dx = e.changedTouches[0].clientX - x0;
-            x0 = null;
-            var L2 = window.innerWidth;
-            var dirF = dx < 0 ? 1 : -1;
-            if ((Math.abs(dx) >= L2 * 0.22 || Math.abs(dx) >= 90) && poateTreceLa(dirF)) {
-                var dir = dirF;
-                vibreaza(14);
-                // iese complet, apoi intră orașul nou din partea opusă
-                mobMuta(-dir * L2 * 0.55, 0, true);
+            var permis = orizontal === true && (dx < 0 ? poateInainte : poateInapoi);
+            reseteazaSlide();
+            var latime = window.innerWidth;
+            if (permis && (Math.abs(dx) >= latime * 0.22 || Math.abs(dx) >= 90)) {
+                var dir = dx < 0 ? 1 : -1;
+                inTranzitie = true; vibreaza(14);
+                mobMuta(-dir * latime * 0.55, 0, true);
                 setTimeout(function() {
                     treciLaOras(dir);
-                    mobMuta(dir * L2 * 0.35, 0, false);
+                    mobMuta(dir * latime * 0.35, 0, false);
                     requestAnimationFrame(function() { mobMuta(0, 1, true); });
+                    setTimeout(function() { inTranzitie = false; }, 350);
                 }, 190);
             } else {
-                mobMuta(0, 1, true);                 // n-ai tras destul → revine
+                mobMuta(0, 1, true);
             }
+        }, { passive: true });
+        zona.addEventListener('touchcancel', function() {
+            if (x0 === null) return;
+            reseteazaSlide(); mobMuta(0, undefined, true);
         }, { passive: true });
     });
 
@@ -9064,11 +9157,12 @@ function mobHartaAnm(id) {
         _elApasat = el;
         vibreaza(6);
     }
-    function terminaApasarea() {
+    function terminaApasarea(faraAnimatie) {
         if (!_elApasat) return;
         var el = _elApasat;
         _elApasat = null;
         el.classList.remove('presat');
+        if (faraAnimatie === true) { el.classList.remove('revine'); return; }
         // revenirea nu e o simplă întoarcere: trece puțin peste dimensiunea
         // normală și se așază, ca un corp moale care își recapătă forma
         el.classList.remove('revine');
@@ -9091,7 +9185,7 @@ function mobHartaAnm(id) {
         if (e.clientX < r.left - 18 || e.clientX > r.right + 18 ||
             e.clientY < r.top - 18 || e.clientY > r.bottom + 18) terminaApasarea();
     }, { passive: true });
-    document.addEventListener('scroll', terminaApasarea, { passive: true, capture: true });
+    document.addEventListener('scroll', function() { terminaApasarea(true); }, { passive: true, capture: true });
     var bL = document.getElementById('mjLista');
     if (bL) bL.addEventListener('click', function() { try { document.getElementById('settingsBtn').click(); } catch (e) {} });
 })();

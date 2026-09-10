@@ -335,8 +335,13 @@ def push_key():
 @app.route('/api/push/subscribe', methods=['POST'])
 def push_subscribe():
     sub = request.get_json(silent=True) or {}
+    if not isinstance(sub, dict):
+        return jsonify({'error': 'abonament invalid'}), 400
     endpoint = sub.get('endpoint')
-    if not endpoint:
+    if (not isinstance(sub, dict) or not isinstance(endpoint, str)
+            or not endpoint.startswith('https://')
+            or not isinstance(sub.get('keys'), dict)
+            or not sub['keys'].get('p256dh') or not sub['keys'].get('auth')):
         return jsonify({'error': 'abonament invalid'}), 400
     inreg = {
         'endpoint': endpoint,
@@ -353,7 +358,9 @@ def push_subscribe():
     for camp in ('nume', 'tara', 'judet', 'limba', 'unitate', 'fus'):
         if sub.get(camp):
             inreg[camp] = str(sub[camp])[:60]
-    _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', inreg)
+    saved = _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', inreg)
+    if not isinstance(saved, dict) or saved.get('endpoint') != endpoint:
+        return jsonify({'error': 'abonamentul nu a putut fi salvat'}), 503
     return jsonify({'ok': True})
 
 
