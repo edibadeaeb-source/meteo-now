@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.10.2">
+    <meta name="application-version" content="2026.09.10.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -7280,6 +7280,9 @@ input, textarea, select, [contenteditable="true"] {
 }
 #mrLegenda .l-et { display: flex; flex-direction: column; justify-content: space-between;
                    font-size: 0.8rem; color: rgba(255,255,255,0.78); line-height: 1.55; }
+#mrLegenda .l-sursa { margin-top: 9px; font-size: 0.58rem; color: rgba(255,255,255,0.52); }
+.mb-sursa-harta { padding-top: 5px; text-align: center; font-size: 0.58rem;
+                  color: rgba(255,255,255,0.48); }
 /* bula cu temperatura ta */
 .mr-bula {
     background: rgba(88, 86, 132, 0.86);
@@ -7375,6 +7378,7 @@ input, textarea, select, [contenteditable="true"] {
                 <span id="mrL4">Slabe</span>
             </div>
         </div>
+        <div class="l-sursa">© OpenStreetMap · RainViewer</div>
     </div>
 </div>
 
@@ -7942,7 +7946,8 @@ function mobCardRadar() {
     return '<div class="mb-card apasabil" data-foaie="radar">' +
         '<div class="mb-cap"><span class="mbc-ico">☂</span><span>' + T('precipitatii') + '</span>' +
         '<span class="mbc-dr">›</span></div>' +
-        '<div class="mb-harta" id="mbRadar"></div></div>';
+        '<div class="mb-harta" id="mbRadar"></div>' +
+        '<div class="mb-sursa-harta">© OpenStreetMap · RainViewer</div></div>';
 }
 
 /* ══ CÂT DE NEOBIȘNUITĂ E ZIUA — compact ══ */
@@ -8672,6 +8677,26 @@ function mobCandVizibil(id, fn, margine) {
     _mobObservatori.push(obs);
 }
 
+function mobDetaseazaHarti() {
+    var pastrate = {};
+    ['mbRadar', 'mbHartaAnmJos'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && _mobHarti[id]) {
+            pastrate[id] = el;
+            el.remove();
+        }
+    });
+    return pastrate;
+}
+
+function mobReataseazaHarti(pastrate) {
+    Object.keys(pastrate).forEach(function(id) {
+        var locNou = document.getElementById(id);
+        var vechi = pastrate[id];
+        if (locNou && vechi) locNou.replaceWith(vechi);
+    });
+}
+
 function mobRandare() {
     var acum = Date.now();
     if (performance.now() < _mobilScrollPana || document.querySelector('#mbLuna :active')) {
@@ -8688,13 +8713,10 @@ function mobRandare() {
 function mobRandareAcum() {
     if (!esteMobil() || !MOBD) return;
     mobOpresteObservatori();
-    // Hărțile vechi trebuie distruse înainte să rescriem pagina, altfel
-    // Leaflet rămâne agățat de containere care nu mai există și harta
-    // păstrează orașul și zoom-ul anterioare.
-    for (var k in _mobHarti) {
-        try { if (_mobHarti[k] && _mobHarti[k].remove) _mobHarti[k].remove(); } catch (e) {}
-    }
-    _mobHarti = {};
+    // Păstrăm containerele Leaflet în viață cât timp refacem restul
+    // cardurilor. Dalele și straturile deja descărcate nu se mai pierd
+    // când utilizatorul schimbă orașul.
+    var hartiPastrate = mobDetaseazaHarti();
     mobCer();
     mobAntet();
     var h = '';
@@ -8711,6 +8733,8 @@ function mobRandareAcum() {
     h += '<div style="text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.5);padding:8px 24px 0;line-height:1.5;">' +
          T('surseMob') + '</div>';
     document.getElementById('mbContinut').innerHTML = h;
+    mobReataseazaHarti(hartiPastrate);
+    mobActualizeazaHartiLocatie();
     mobLeaga();
 }
 
@@ -8766,7 +8790,8 @@ function mobCardHartaANM() {
             '<span><i style="background:#e5484d"></i>' + T('codRosu') + '</span>' +
         '</div>' +
         '<div class="mb-avlista">' + lista + '</div>' +
-        '<div class="mb-nota">' + T('hartaAnmNota') + '</div></div>';
+        '<div class="mb-nota">' + T('hartaAnmNota') + '</div>' +
+        '<div class="mb-sursa-harta">© OpenStreetMap · ANM</div></div>';
 }
 
 function mobLeaga() {
@@ -8800,17 +8825,17 @@ function mobLeaga() {
                 Array.prototype.forEach.call(ch.querySelectorAll('.mb-avchip'), function(x) {
                     x.classList.toggle('activ', x === b);
                 });
-                try { if (_mobHarti['mbHartaAnmJos']) { _mobHarti['mbHartaAnmJos'].remove(); delete _mobHarti['mbHartaAnmJos']; } } catch (e) {}
-                mobHartaAnm('mbHartaAnmJos');
+                mobActualizeazaAnmStraturi('mbHartaAnmJos');
                 try { deseneazaZoneAvert(); } catch (e) {}     // ținem harta de desktop sincronizată
             });
         });
     }
-    // Scheletul și valorile Lunii sunt ieftine; WebGL și hărțile pornesc
-    // numai când cardul lor se apropie de ecran.
+    // Hărțile sunt pregătite la intrarea în aplicație, după primul cadru
+    // liber, apoi sunt păstrate între orașe. Three.js rămâne la vedere,
+    // fiind mult mai greu decât cele două hărți 2D.
     try { deseneazaLuna(true); } catch (e) { console.error('luna:', e); }
-    mobCandVizibil('mbRadar', function() { mobHartaRadar('mbRadar'); });
-    mobCandVizibil('mbHartaAnmJos', function() { mobHartaAnm('mbHartaAnmJos'); });
+    mobilCandLinistit(function() { mobHartaRadar('mbRadar'); }, 80);
+    mobilCandLinistit(function() { mobHartaAnm('mbHartaAnmJos'); }, 260);
     mobCandVizibil('ml3D', function() {
         incarcaThree(function() {
             try { L3.gata = false; deseneazaLuna(false); } catch (e) { console.error('luna:', e); }
@@ -8819,6 +8844,41 @@ function mobLeaga() {
 }
 
 /* ── hărțile din interfața mobilă ── */
+function mobIconLocRadar() {
+    return L.divIcon({ className: '', iconSize: [40, 26], iconAnchor: [20, 13],
+        html: '<div style="background:rgba(20,28,56,0.9);border:1px solid rgba(255,255,255,0.4);border-radius:13px;' +
+              'color:#fff;font-size:11px;font-weight:800;text-align:center;line-height:24px;">' +
+              (MOBD ? Math.round(cv(MOBD.current.temperature_2m)) + '°' : '') + '</div>' });
+}
+
+function mobActualizeazaRadarStrat(m, el) {
+    if (!m || (m._radarLa && Date.now() - m._radarLa < 10 * 60 * 1000)) return;
+    m._radarLa = Date.now();
+    fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
+        if (!el.isConnected || _mobHarti[el.id] !== m) return;
+        var ult = d.radar.past[d.radar.past.length - 1];
+        var nou = L.tileLayer(d.host + ult.path + '/256/{z}/{x}/{y}/4/1_1.png',
+                    { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(m);
+        if (m._radarStrat) m.removeLayer(m._radarStrat);
+        m._radarStrat = nou;
+    }).catch(function() { m._radarLa = 0; });
+}
+
+function mobActualizeazaHartiLocatie() {
+    var m = _mobHarti.mbRadar;
+    var el = document.getElementById('mbRadar');
+    if (m && el) {
+        m.setView([LOC.lat, LOC.lon], 6.6, { animate: false });
+        if (m._locMarker) {
+            m._locMarker.setLatLng([LOC.lat, LOC.lon]);
+            m._locMarker.setIcon(mobIconLocRadar());
+        }
+        mobActualizeazaRadarStrat(m, el);
+        setTimeout(function() { if (el.isConnected) m.invalidateSize({ animate: false }); }, 0);
+    }
+    mobActualizeazaAnmStraturi('mbHartaAnmJos');
+}
+
 function mobHartaRadar(id) {
     var el = document.getElementById(id);
     if (!el || _mobHarti[id]) return;
@@ -8828,18 +8888,10 @@ function mobHartaRadar(id) {
                             scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false,
                             boxZoom: false, keyboard: false, zoomSnap: 0,
                             zoom: 6.6, minZoom: 6.6, maxZoom: 6.6, center: [LOC.lat, LOC.lon] });
-        fundalGri(m, 0);
-        fetch('https://api.rainviewer.com/public/weather-maps.json').then(function(r) { return r.json(); }).then(function(d) {
-            if (!el.isConnected || _mobHarti[id] !== m) return;
-            var ult = d.radar.past[d.radar.past.length - 1];
-            L.tileLayer(d.host + ult.path + '/256/{z}/{x}/{y}/4/1_1.png',
-                        { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(m);
-        }).catch(function() {});
-        L.marker([LOC.lat, LOC.lon], { icon: L.divIcon({ className: '', iconSize: [40, 26], iconAnchor: [20, 13],
-            html: '<div style="background:rgba(20,28,56,0.9);border:1px solid rgba(255,255,255,0.4);border-radius:13px;' +
-                  'color:#fff;font-size:11px;font-weight:800;text-align:center;line-height:24px;">' +
-                  (MOBD ? Math.round(cv(MOBD.current.temperature_2m)) + '°' : '') + '</div>' }) }).addTo(m);
+        fundalGri(m, 0, true);
+        m._locMarker = L.marker([LOC.lat, LOC.lon], { icon: mobIconLocRadar() }).addTo(m);
         _mobHarti[id] = m;
+        mobActualizeazaRadarStrat(m, el);
         setTimeout(function() { if (el.isConnected && _mobHarti[id] === m) m.invalidateSize(); }, 200);
     } catch (e) { console.error('hartă mobilă:', e); }
 }
@@ -9016,6 +9068,7 @@ function mobInchideFoaie() {
    temperatura și pastile mici pentru orașele din jur.
    ══════════════════════════════════════════════════════════════ */
 var _mrHarta = null, _mrStratRadar = null, _mrTipFundal = 0, _mrScroll = 0;
+var _mrRadarLa = 0, _mrMarcajeLayer = null, _mrMarcajeGeneratie = 0;
 
 /* Zoomul e FIX, ca pe iPhone: nu se mărește și nu se micșorează.
    9 e limita până la care RainViewer mai are dale; peste ea apărea
@@ -9023,14 +9076,16 @@ var _mrHarta = null, _mrStratRadar = null, _mrTipFundal = 0, _mrScroll = 0;
 var MR_ZOOM = 8;
 
 /* Fundal gri, într-un panou separat, ca filtrul să nu atingă radarul. */
-function fundalGri(map, tip) {
+function fundalGri(map, tip, faraAtribuire) {
+    if (map._fundal && map._fundalTip === tip) return;
     if (!map.getPane('fundalgri')) {
         map.createPane('fundalgri');
         map.getPane('fundalgri').style.zIndex = 190;
     }
-    if (!map.attributionControl) L.control.attribution({ prefix: false }).addTo(map);
+    if (!faraAtribuire && !map.attributionControl) L.control.attribution({ prefix: false }).addTo(map);
     if (map._fundal) map.removeLayer(map._fundal);
     if (map._etich) { map.removeLayer(map._etich); map._etich = null; }
+    map._fundalTip = tip;
     if (tip === 1) {
         map._fundal = L.tileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -9060,7 +9115,16 @@ function deschideRadarPlin() {
     blocheazaFundal();
 
     box.classList.add('deschis');
-    if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
+    if (_mrHarta) {
+        _mrHarta.setView([LOC.lat, LOC.lon], MR_ZOOM, { animate: false });
+        fundalGri(_mrHarta, _mrTipFundal, true);
+        mrRadar();
+        mrMarcaje();
+        requestAnimationFrame(function() {
+            if (_mrHarta) _mrHarta.invalidateSize({ animate: false });
+        });
+        return;
+    }
 
     requestAnimationFrame(function() {
         requestAnimationFrame(function() {
@@ -9071,7 +9135,7 @@ function deschideRadarPlin() {
                 touchZoom: false, boxZoom: false, keyboard: false,
                 center: [LOC.lat, LOC.lon]
             });
-            fundalGri(_mrHarta, _mrTipFundal);
+            fundalGri(_mrHarta, _mrTipFundal, true);
             mrRadar();
             mrMarcaje();
             // câteva remăsurări, ca să prindem și momentul în care bara de
@@ -9084,23 +9148,29 @@ function deschideRadarPlin() {
 }
 function inchideRadarPlin() {
     document.getElementById('mobRadarPlin').classList.remove('deschis');
-    if (_mrHarta) { _mrHarta.remove(); _mrHarta = null; }
     deblocheazaFundal();
 }
 function mrRadar() {
+    if (_mrStratRadar && Date.now() - _mrRadarLa < 10 * 60 * 1000) return;
+    _mrRadarLa = Date.now();
     fetch('https://api.rainviewer.com/public/weather-maps.json')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var u = d.radar.past[d.radar.past.length - 1];
             if (!_mrHarta) return;
             // schema 4 („Universal Blue") seamănă cel mai bine cu cea de pe iPhone
-            _mrStratRadar = L.tileLayer(d.host + u.path + '/512/{z}/{x}/{y}/4/1_1.png',
+            var nou = L.tileLayer(d.host + u.path + '/512/{z}/{x}/{y}/4/1_1.png',
                 { opacity: 0.85, maxNativeZoom: 9, maxZoom: 9, tileSize: 512, zoomOffset: -1 }).addTo(_mrHarta);
-        }).catch(function() {});
+            if (_mrStratRadar) _mrHarta.removeLayer(_mrStratRadar);
+            _mrStratRadar = nou;
+        }).catch(function() { _mrRadarLa = 0; });
 }
-function mrFundal(tip) { if (_mrHarta) fundalGri(_mrHarta, tip); }
+function mrFundal(tip) { if (_mrHarta) fundalGri(_mrHarta, tip, true); }
 function mrMarcaje() {
     if (!_mrHarta || !MOBD) return;
+    var generatie = ++_mrMarcajeGeneratie;
+    if (!_mrMarcajeLayer) _mrMarcajeLayer = L.layerGroup().addTo(_mrHarta);
+    else _mrMarcajeLayer.clearLayers();
     var t = Math.round(cv(MOBD.current.temperature_2m));
     // bula ta, cu temperatura și pictograma vremii
     L.marker([LOC.lat, LOC.lon], { interactive: false, icon: L.divIcon({
@@ -9109,7 +9179,7 @@ function mrMarcaje() {
               '<div class="mr-bula mare">' + t + '°<span class="b-ic">' + wmoIcon(MOBD.current.weather_code) + '</span></div>' +
               '<div class="mr-punct" style="margin-top:5px;"></div>' +
               '<div class="mr-et">' + T('locatiaTa') + '</div></div>'
-    }) }).addTo(_mrHarta);
+    }) }).addTo(_mrMarcajeLayer);
 
     // câteva orașe din jur, ca pe hartă la ei
     var pas = 1.6, cosLat = Math.max(0.3, Math.cos(LOC.lat * Math.PI / 180));
@@ -9122,6 +9192,7 @@ function mrMarcaje() {
     fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&current=temperature_2m')
         .then(function(r) { return r.json(); })
         .then(function(d) {
+            if (generatie !== _mrMarcajeGeneratie) return;
             var v = Array.isArray(d) ? d : [d];
             v.forEach(function(x, i) {
                 if (!_mrHarta || !x.current) return;
@@ -9130,6 +9201,7 @@ function mrMarcaje() {
                       '&longitude=' + p[1] + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
                     .then(function(r) { return r.json(); })
                     .then(function(g) {
+                        if (generatie !== _mrMarcajeGeneratie) return;
                         var nume = g.city || g.locality || g.principalSubdivision || '';
                         if (!nume || !_mrHarta) return;
                         L.marker(p, { interactive: false, icon: L.divIcon({
@@ -9137,11 +9209,32 @@ function mrMarcaje() {
                             html: '<div style="display:flex;flex-direction:column;align-items:center;width:68px;">' +
                                   '<div class="mr-bula mica">' + Math.round(cv(x.current.temperature_2m)) + '°</div>' +
                                   '<div class="mr-et">' + nume + '</div></div>'
-                        }) }).addTo(_mrHarta);
+                        }) }).addTo(_mrMarcajeLayer);
                     }).catch(function() {});
             });
         }).catch(function() {});
 }
+function mobActualizeazaAnmStraturi(id) {
+    var m = _mobHarti[id];
+    if (!m) return;
+    if (!m._anmArii) m._anmArii = L.layerGroup().addTo(m);
+    else m._anmArii.clearLayers();
+    try {
+        var alese = (_avSel >= 0 && (window._anmWarns || [])[_avSel])
+                    ? [window._anmWarns[_avSel]] : (window._anmWarns || []);
+        ariiDeDesenat(alese).forEach(function(a) {
+            var inele = parseWkt(a.gis).filter(function(r) { return r.length >= 3; });
+            (a.gauri || []).forEach(function(g) {
+                parseWkt(g).forEach(function(r) { if (r.length >= 3) inele.push(r); });
+            });
+            if (inele.length) L.polygon(inele, {
+                color: '#fff', weight: 0.7, fillRule: 'evenodd',
+                fillColor: WARN_COLS[a.lv] || '#f5c500', fillOpacity: 0.92
+            }).addTo(m._anmArii);
+        });
+    } catch (e) {}
+}
+
 function mobHartaAnm(id) {
     var el = document.getElementById(id);
     if (!el || _mobHarti[id]) return;
@@ -9152,7 +9245,7 @@ function mobHartaAnm(id) {
     }
     var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });
     _mobHarti[id] = m;
-    fundalGri(m, 0);
+    fundalGri(m, 0, true);
     // verde deschis pentru județele fără avertizare, ca pe harta ANM
     var strat = L.geoJSON(_judeteGeo, { style: function() {
         return { color: 'rgba(255,255,255,0.55)', weight: 0.8, fillColor: '#b7dd8e', fillOpacity: 0.78 };
@@ -9169,16 +9262,7 @@ function mobHartaAnm(id) {
                 className: 'jud-eticheta', html: cod, iconSize: [26, 12], iconAnchor: [13, 6] }) }).addTo(m);
         });
     } catch (e) {}
-    try {
-        var alese = (_avSel >= 0 && (window._anmWarns || [])[_avSel])
-                    ? [window._anmWarns[_avSel]] : (window._anmWarns || []);
-        ariiDeDesenat(alese).forEach(function(a) {
-            var inele = parseWkt(a.gis).filter(function(r) { return r.length >= 3; });
-            (a.gauri || []).forEach(function(g) { parseWkt(g).forEach(function(r) { if (r.length >= 3) inele.push(r); }); });
-            if (inele.length) L.polygon(inele, { color: '#fff', weight: 0.7, fillRule: 'evenodd',
-                fillColor: WARN_COLS[a.lv] || '#f5c500', fillOpacity: 0.92 }).addTo(m);
-        });
-    } catch (e) {}
+    mobActualizeazaAnmStraturi(id);
     setTimeout(function() { if (el.isConnected && _mobHarti[id] === m) m.invalidateSize(); }, 250);
 }
 
