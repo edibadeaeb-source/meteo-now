@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.11.3">
+    <meta name="application-version" content="2026.09.11.4">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -9258,15 +9258,20 @@ function mobRefaceHartiDupaRadar() {
                 var el = document.getElementById(id), m = _mobHarti[id];
                 if (!el || !el.isConnected || !m) return;
                 try {
-                    el.classList.add('harta-revine');
                     m.invalidateSize({ animate: false, pan: false });
-                    m.eachLayer(function(strat) {
-                        if (strat && typeof strat.redraw === 'function') strat.redraw();
-                    });
+                    // Radarul mic isi pastreaza exact dalele deja incarcate.
+                    // redraw() le-ar elimina si ar lasa fundalul gri pana la
+                    // terminarea unor cereri noi pe reteaua telefonului.
+                    if (id === 'mbHartaAnmJos') {
+                        el.classList.add('harta-revine');
+                        m.eachLayer(function(strat) {
+                            if (strat && typeof strat.redraw === 'function') strat.redraw();
+                        });
+                        requestAnimationFrame(function() {
+                            if (el.isConnected) el.classList.remove('harta-revine');
+                        });
+                    }
                     m._dupaRadarLa = Date.now();
-                    requestAnimationFrame(function() {
-                        if (el.isConnected) el.classList.remove('harta-revine');
-                    });
                 } catch (e) { console.error('revenire harta mobila:', e); }
             });
             mobActualizeazaAnmStraturi('mbHartaAnmJos');
