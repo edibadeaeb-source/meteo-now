@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-tgv-net-v5';
+const CACHE = 'meteo-tgv-net-v6';
 
 self.addEventListener('install', function() {
   self.skipWaiting();

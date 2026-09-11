@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.11.2">
+    <meta name="application-version" content="2026.09.11.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -7053,6 +7053,10 @@ input, textarea, select, [contenteditable="true"] {
 /* ── hărți în cardurile mobile ── */
 .mb-harta { height: 210px; border-radius: 14px; overflow: hidden; margin: 0 -2px; }
 .mb-harta .leaflet-container { background: #55575c; }
+/* Android poate pastra o suprafata Leaflet goala dupa inchiderea hartii
+   pe tot ecranul. Clasa este comutata pentru un cadru ca sa refaca
+   suprafata GPU fara sa reconstruim harta sau sa pierdem dalele din cache. */
+.mb-harta.harta-revine { transform: translateZ(0); }
 
 /* Fundal OSM în tonuri de gri; filtrul nu atinge precipitațiile sau atribuirea. */
 .leaflet-fundalgri-pane { filter: grayscale(1) invert(1) brightness(1.15) contrast(0.6); }
@@ -9235,6 +9239,39 @@ function inchideRadarPlin() {
         _radarFundalBlocat = false;
         deblocheazaFundal();
     }
+    mobRefaceHartiDupaRadar();
+}
+
+/* La iesirea din precipitatii, bara browserului si blocarea scrollului pot
+   schimba viewport-ul in cadre diferite. Leaflet nu primeste intotdeauna
+   acel resize pe Android, iar harta ANM ramane cu suprafata veche/golita.
+   Pastram instantele si datele in memorie, dar le remasuram si redesenam
+   dupa fiecare etapa in care viewport-ul se stabilizeaza. */
+var _mobRevenireRadar = 0;
+function mobRefaceHartiDupaRadar() {
+    var generatie = ++_mobRevenireRadar;
+    [0, 90, 280, 650].forEach(function(ms) {
+        setTimeout(function() {
+            if (generatie !== _mobRevenireRadar ||
+                document.getElementById('mobRadarPlin').classList.contains('deschis')) return;
+            ['mbRadar', 'mbHartaAnmJos'].forEach(function(id) {
+                var el = document.getElementById(id), m = _mobHarti[id];
+                if (!el || !el.isConnected || !m) return;
+                try {
+                    el.classList.add('harta-revine');
+                    m.invalidateSize({ animate: false, pan: false });
+                    m.eachLayer(function(strat) {
+                        if (strat && typeof strat.redraw === 'function') strat.redraw();
+                    });
+                    m._dupaRadarLa = Date.now();
+                    requestAnimationFrame(function() {
+                        if (el.isConnected) el.classList.remove('harta-revine');
+                    });
+                } catch (e) { console.error('revenire harta mobila:', e); }
+            });
+            mobActualizeazaAnmStraturi('mbHartaAnmJos');
+        }, ms);
+    });
 }
 function mrRadar() {
     if (_mrStratRadar && Date.now() - _mrRadarLa < 10 * 60 * 1000) return;
