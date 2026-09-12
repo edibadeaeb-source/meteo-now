@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.12.2">
+    <meta name="application-version" content="2026.09.12.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -5284,7 +5284,11 @@ enableSwipe('#forecast-section', '.fc-pill');
     var startY = 0, pulling = false, ind = document.getElementById('pullRefresh');
     if (!ind) return;
     window.addEventListener('touchstart', function(e) {
-        if (window.scrollY > 4 || e.touches.length !== 1) { pulling = false; return; }
+        var foaieMobila = document.getElementById('mobFoaie');
+        if (window.scrollY > 4 || e.touches.length !== 1 ||
+            (foaieMobila && foaieMobila.classList.contains('deschis'))) {
+            pulling = false; return;
+        }
         if (document.getElementById('settingsSheet').classList.contains('open')) { pulling = false; return; }
         startY = e.touches[0].clientY; pulling = true;
     }, { passive: true });
