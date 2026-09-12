@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.12.1">
+    <meta name="application-version" content="2026.09.12.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -7160,6 +7160,7 @@ input, textarea, select, [contenteditable="true"] {
 #mobFoaie.deschis { display: block; }
 .mf-corp {
     position: absolute; left: 0; right: 0; bottom: 0; max-height: 88vh; overflow-y: auto;
+    overscroll-behavior: contain;
     /* când urcă tastatura, foaia se ridică odată cu ea */
     transition: transform 0.36s cubic-bezier(0.2, 0.9, 0.25, 1), max-height 0.3s ease;
     border-radius: 26px 26px 0 0; padding: 8px 16px calc(26px + env(safe-area-inset-bottom, 0px));
@@ -9515,9 +9516,30 @@ function mobHartaAnm(id) {
             document.getElementById('mobFoaie').style.background = '';
             if (dy > 90) mobInchideFoaie();
         };
-        pr.addEventListener('touchstart', function(e) { start(e.touches[0].clientY); }, { passive: true });
-        pr.addEventListener('touchmove',  function(e) { misca(e.touches[0].clientY); }, { passive: true });
-        pr.addEventListener('touchend',   function(e) { gata(e.changedTouches[0].clientY); }, { passive: true });
+        var opresteGestul = function(e) {
+            e.stopPropagation();
+            if (e.cancelable) e.preventDefault();
+        };
+        var anuleaza = function(e) {
+            opresteGestul(e);
+            y0 = null;
+            corp.classList.remove('trage');
+            corp.style.transform = '';
+            document.getElementById('mobFoaie').style.background = '';
+        };
+        pr.addEventListener('touchstart', function(e) {
+            opresteGestul(e);
+            if (e.touches.length === 1) start(e.touches[0].clientY);
+        }, { passive: false });
+        pr.addEventListener('touchmove', function(e) {
+            opresteGestul(e);
+            if (e.touches.length === 1) misca(e.touches[0].clientY);
+        }, { passive: false });
+        pr.addEventListener('touchend', function(e) {
+            opresteGestul(e);
+            gata(e.changedTouches[0].clientY);
+        }, { passive: false });
+        pr.addEventListener('touchcancel', anuleaza, { passive: false });
         pr.addEventListener('pointerdown', function(e) { if (e.pointerType === 'mouse') start(e.clientY); });
         window.addEventListener('pointermove', function(e) { if (e.pointerType === 'mouse' && y0 !== null) misca(e.clientY); });
         window.addEventListener('pointerup', function(e) { if (e.pointerType === 'mouse' && y0 !== null) gata(e.clientY); });
