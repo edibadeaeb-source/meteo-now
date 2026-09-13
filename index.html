@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.12.3">
+    <meta name="application-version" content="2026.09.13.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1117,6 +1117,14 @@
         .switch input:checked + span { background: var(--navy); }
         .switch input:checked + span::before { transform: translateX(20px); }
         .set-note { font-size: 0.72rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+        #pushNote.push-asking {
+            padding: 11px 12px;
+            border: 1px solid rgba(65, 147, 255, 0.32);
+            border-radius: 13px;
+            background: rgba(65, 147, 255, 0.10);
+            color: var(--text) !important;
+            font-size: 0.76rem;
+        }
 
         /* trage pentru reîmprospătare */
         #pullRefresh {
@@ -3032,7 +3040,12 @@ document.getElementById('resetCalibBtn').addEventListener('click', function() {
     addAlert('🔧 Comanda de recalibrare IAQ trimisa la ESP32. Astept executia...');
 });
 document.getElementById('clearLocalBtn').addEventListener('click', function() { espHistory = []; localStorage.removeItem('espHistory'); updateCharts(); addAlert('🗑️ Istoric local șters.'); });
-document.getElementById('requestNotifBtn').addEventListener('click', function() { Notification.requestPermission(); });
+document.getElementById('requestNotifBtn').addEventListener('click', function() {
+    pushSubscribe().catch(function(e) {
+        pushNote((LANG === 'en' ? 'Could not enable notifications: ' : 'Nu s-au putut activa notificările: ') +
+                 String(e && e.message || e), 'var(--red)');
+    });
+});
 document.getElementById('geolocateBtn').addEventListener('click', geolocateEsp);
 document.getElementById('loadHistoryBtn').addEventListener('click', function() {
     var v = document.getElementById('intervalSelect').value;
@@ -5330,26 +5343,36 @@ function b64ToUint8(base64) {
     for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
     return arr;
 }
-function pushNote(text, color) {
+function pushNote(text, color, stare) {
     var el = document.getElementById('pushNote');
-    if (el) { el.textContent = text || ''; el.style.color = color || 'var(--muted)'; }
+    if (el) {
+        el.textContent = text || '';
+        el.style.color = color || 'var(--muted)';
+        el.classList.toggle('push-asking', stare === 'asking');
+    }
 }
 function pushSupported() {
     return ('serviceWorker' in navigator) && ('PushManager' in window) &&
            location.protocol.indexOf('http') === 0;
 }
 async function pushSubscribe() {
-    var perm = await Notification.requestPermission();
-    if (perm !== 'granted') {
-        pushNote('Notificările au fost blocate. Le poți reactiva din setările telefonului.', 'var(--red)');
-        return false;
-    }
     var reg = await navigator.serviceWorker.ready;
     var r = await fetch('api/push/key');
     if (!r.ok) { pushNote('Serverul nu are notificările configurate.', 'var(--red)'); return false; }
     var key = (await r.json()).publicKey;
     var sub = await reg.pushManager.getSubscription();
-    if (!sub) sub = await creeazaAbonamentPush(reg, key);
+    if (!sub) {
+        pushNote(LANG === 'en'
+            ? '🔔 METEO NOW for ' + (LOC.nume || 'your location') + ': morning and evening summaries, plus important weather alerts. Confirm once in the Android window.'
+            : '🔔 METEO NOW pentru ' + (LOC.nume || 'locația ta') + ': rezumat dimineața și seara, plus alerte meteo importante. Confirmă o singură dată în fereastra Android.', '', 'asking');
+        sub = await creeazaAbonamentPush(reg, key);
+    }
+    if (Notification.permission !== 'granted') {
+        pushNote(LANG === 'en'
+            ? 'Notifications were blocked. You can enable them from your phone settings.'
+            : 'Notificările au fost blocate. Le poți reactiva din setările telefonului.', 'var(--red)');
+        return false;
+    }
     await trimiteAbonament(sub);
     pushNote(LANG === 'en'
         ? '✅ On. Daily brief plus alerts for ' + (LOC.nume || 'your location') + '.'
@@ -5357,31 +5380,27 @@ async function pushSubscribe() {
     return true;
 }
 
-/* Unele versiuni Chromium/Android confirmă permisiunea înainte ca serviciul
-   Google Push să întoarcă abonamentul. Reîncercăm scurt și întrebăm din nou
-   PushManager după fiecare tentativă, în loc să raportăm imediat o eroare. */
+/* O singură chemare subscribe() poate afișa dialogul Android. După ea doar
+   verificăm dacă abonamentul a apărut; nu mai chemăm subscribe() din nou și
+   eliminăm astfel posibilitatea unui al doilea dialog de permisiune. */
 async function creeazaAbonamentPush(reg, key) {
     var optiuni = { userVisibleOnly: true, applicationServerKey: b64ToUint8(key) };
-    var ultimaEroare = null;
-    for (var incercare = 0; incercare < 3; incercare++) {
-        try {
-            var sub = await reg.pushManager.subscribe(optiuni);
-            if (sub) return sub;
-        } catch (e) {
-            ultimaEroare = e;
-            try {
-                var existent = await reg.pushManager.getSubscription();
-                if (existent) return existent;
-            } catch (ignorat) {}
-            if (/denied|permission|NotAllowedError/i.test(String(e && (e.name + ' ' + e.message)))) throw e;
-        }
-        await new Promise(function(resolve) { setTimeout(resolve, 350 + incercare * 450); });
+    var primaEroare = null;
+    try {
+        var sub = await reg.pushManager.subscribe(optiuni);
+        if (sub) return sub;
+    } catch (e) {
+        primaEroare = e;
+        if (/denied|permission|NotAllowedError/i.test(String(e && (e.name + ' ' + e.message)))) throw e;
+    }
+    for (var incercare = 0; incercare < 4; incercare++) {
+        await new Promise(function(resolve) { setTimeout(resolve, 400 + incercare * 350); });
         try {
             var aparut = await reg.pushManager.getSubscription();
             if (aparut) return aparut;
-        } catch (ignorat2) {}
+        } catch (ignorat) {}
     }
-    if (ultimaEroare) throw ultimaEroare;
+    if (primaEroare) throw primaEroare;
     throw new Error(LANG === 'en'
         ? 'Android push did not respond. Check that Google Play services are enabled, then try again.'
         : 'Serviciul push Android nu a răspuns. Verifică să fie active Serviciile Google Play, apoi încearcă din nou.');
@@ -6269,6 +6288,16 @@ function ccScrieCache(fel, date) {
     try { localStorage.setItem(ccCheie(fel), JSON.stringify({ t: Date.now(), d: date })); }
     catch (e) {}   // memorie plină sau mod privat — mergem mai departe fără cache
 }
+function ccFetchJSON(url, limitaMs) {
+    var controler = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = controler ? setTimeout(function() { controler.abort(); }, limitaMs || 45000) : null;
+    return fetch(url, controler ? { signal: controler.signal } : {}).then(function(r) {
+        if (!r.ok) throw new Error('arhiva: ' + r.status);
+        return r.json();
+    }).finally(function() {
+        if (timer) clearTimeout(timer);
+    });
+}
 
 function analizeazaZiua() {
     var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
@@ -6311,8 +6340,7 @@ function analizeazaZiua() {
     if (ist) {
         cereIstoric = Promise.resolve(null);
     } else if (prinServer) {
-        cereIstoric = fetch('api/clima?lat=' + LOC.lat.toFixed(4) + '&lon=' + LOC.lon.toFixed(4))
-            .then(function(r) { if (!r.ok) throw new Error('arhiva: ' + r.status); return r.json(); })
+        cereIstoric = ccFetchJSON('api/clima?lat=' + LOC.lat.toFixed(4) + '&lon=' + LOC.lon.toFixed(4), 45000)
             .then(function(j) { return { _valori: j.valori }; });
     } else {
         cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + LOC.lat + '&longitude=' + LOC.lon +

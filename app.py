@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from flask import send_file
 import tempfile, zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 CORS(app)
@@ -537,6 +538,44 @@ def _push_check_intern():
 # ═══════════════════════════════════════════════════════════════
 _CLIMA_DIR = os.path.join(BASE_DIR, 'cache_clima')
 _CLIMA_ZILE_VALABIL = 200
+_CLIMA_LOCKS = {}
+_CLIMA_LOCKS_GUARD = threading.Lock()
+
+
+def _clima_raspuns(date):
+    """Permite telefonului să refolosească rezultatul zilei fără alt apel."""
+    raspuns = jsonify(date)
+    raspuns.headers['Cache-Control'] = 'public, max-age=86400, stale-while-revalidate=604800'
+    return raspuns
+
+
+def _clima_zi_din_an(lat, lon, an, mmdd):
+    """Descarcă strict ziua necesară dintr-un an, nu întregul an."""
+    data = f'{an}-{mmdd}'
+    try:
+        datetime.strptime(data, '%Y-%m-%d')
+    except ValueError:
+        return None
+
+    r = requests.get('https://archive-api.open-meteo.com/v1/archive', params={
+        'latitude': lat,
+        'longitude': lon,
+        'start_date': data,
+        'end_date': data,
+        'daily': 'temperature_2m_max,temperature_2m_min',
+        'timezone': 'auto',
+    }, timeout=8, headers={'User-Agent': 'MeteoNow/1.0'})
+    r.raise_for_status()
+    zi = (r.json().get('daily') or {})
+    maxime = zi.get('temperature_2m_max') or []
+    minime = zi.get('temperature_2m_min') or []
+    if not maxime or maxime[0] is None:
+        return None
+    return {
+        'an': an,
+        'max': maxime[0],
+        'min': minime[0] if minime else None,
+    }
 
 
 @app.route('/api/clima')
@@ -553,54 +592,62 @@ def clima_istoric():
     nume = f"{lat}_{lon}_{mmdd}.json".replace('-', 'm', 1) if lat < 0 else f"{lat}_{lon}_{mmdd}.json"
     cale = os.path.join(_CLIMA_DIR, nume.replace('/', '_'))
 
-    # 1) din cache, dacă nu e prea vechi
-    if os.path.isfile(cale):
+    def din_cache():
+        if not os.path.isfile(cale):
+            return None
         varsta = (time.time() - os.path.getmtime(cale)) / 86400
-        if varsta < _CLIMA_ZILE_VALABIL:
-            try:
-                with open(cale, encoding='utf-8') as f:
-                    return jsonify(json.load(f))
-            except Exception:
-                pass
+        if varsta >= _CLIMA_ZILE_VALABIL:
+            return None
+        try:
+            with open(cale, encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return None
 
-    # 2) altfel, o singură cerere la Open-Meteo, pentru toți utilizatorii
-    an = azi.year
-    url = ('https://archive-api.open-meteo.com/v1/archive'
-           f'?latitude={lat}&longitude={lon}'
-           f'&start_date={an - 30}-01-01&end_date={an - 1}-12-31'
-           '&daily=temperature_2m_max,temperature_2m_min&timezone=auto')
-    try:
-        r = requests.get(url, timeout=90, headers={'User-Agent': 'MeteoNow/1.0'})
-        if r.status_code == 429:
-            return jsonify({'error': 'cota', 'mesaj': 'limita zilnică Open-Meteo atinsă'}), 429
-        r.raise_for_status()
-        d = r.json()
-    except Exception as e:
-        print(f"⚠️  arhivă climatică {lat},{lon}: {e}", flush=True)
-        return jsonify({'error': 'indisponibil'}), 502
+    gata = din_cache()
+    if gata:
+        return _clima_raspuns(gata)
 
-    zi = d.get('daily') or {}
-    timpi = zi.get('time') or []
-    maxime = zi.get('temperature_2m_max') or []
-    minime = zi.get('temperature_2m_min') or []
+    with _CLIMA_LOCKS_GUARD:
+        blocare = _CLIMA_LOCKS.setdefault(cale, threading.Lock())
 
-    ist = []
-    for i, t in enumerate(timpi):
-        if t[5:] == mmdd and i < len(maxime) and maxime[i] is not None:
-            ist.append({'an': int(t[:4]), 'max': maxime[i],
-                        'min': minime[i] if i < len(minime) else None})
+    with blocare:
+        gata = din_cache()
+        if gata:
+            return _clima_raspuns(gata)
 
-    if len(ist) < 5:
-        return jsonify({'error': 'prea puține date'}), 404
+        # Cerem numai ziua calendaristică folosită de card: 30 de răspunsuri
+        # mici, în grupuri de maximum 6. Varianta veche descărca ~10.950 de zile.
+        an = azi.year
+        ist = []
+        erori = []
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            lucrari = {
+                executor.submit(_clima_zi_din_an, lat, lon, y, mmdd): y
+                for y in range(an - 30, an)
+            }
+            for lucrare in as_completed(lucrari):
+                try:
+                    valoare = lucrare.result()
+                    if valoare:
+                        ist.append(valoare)
+                except Exception as e:
+                    erori.append(str(e))
 
-    rez = {'mmdd': mmdd, 'lat': lat, 'lon': lon, 'ani': len(ist), 'valori': ist}
-    try:
-        with open(cale, 'w', encoding='utf-8') as f:
-            json.dump(rez, f)
-        print(f"📊 arhivă climatică salvată: {lat},{lon} {mmdd} ({len(ist)} ani)", flush=True)
-    except Exception:
-        pass
-    return jsonify(rez)
+        ist.sort(key=lambda x: x['an'])
+        if len(ist) < 5:
+            mesaj = erori[0] if erori else 'prea puține date'
+            print(f"⚠️  arhivă climatică {lat},{lon}: {mesaj}", flush=True)
+            return jsonify({'error': 'indisponibil'}), 502
+
+        rez = {'mmdd': mmdd, 'lat': lat, 'lon': lon, 'ani': len(ist), 'valori': ist}
+        try:
+            with open(cale, 'w', encoding='utf-8') as f:
+                json.dump(rez, f)
+            print(f"📊 arhivă climatică salvată: {lat},{lon} {mmdd} ({len(ist)} ani)", flush=True)
+        except Exception:
+            pass
+        return _clima_raspuns(rez)
 
 
 # ═══════════════════════════════════════════════════════════════
