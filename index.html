@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.2">
+    <meta name="application-version" content="2026.09.13.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -5356,23 +5356,28 @@ function pushSupported() {
            location.protocol.indexOf('http') === 0;
 }
 async function pushSubscribe() {
+    var perm = Notification.permission;
+    if (perm === 'default') {
+        pushNote(LANG === 'en'
+            ? '🔔 METEO NOW for ' + (LOC.nume || 'your location') + ': morning and evening summaries, plus important weather alerts. Confirm once in the Android window.'
+            : '🔔 METEO NOW pentru ' + (LOC.nume || 'locația ta') + ': rezumat dimineața și seara, plus alerte meteo importante. Confirmă o singură dată în fereastra Android.', '', 'asking');
+        // În TWA acesta este apelul care sincronizează permisiunea web cu
+        // permisiunea nativă POST_NOTIFICATIONS a aplicației Android.
+        perm = await Notification.requestPermission();
+    }
+    if (perm !== 'granted') {
+        pushNote(LANG === 'en'
+            ? 'Notifications are blocked for METEO NOW. Enable them in the app settings, then try again.'
+            : 'Notificările sunt blocate pentru METEO NOW. Activează-le din setările aplicației, apoi încearcă din nou.', 'var(--red)');
+        return false;
+    }
+
     var reg = await navigator.serviceWorker.ready;
     var r = await fetch('api/push/key');
     if (!r.ok) { pushNote('Serverul nu are notificările configurate.', 'var(--red)'); return false; }
     var key = (await r.json()).publicKey;
     var sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-        pushNote(LANG === 'en'
-            ? '🔔 METEO NOW for ' + (LOC.nume || 'your location') + ': morning and evening summaries, plus important weather alerts. Confirm once in the Android window.'
-            : '🔔 METEO NOW pentru ' + (LOC.nume || 'locația ta') + ': rezumat dimineața și seara, plus alerte meteo importante. Confirmă o singură dată în fereastra Android.', '', 'asking');
-        sub = await creeazaAbonamentPush(reg, key);
-    }
-    if (Notification.permission !== 'granted') {
-        pushNote(LANG === 'en'
-            ? 'Notifications were blocked. You can enable them from your phone settings.'
-            : 'Notificările au fost blocate. Le poți reactiva din setările telefonului.', 'var(--red)');
-        return false;
-    }
+    if (!sub) sub = await creeazaAbonamentPush(reg, key);
     await trimiteAbonament(sub);
     pushNote(LANG === 'en'
         ? '✅ On. Daily brief plus alerts for ' + (LOC.nume || 'your location') + '.'
