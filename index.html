@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.3">
+    <meta name="application-version" content="2026.09.13.4">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1070,12 +1070,18 @@
         .sheet-backdrop {
             position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 10000;
             display: none; align-items: center; justify-content: center; padding: 16px;
+            pointer-events: auto; touch-action: none; overscroll-behavior: none;
+            -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
         }
         .sheet-backdrop.open { display: flex; }
         .sheet {
             background: var(--card); border: 1px solid var(--border); border-radius: 16px;
             width: min(430px, 100%); max-height: 86vh; overflow-y: auto;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            pointer-events: auto; touch-action: pan-y; overscroll-behavior: contain;
+        }
+        body.setari-deschise > :not(#settingsSheet) {
+            pointer-events: none !important;
         }
         .sheet-head {
             display: flex; align-items: center; justify-content: space-between;
@@ -1241,8 +1247,8 @@
             /* fundal mai transparent, cu blur: aplicația rămâne vizibilă în spate */
             .sheet-backdrop {
                 align-items: flex-end; padding: 0;
-                background: rgba(6, 12, 30, 0.28);
-                -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+                background: rgba(6, 12, 30, 0.46);
+                -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
             }
             .sheet {
                 width: 100%; max-height: 88vh; border: none;
@@ -5161,15 +5167,58 @@ function deblocheazaFundal() {
     }
 }
 
-function deschideSetari() { sheet.classList.add('open'); blocheazaFundal(); }
+var _fundalSetari = [];
+function izoleazaFundalSetari(blocat) {
+    if (blocat) {
+        if (_fundalSetari.length) return;
+        Array.prototype.forEach.call(document.body.children, function(el) {
+            if (el === sheet || el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
+            _fundalSetari.push({
+                el: el,
+                inert: el.hasAttribute('inert'),
+                aria: el.getAttribute('aria-hidden')
+            });
+            el.setAttribute('inert', '');
+            el.setAttribute('aria-hidden', 'true');
+        });
+        document.body.classList.add('setari-deschise');
+        return;
+    }
+    _fundalSetari.forEach(function(stare) {
+        if (!stare.el || !stare.el.isConnected) return;
+        if (!stare.inert) stare.el.removeAttribute('inert');
+        if (stare.aria === null) stare.el.removeAttribute('aria-hidden');
+        else stare.el.setAttribute('aria-hidden', stare.aria);
+    });
+    _fundalSetari = [];
+    document.body.classList.remove('setari-deschise');
+}
+function deschideSetari() {
+    if (sheet.classList.contains('open')) return;
+    sheet.classList.add('open');
+    blocheazaFundal();
+    izoleazaFundalSetari(true);
+    requestAnimationFrame(function() {
+        var close = document.getElementById('settingsClose');
+        if (close) {
+            try { close.focus({ preventScroll: true }); } catch (e) { close.focus(); }
+        }
+    });
+}
 function inchideSetari() {
     if (!sheet.classList.contains('open')) return;
     sheet.classList.remove('open');
+    izoleazaFundalSetari(false);
     deblocheazaFundal();
 }
 document.getElementById('settingsBtn').addEventListener('click', deschideSetari);
 document.getElementById('settingsClose').addEventListener('click', inchideSetari);
-sheet.addEventListener('click', function(e) { if (e.target === sheet) inchideSetari(); });
+sheet.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+sheet.addEventListener('touchstart', function(e) { e.stopPropagation(); }, { passive: true });
+sheet.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (e.target === sheet) inchideSetari();
+});
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSetari(); });
 
 /* Clasa este comutată cel mult o dată pe cadru. GPU-ul primește o
@@ -5359,11 +5408,15 @@ async function pushSubscribe() {
     var perm = Notification.permission;
     if (perm === 'default') {
         pushNote(LANG === 'en'
-            ? '🔔 METEO NOW for ' + (LOC.nume || 'your location') + ': morning and evening summaries, plus important weather alerts. Confirm once in the Android window.'
-            : '🔔 METEO NOW pentru ' + (LOC.nume || 'locația ta') + ': rezumat dimineața și seara, plus alerte meteo importante. Confirmă o singură dată în fereastra Android.', '', 'asking');
-        // În TWA acesta este apelul care sincronizează permisiunea web cu
-        // permisiunea nativă POST_NOTIFICATIONS a aplicației Android.
-        perm = await Notification.requestPermission();
+            ? '🔔 Waiting for the METEO NOW Android permission…'
+            : '🔔 Se verifică permisiunea Android pentru METEO NOW…', '', 'asking');
+        // APK-ul cere permisiunea nativă cu numele METEO NOW. Nu apelăm
+        // Notification.requestPermission() aici, deoarece Chrome ar mai
+        // afișa încă un dialog separat cu numele domeniului.
+        for (var asteapta = 0; asteapta < 8 && perm === 'default'; asteapta++) {
+            await new Promise(function(resolve) { setTimeout(resolve, 250); });
+            perm = Notification.permission;
+        }
     }
     if (perm !== 'granted') {
         pushNote(LANG === 'en'
@@ -5517,10 +5570,44 @@ function stopLocalAlerts() {
     PREF.set('localalerts', '0');
 }
 
+async function sincronizeazaPush(discret) {
+    var el = document.getElementById('setPush');
+    if (!el || !pushSupported() || !window.Notification) return false;
+    if (Notification.permission !== 'granted') {
+        el.checked = false;
+        stopLocalAlerts();
+        if (!discret) {
+            pushNote(LANG === 'en'
+                ? 'Notifications are off in Android. Enable them for METEO NOW in the app settings.'
+                : 'Notificările sunt oprite în Android. Activează-le pentru METEO NOW din setările aplicației.', 'var(--red)');
+        }
+        return false;
+    }
+    try {
+        var reg = await navigator.serviceWorker.ready;
+        var sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            el.checked = false;
+            return false;
+        }
+        await trimiteAbonament(sub);
+        el.checked = true;
+        pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
+        return true;
+    } catch (e) {
+        el.checked = false;
+        if (!discret) {
+            pushNote(LANG === 'en'
+                ? 'Notifications could not be verified. Try enabling them again.'
+                : 'Notificările nu au putut fi confirmate. Încearcă să le activezi din nou.', 'var(--amber)');
+        }
+        return false;
+    }
+}
+
 (function initPush() {
     var el = document.getElementById('setPush');
     if (!el) return;
-    // reia alertele locale dacă au fost activate anterior
     if (PREF.get('localalerts', '0') === '1' && window.Notification && Notification.permission === 'granted') {
         startLocalAlerts();
         el.checked = true;
@@ -5531,20 +5618,8 @@ function stopLocalAlerts() {
         pushNote('Notificările funcționează doar în aplicația instalată (Adaugă la ecranul principal).');
         return;
     }
-    // starea reală: abonat sau nu
-    navigator.serviceWorker.ready.then(function(reg) {
-        return reg.pushManager.getSubscription();
-    }).then(async function(sub) {
-        el.checked = false;
-        if (sub && Notification.permission === 'granted') {
-            await trimiteAbonament(sub);
-            el.checked = true;
-            pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
-        }
-    }).catch(function() {
-        el.checked = false;
-        pushNote(LANG === 'en' ? 'Notifications could not be verified. Try enabling them again.' : 'Notificările nu au putut fi confirmate. Încearcă să le activezi din nou.', 'var(--amber)');
-    });
+
+    sincronizeazaPush(true);
 
     el.addEventListener('change', async function() {
         el.disabled = true;
@@ -5559,8 +5634,6 @@ function stopLocalAlerts() {
         } catch (e) {
             var msg = String(e && e.message || e);
             if (/push service error|Registration failed|AbortError/i.test(msg)) {
-                // Browserul nu se poate înregistra la serviciul de push (frecvent pe desktop).
-                // Trecem pe alerte locale: funcționează cât timp aplicația e deschisă.
                 if (Notification.permission === 'granted') {
                     PREF.set('localalerts', '1');
                     startLocalAlerts();
@@ -5573,7 +5646,7 @@ function stopLocalAlerts() {
                     el.checked = false;
                 }
             } else if (/denied|permission/i.test(msg)) {
-                pushNote('Notificările sunt blocate în browser. Activează-le din setările site-ului.', 'var(--red)');
+                pushNote('Notificările sunt oprite pentru METEO NOW. Activează-le din setările aplicației Android.', 'var(--red)');
                 el.checked = false;
             } else {
                 pushNote('Nu s-a putut activa: ' + msg, 'var(--red)');
@@ -5582,6 +5655,16 @@ function stopLocalAlerts() {
         }
         el.disabled = false;
     });
+
+    var recontrolPush = null;
+    function programeazaControlPush() {
+        clearTimeout(recontrolPush);
+        recontrolPush = setTimeout(function() { sincronizeazaPush(true); }, 250);
+    }
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) programeazaControlPush();
+    });
+    window.addEventListener('focus', programeazaControlPush);
 })();
 
 // ═══════════════════════════════════════════════════════════
