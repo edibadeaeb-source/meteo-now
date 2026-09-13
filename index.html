@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.4">
+    <meta name="application-version" content="2026.09.13.5">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1254,9 +1254,8 @@
                 width: 100%; max-height: 88vh; border: none;
                 border-top: 1px solid rgba(255,255,255,0.20);
                 border-radius: 26px 26px 0 0;
-                background: rgba(30, 40, 74, 0.82);
-                -webkit-backdrop-filter: blur(34px) saturate(180%); backdrop-filter: blur(34px) saturate(180%);
-                box-shadow: 0 -18px 50px rgba(0,0,0,0.45);
+                background: rgba(30, 40, 74, 0.94);
+                box-shadow: 0 -8px 24px rgba(0,0,0,0.24);
                 color: #fff;
                 padding-bottom: 0;
                 display: flex; flex-direction: column; overflow: hidden;
@@ -1269,7 +1268,6 @@
                 overflow-y: auto; -webkit-overflow-scrolling: touch;
                 padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
                 overscroll-behavior: contain; touch-action: pan-y;
-                contain: layout paint; transform: translateZ(0);
             }
             .sheet-head { border-bottom: 1px solid rgba(255,255,255,0.14); padding: 18px 18px 14px; }
             .sheet-head h3 { color: #fff; }
@@ -1283,18 +1281,8 @@
                 background: rgba(255,255,255,0.09);
                 border: 1px solid rgba(255,255,255,0.14);
                 border-radius: 18px; padding: 13px 14px 10px; margin-bottom: 12px;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
-                content-visibility: auto; contain-intrinsic-size: 110px;
-            }
-            /* În timpul inerției reducem efectele care cer recompunerea
-               fiecărui cadru. Aspectul complet revine după oprire. */
-            .sheet.deruleaza {
-                background: rgba(30, 40, 74, 0.96);
-                -webkit-backdrop-filter: blur(8px) saturate(130%);
-                backdrop-filter: blur(8px) saturate(130%);
                 box-shadow: none;
             }
-            .sheet.deruleaza .set-group { box-shadow: none; }
             .set-group .set-row:last-of-type { border-bottom: none; }
             .seg { background: rgba(255,255,255,0.10); border-radius: 12px; padding: 3px; gap: 3px; }
             .seg button { background: transparent; border: none; color: rgba(255,255,255,0.72); border-radius: 10px; }
@@ -5221,26 +5209,6 @@ sheet.addEventListener('click', function(e) {
 });
 document.addEventListener('keydown', function(e) { if (e.key === 'Escape') inchideSetari(); });
 
-/* Clasa este comutată cel mult o dată pe cadru. GPU-ul primește o
-   suprafață stabilă în timpul inerției, apoi sticla completă revine. */
-(function() {
-    var corp = sheet && sheet.querySelector('.sheet');
-    var lista = sheet && sheet.querySelector('.sheet-body');
-    if (!corp || !lista) return;
-    var cadru = null, oprire = null;
-    lista.addEventListener('scroll', function() {
-        if (!cadru) cadru = requestAnimationFrame(function() {
-            cadru = null;
-            corp.classList.add('deruleaza');
-        });
-        clearTimeout(oprire);
-        oprire = setTimeout(function() { corp.classList.remove('deruleaza'); }, 220);
-    }, { passive: true });
-    sheet.addEventListener('transitionend', function() {
-        if (!sheet.classList.contains('open')) corp.classList.remove('deruleaza');
-    });
-})();
-
 // ── SETĂRI: comutatoare ──
 function bindSwitch(id, key, onChange) {
     var el = document.getElementById(id);
@@ -5404,19 +5372,63 @@ function pushSupported() {
     return ('serviceWorker' in navigator) && ('PushManager' in window) &&
            location.protocol.indexOf('http') === 0;
 }
-async function pushSubscribe() {
-    var perm = Notification.permission;
-    if (perm === 'default') {
+var PUSH_ANDROID = (function() {
+    var params = new URLSearchParams(location.search);
+    var sursa = params.get('source') === 'android-app';
+    var stare = params.get('androidNotifications');
+    var actiune = params.get('nativeAction') || '';
+
+    if (sursa) {
+        try { sessionStorage.setItem('meteo-android-app', '1'); } catch (e) {}
+    }
+    if (stare === 'granted' || stare === 'denied') {
+        try {
+            sessionStorage.setItem('meteo-android-notifications', stare);
+            sessionStorage.removeItem('meteo-native-inflight');
+        } catch (e) {}
+    }
+
+    if (params.has('source') || params.has('androidNotifications') || params.has('nativeAction')) {
+        params.delete('source');
+        params.delete('androidNotifications');
+        params.delete('nativeAction');
+        var curat = location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash;
+        try { history.replaceState(null, '', curat); } catch (e) {}
+    }
+
+    return { rezultat: stare || '', actiune: actiune };
+})();
+
+function esteAplicatiaAndroid() {
+    try { return sessionStorage.getItem('meteo-android-app') === '1'; }
+    catch (e) { return false; }
+}
+function stareNotificariAndroid() {
+    if (PUSH_ANDROID.rezultat) return PUSH_ANDROID.rezultat;
+    try { return sessionStorage.getItem('meteo-android-notifications') || ''; }
+    catch (e) { return ''; }
+}
+function cereStareNotificariAndroid(actiune) {
+    try {
+        sessionStorage.setItem('meteo-native-inflight', actiune || 'status');
+        sessionStorage.setItem('meteo-redeschide-setari', '1');
+    } catch (e) {}
+    location.href = 'meteonow://notifications/' + (actiune || 'status');
+}
+
+async function pushSubscribe(confirmareNativa) {
+    var esteAndroid = esteAplicatiaAndroid();
+    if (esteAndroid && confirmareNativa !== true) {
         pushNote(LANG === 'en'
-            ? '🔔 Waiting for the METEO NOW Android permission…'
-            : '🔔 Se verifică permisiunea Android pentru METEO NOW…', '', 'asking');
-        // APK-ul cere permisiunea nativă cu numele METEO NOW. Nu apelăm
-        // Notification.requestPermission() aici, deoarece Chrome ar mai
-        // afișa încă un dialog separat cu numele domeniului.
-        for (var asteapta = 0; asteapta < 8 && perm === 'default'; asteapta++) {
-            await new Promise(function(resolve) { setTimeout(resolve, 250); });
-            perm = Notification.permission;
-        }
+            ? '🔔 Confirm in the METEO NOW Android window.'
+            : '🔔 Confirmă în fereastra Android METEO NOW.', '', 'asking');
+        cereStareNotificariAndroid('request');
+        return null;
+    }
+
+    var perm = esteAndroid ? 'granted' : Notification.permission;
+    if (!esteAndroid && perm === 'default') {
+        perm = await Notification.requestPermission();
     }
     if (perm !== 'granted') {
         pushNote(LANG === 'en'
@@ -5508,7 +5520,10 @@ async function trimiteAbonament(sub) {
    ca notificările să vină pentru locul nou. */
 async function actualizeazaLocatiaPush() {
     try {
-        if (!('serviceWorker' in navigator) || Notification.permission !== 'granted') return;
+        if (!('serviceWorker' in navigator)) return;
+        if (esteAplicatiaAndroid()) {
+            if (stareNotificariAndroid() !== 'granted') return;
+        } else if (Notification.permission !== 'granted') return;
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
         if (sub) await trimiteAbonament(sub);
@@ -5570,19 +5585,24 @@ function stopLocalAlerts() {
     PREF.set('localalerts', '0');
 }
 
-async function sincronizeazaPush(discret) {
+async function sincronizeazaPush(discret, stareFortata) {
     var el = document.getElementById('setPush');
     if (!el || !pushSupported() || !window.Notification) return false;
-    if (Notification.permission !== 'granted') {
+
+    var esteAndroid = esteAplicatiaAndroid();
+    var stareAndroid = stareFortata || stareNotificariAndroid();
+    if ((esteAndroid && stareAndroid !== 'granted') ||
+        (!esteAndroid && Notification.permission !== 'granted')) {
         el.checked = false;
         stopLocalAlerts();
         if (!discret) {
             pushNote(LANG === 'en'
-                ? 'Notifications are off in Android. Enable them for METEO NOW in the app settings.'
-                : 'Notificările sunt oprite în Android. Activează-le pentru METEO NOW din setările aplicației.', 'var(--red)');
+                ? 'Notifications are off in Android. Enable them for METEO NOW.'
+                : 'Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
         }
         return false;
     }
+
     try {
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
@@ -5608,46 +5628,72 @@ async function sincronizeazaPush(discret) {
 (function initPush() {
     var el = document.getElementById('setPush');
     if (!el) return;
-    if (PREF.get('localalerts', '0') === '1' && window.Notification && Notification.permission === 'granted') {
-        startLocalAlerts();
-        el.checked = true;
-        pushNote('Alerte locale active (browserul nu acceptă notificări în fundal).', 'var(--amber)');
-    }
+
     if (!pushSupported()) {
         el.disabled = true;
         pushNote('Notificările funcționează doar în aplicația instalată (Adaugă la ecranul principal).');
         return;
     }
 
-    sincronizeazaPush(true);
+    var rezultatNativ = PUSH_ANDROID.rezultat;
+    if (esteAplicatiaAndroid() && rezultatNativ === 'denied') {
+        el.checked = false;
+        stopLocalAlerts();
+        pushNote('Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
+    } else if (esteAplicatiaAndroid() &&
+               rezultatNativ === 'granted' &&
+               PUSH_ANDROID.actiune === 'request') {
+        el.disabled = true;
+        setTimeout(async function() {
+            try {
+                el.checked = (await pushSubscribe(true)) === true;
+            } catch (e) {
+                el.checked = false;
+                pushNote('Permisiunea Android este activă, dar abonarea nu a reușit: ' +
+                         String(e && e.message || e), 'var(--red)');
+            }
+            el.disabled = false;
+        }, 350);
+    } else {
+        sincronizeazaPush(true, rezultatNativ);
+    }
+
+    try {
+        if (sessionStorage.getItem('meteo-redeschide-setari') === '1') {
+            sessionStorage.removeItem('meteo-redeschide-setari');
+            setTimeout(function() {
+                if (!document.getElementById('settingsSheet').classList.contains('open')) {
+                    deschideSetari();
+                }
+            }, 700);
+        }
+    } catch (e) {}
 
     el.addEventListener('change', async function() {
+        if (el.checked && esteAplicatiaAndroid()) {
+            el.checked = false;
+            pushSubscribe(false);
+            return;
+        }
+
         el.disabled = true;
         try {
             if (el.checked) {
-                var ok = await pushSubscribe();
-                el.checked = ok;
+                var ok = await pushSubscribe(false);
+                if (ok !== null) el.checked = ok;
             } else {
                 stopLocalAlerts();
                 await pushUnsubscribe();
             }
         } catch (e) {
             var msg = String(e && e.message || e);
-            if (/push service error|Registration failed|AbortError/i.test(msg)) {
-                if (Notification.permission === 'granted') {
-                    PREF.set('localalerts', '1');
-                    startLocalAlerts();
-                    el.checked = true;
-                    pushNote('⚠️ Browserul nu acceptă notificări în fundal, dar am activat ' +
-                             'alertele locale: vei fi anunțat cât timp aplicația e deschisă. ' +
-                             'Pe telefon funcționează complet.', 'var(--amber)');
-                } else {
-                    pushNote('Browserul nu s-a putut conecta la serviciul de notificări.', 'var(--amber)');
-                    el.checked = false;
-                }
-            } else if (/denied|permission/i.test(msg)) {
-                pushNote('Notificările sunt oprite pentru METEO NOW. Activează-le din setările aplicației Android.', 'var(--red)');
-                el.checked = false;
+            if (!esteAplicatiaAndroid() &&
+                /push service error|Registration failed|AbortError/i.test(msg) &&
+                Notification.permission === 'granted') {
+                PREF.set('localalerts', '1');
+                startLocalAlerts();
+                el.checked = true;
+                pushNote('⚠️ Browserul nu acceptă notificări în fundal, dar alertele locale sunt active cât timp aplicația este deschisă.', 'var(--amber)');
             } else {
                 pushNote('Nu s-a putut activa: ' + msg, 'var(--red)');
                 el.checked = false;
@@ -5656,15 +5702,29 @@ async function sincronizeazaPush(discret) {
         el.disabled = false;
     });
 
-    var recontrolPush = null;
-    function programeazaControlPush() {
-        clearTimeout(recontrolPush);
-        recontrolPush = setTimeout(function() { sincronizeazaPush(true); }, 250);
-    }
+    var setariAscunse = false;
     document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) programeazaControlPush();
+        if (!esteAplicatiaAndroid()) {
+            if (!document.hidden) sincronizeazaPush(true);
+            return;
+        }
+
+        var foaieDeschisa = document.getElementById('settingsSheet').classList.contains('open');
+        if (document.hidden && foaieDeschisa) {
+            setariAscunse = true;
+            el.checked = false;
+            pushNote('Se verifică permisiunea Android pentru METEO NOW…');
+            return;
+        }
+        if (!document.hidden && setariAscunse) {
+            setariAscunse = false;
+            var inCurs = '';
+            try { inCurs = sessionStorage.getItem('meteo-native-inflight') || ''; } catch (e) {}
+            if (!inCurs) {
+                setTimeout(function() { cereStareNotificariAndroid('status'); }, 150);
+            }
+        }
     });
-    window.addEventListener('focus', programeazaControlPush);
 })();
 
 // ═══════════════════════════════════════════════════════════
