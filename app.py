@@ -889,22 +889,75 @@ def _rezumat_intern(moment):
 #  API PENTRU WIDGET (ecranul telefonului)
 #  Răspuns mic și rapid, gata de afișat — widget-ul nativ nu face calcule.
 # ═══════════════════════════════════════════════════════════════
-_widget_cache = {'t': None, 'data': None}
+_widget_cache = {}
+_WIDGET_CACHE_MAX = 128
+
+_RO_COUNTY_CODES = {
+    'alba': 'AB', 'arad': 'AR', 'arges': 'AG', 'bacau': 'BC', 'bihor': 'BH',
+    'bistrita-nasaud': 'BN', 'botosani': 'BT', 'brasov': 'BV', 'braila': 'BR',
+    'bucuresti': 'B', 'buzau': 'BZ', 'caras-severin': 'CS', 'calarasi': 'CL',
+    'cluj': 'CJ', 'constanta': 'CT', 'covasna': 'CV', 'dambovita': 'DB',
+    'dolj': 'DJ', 'galati': 'GL', 'giurgiu': 'GR', 'gorj': 'GJ',
+    'harghita': 'HR', 'hunedoara': 'HD', 'ialomita': 'IL', 'iasi': 'IS',
+    'ilfov': 'IF', 'maramures': 'MM', 'mehedinti': 'MH', 'mures': 'MS',
+    'neamt': 'NT', 'olt': 'OT', 'prahova': 'PH', 'satu mare': 'SM',
+    'salaj': 'SJ', 'sibiu': 'SB', 'suceava': 'SV', 'teleorman': 'TR',
+    'timis': 'TM', 'tulcea': 'TL', 'vaslui': 'VS', 'valcea': 'VL',
+    'vrancea': 'VN'
+}
+
+
+def _widget_float(name, default, minimum, maximum):
+    try:
+        value = float(request.args.get(name, default))
+        return value if minimum <= value <= maximum else default
+    except (TypeError, ValueError):
+        return default
+
+
+def _widget_text(name, default, limit):
+    value = str(request.args.get(name, default) or default)
+    value = re.sub(r'[\x00-\x1f]+', ' ', value)
+    return re.sub(r'\s+', ' ', value).strip()[:limit] or default
+
+
+def _widget_county_code(admin, country):
+    if str(country).upper() != 'RO':
+        return None
+    import unicodedata
+    normalized = unicodedata.normalize('NFKD', admin or '')
+    normalized = ''.join(c for c in normalized if not unicodedata.combining(c))
+    normalized = normalized.lower().replace('judetul ', '').strip()
+    return _RO_COUNTY_CODES.get(normalized)
 
 
 @app.route('/api/widget')
 def widget_data():
+    lat = _widget_float('lat', 44.9266, -90.0, 90.0)
+    lon = _widget_float('lon', 25.4566, -180.0, 180.0)
+    oras = _widget_text('oras', 'Târgoviște', 60)
+    admin = _widget_text('admin', 'Dâmbovița', 60)
+    country = _widget_text('country', 'RO', 3).upper()
+    county_code = _widget_county_code(admin, country)
+
     now = now_ro()
-    if _widget_cache['data'] and _widget_cache['t'] and (now - _widget_cache['t']).total_seconds() < 300:
-        return jsonify(_widget_cache['data'])
+    cache_key = (round(lat, 4), round(lon, 4), oras.casefold(), admin.casefold(), country)
+    cached = _widget_cache.get(cache_key)
+    if cached and (now - cached[0]).total_seconds() < 300:
+        return jsonify(cached[1])
 
     out = {
-        'oras': 'Târgoviște',
+        'oras': oras,
+        'admin': admin,
+        'country': country,
+        'lat': lat,
+        'lon': lon,
         'temp': None,
         'tempText': '--',
         'resimtit': None,
         'descriere': '',
         'icon': 'nor',
+        'fundal': '',
         'umiditate': None,
         'vant': None,
         'maxAzi': None,
@@ -912,14 +965,14 @@ def widget_data():
         'codAvertizare': 0,
         'codText': '',
         'avertizare': '',
-        'zile': [],                      # prognoza pe 3 zile
+        'zile': [],
         'actualizat': now.strftime('%H:%M')
     }
 
-    # 1) vremea curentă (OpenWeatherMap)
+    # 1) Vremea curentă pentru coordonatele alese în configurarea widgetului.
     try:
         r = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
-            'lat': 44.9266, 'lon': 25.4566, 'units': 'metric', 'lang': 'ro',
+            'lat': lat, 'lon': lon, 'units': 'metric', 'lang': 'ro',
             'appid': OPENWEATHER_API_KEY
         }, timeout=12)
         r.raise_for_status()
@@ -937,9 +990,15 @@ def widget_data():
         out['umiditate'] = d.get('main', {}).get('humidity')
         vant = d.get('wind', {}).get('speed')
         if vant is not None:
-            out['vant'] = round(vant * 3.6)          # m/s → km/h
+            out['vant'] = round(vant * 3.6)
+
+        timezone_offset = d.get('timezone')
+        if isinstance(timezone_offset, (int, float)):
+            out['actualizat'] = (datetime.utcnow() + timedelta(seconds=timezone_offset)).strftime('%H:%M')
+
         oid = w0.get('id', 800)
-        noapte = 'n' in (w0.get('icon') or '')
+        weather_icon = w0.get('icon') or ''
+        noapte = weather_icon.endswith('n')
         if 200 <= oid < 300:   out['icon'] = 'furtuna'
         elif 300 <= oid < 400: out['icon'] = 'burnita'
         elif 500 <= oid < 600: out['icon'] = 'ploaie'
@@ -948,15 +1007,37 @@ def widget_data():
         elif oid == 800:       out['icon'] = 'luna' if noapte else 'soare'
         elif oid in (801, 802): out['icon'] = 'partial'
         else:                  out['icon'] = 'nor'
-    except Exception as e:
-        print(f"⚠️  widget/vreme: {e}")
 
-    # 1b) prognoza pe 3 zile + max/min azi (Open-Meteo, fără cheie)
+        now_unix = int(time.time())
+        sunrise = d.get('sys', {}).get('sunrise')
+        sunset = d.get('sys', {}).get('sunset')
+        near_horizon = ((isinstance(sunrise, (int, float)) and abs(now_unix - sunrise) <= 4500)
+                        or (isinstance(sunset, (int, float)) and abs(now_unix - sunset) <= 4500))
+        if near_horizon:
+            out['fundal'] = 'apus'
+        elif 200 <= oid < 300:
+            out['fundal'] = 'furtuna'
+        elif 300 <= oid < 600:
+            out['fundal'] = 'ploaie'
+        elif 600 <= oid < 700:
+            out['fundal'] = 'ninsoare'
+        elif 700 <= oid < 800:
+            out['fundal'] = 'ceata'
+        elif noapte:
+            out['fundal'] = 'noapte'
+        elif oid >= 803:
+            out['fundal'] = 'noros'
+        else:
+            out['fundal'] = 'zi'
+    except Exception as e:
+        print(f"⚠️  widget/vreme {oras}: {e}")
+
+    # 1b) Prognoza pe 3 zile + max/min azi, în fusul local al orașului.
     try:
         r = requests.get('https://api.open-meteo.com/v1/forecast', params={
-            'latitude': 44.9266, 'longitude': 25.4566,
+            'latitude': lat, 'longitude': lon,
             'daily': 'temperature_2m_max,temperature_2m_min,weathercode',
-            'forecast_days': 4, 'timezone': 'Europe/Bucharest'
+            'forecast_days': 4, 'timezone': 'auto'
         }, timeout=12)
         r.raise_for_status()
         dz = r.json().get('daily', {})
@@ -984,7 +1065,7 @@ def widget_data():
             out['minAzi'] = round(mins[0])
 
         zile = []
-        for i in range(1, min(4, len(times))):          # mâine + următoarele 2
+        for i in range(1, min(4, len(times))):
             try:
                 d_ = datetime.strptime(times[i], '%Y-%m-%d')
                 zile.append({
@@ -997,52 +1078,54 @@ def widget_data():
                 pass
         out['zile'] = zile
     except Exception as e:
-        print(f"⚠️  widget/prognoza: {e}")
+        print(f"⚠️  widget/prognoză {oras}: {e}")
 
-    # 2) avertizare ANM pentru județul monitorizat
-    try:
-        r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
-                         timeout=15, headers={'User-Agent': 'StatiaMeteoTargoviste/1.0'})
-        r.raise_for_status()
-        data = r.json()
+    # 2) Avertizarea ANM este afișată numai pentru județul orașului selectat.
+    if county_code:
+        try:
+            r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
+                             timeout=15, headers={'User-Agent': 'METEO-NOW-Widget/3.0'})
+            r.raise_for_status()
+            data = r.json()
 
-        def unwrap(o):
-            if not isinstance(o, dict):
-                return {}
-            res = dict(o.get('@attributes') or {})
-            for k, v in o.items():
-                if k != '@attributes':
-                    res[k] = v
-            return res
+            def unwrap(o):
+                if not isinstance(o, dict):
+                    return {}
+                res = dict(o.get('@attributes') or {})
+                for k, v in o.items():
+                    if k != '@attributes':
+                        res[k] = v
+                return res
 
-        def as_list(x):
-            if not x:
-                return []
-            return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
+            def as_list(x):
+                if not x:
+                    return []
+                return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
 
-        nivel, text = 0, ''
-        for w in as_list(data.get('avertizare')):
-            n = 0
-            for z in as_list(w.get('zona')) + as_list(w.get('judet')):
-                if str(z.get('cod', '')).upper().startswith(JUDET_MONITORIZAT):
-                    try:
-                        n = max(n, int(z.get('culoare') or 0))
-                    except (TypeError, ValueError):
-                        pass
-            if n > nivel:
-                nivel = n
-                fen = (w.get('fenomeneVizate') or '').strip()
-                text = fen if fen and fen != 'conform textelor' else (w.get('numeTipMesaj') or '')
-        out['codAvertizare'] = nivel
-        out['codText'] = _COD_NUME.get(nivel, '')
-        out['avertizare'] = text[:90]
-    except Exception as e:
-        print(f"⚠️  widget/ANM: {e}")
+            nivel, text = 0, ''
+            for warning in as_list(data.get('avertizare')):
+                level = 0
+                for zone in as_list(warning.get('zona')) + as_list(warning.get('judet')):
+                    if str(zone.get('cod', '')).upper().strip() == county_code:
+                        try:
+                            level = max(level, int(zone.get('culoare') or 0))
+                        except (TypeError, ValueError):
+                            pass
+                if level > nivel:
+                    nivel = level
+                    fen = (warning.get('fenomeneVizate') or '').strip()
+                    text = fen if fen and fen != 'conform textelor' else (warning.get('numeTipMesaj') or '')
+            out['codAvertizare'] = nivel
+            out['codText'] = _COD_NUME.get(nivel, '')
+            out['avertizare'] = text[:90]
+        except Exception as e:
+            print(f"⚠️  widget/ANM {oras}: {e}")
 
-    _widget_cache['t'] = now
-    _widget_cache['data'] = out
+    if len(_widget_cache) >= _WIDGET_CACHE_MAX and cache_key not in _widget_cache:
+        oldest = min(_widget_cache, key=lambda key: _widget_cache[key][0])
+        _widget_cache.pop(oldest, None)
+    _widget_cache[cache_key] = (now, out)
     return jsonify(out)
-
 
 # ═══════════════════════════════════════════════════════════════
 #  CONTEXT DATE SENZORI
