@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.6">
+    <meta name="application-version" content="2026.09.13.7">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -5413,7 +5413,10 @@ function cereStareNotificariAndroid(actiune) {
         sessionStorage.setItem('meteo-native-inflight', actiune || 'status');
 
     } catch (e) {}
-    location.href = 'meteonow://notifications/' + (actiune || 'status');
+    // Intent explicit către propriul pachet: trebuie lansat sincron din
+    // apăsarea utilizatorului, înainte să se piardă user activation.
+    location.href = 'intent://notifications/' + (actiune || 'status') +
+        '#Intent;scheme=meteonow;package=com.onrender.meteo_targoviste.twa;end';
 }
 
 async function pushSubscribe(confirmareNativa) {
@@ -5684,10 +5687,9 @@ async function revalideazaAbonamentAndroid(cereActivare) {
     el.addEventListener('change', async function() {
         if (el.checked && esteAplicatiaAndroid()) {
             el.checked = false;
-            el.disabled = true;
             stopLocalAlerts();
-            await pushUnsubscribe();
-            el.disabled = false;
+            // Fără await aici: Android acceptă intentul extern numai cât
+            // apăsarea pe comutator este încă activă.
             pushSubscribe(false);
             return;
         }
@@ -5719,39 +5721,44 @@ async function revalideazaAbonamentAndroid(cereActivare) {
     });
 
     var setariAscunse = false;
-    document.addEventListener('visibilitychange', function() {
+    var revenireProgramata = null;
+
+    function marcheazaIesireaDinAplicatie() {
+        if (!esteAplicatiaAndroid()) return;
+        if (!document.getElementById('settingsSheet').classList.contains('open')) return;
+        setariAscunse = true;
+        el.checked = false;
+        pushNote('Se verifică permisiunea Android pentru METEO NOW…');
+    }
+
+    function verificaLaRevenire() {
         if (!esteAplicatiaAndroid()) {
-            if (!document.hidden) sincronizeazaPush(true);
+            sincronizeazaPush(true);
             return;
         }
 
-        var foaieDeschisa = document.getElementById('settingsSheet').classList.contains('open');
-        if (document.hidden && foaieDeschisa) {
-            setariAscunse = true;
-            el.checked = false;
-            pushNote('Se verifică permisiunea Android pentru METEO NOW…');
-            return;
-        }
+        var inCurs = '';
+        try {
+            inCurs = sessionStorage.getItem('meteo-native-inflight') || '';
+            if (inCurs) sessionStorage.removeItem('meteo-native-inflight');
+        } catch (e) {}
 
-        if (!document.hidden && setariAscunse) {
-            setariAscunse = false;
-            var inCurs = '';
-            try {
-                inCurs = sessionStorage.getItem('meteo-native-inflight') || '';
-                if (inCurs) sessionStorage.removeItem('meteo-native-inflight');
-            } catch (e) {}
+        if (!setariAscunse && !inCurs) return;
+        setariAscunse = false;
+        clearTimeout(revenireProgramata);
+        revenireProgramata = setTimeout(function() {
+            // Pentru request activăm după răspuns. Pentru o revenire obișnuită
+            // păstrăm abonamentul numai dacă Android îl acceptă în continuare.
+            revalideazaAbonamentAndroid(inCurs === 'request');
+        }, 280);
+    }
 
-            if (inCurs) {
-                setTimeout(function() {
-                    revalideazaAbonamentAndroid(inCurs === 'request');
-                }, 300);
-            } else {
-                setTimeout(function() {
-                    cereStareNotificariAndroid('status');
-                }, 150);
-            }
-        }
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) marcheazaIesireaDinAplicatie();
+        else verificaLaRevenire();
     });
+    window.addEventListener('blur', marcheazaIesireaDinAplicatie);
+    window.addEventListener('focus', verificaLaRevenire);
 })();
 
 // ═══════════════════════════════════════════════════════════
