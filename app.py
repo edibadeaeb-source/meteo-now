@@ -1080,6 +1080,77 @@ def widget_data():
     except Exception as e:
         print(f"⚠️  widget/prognoză {oras}: {e}")
 
+    # OpenWeather 5 day / 3 hour este rezerva când Open-Meteo nu răspunde.
+    if not out['zile']:
+        try:
+            r = requests.get('https://api.openweathermap.org/data/2.5/forecast', params={
+                'lat': lat, 'lon': lon, 'units': 'metric', 'lang': 'ro',
+                'appid': OPENWEATHER_API_KEY
+            }, timeout=12)
+            r.raise_for_status()
+            forecast_data = r.json()
+            timezone_offset = int(forecast_data.get('city', {}).get('timezone') or 0)
+            grouped = {}
+            for item in forecast_data.get('list') or []:
+                timestamp = item.get('dt')
+                if not isinstance(timestamp, (int, float)):
+                    continue
+                local_dt = datetime.utcfromtimestamp(timestamp + timezone_offset)
+                day_key = local_dt.strftime('%Y-%m-%d')
+                bucket = grouped.setdefault(day_key, {
+                    'date': local_dt, 'mins': [], 'maxs': [],
+                    'icon': 'nor', 'icon_distance': 99
+                })
+                main = item.get('main') or {}
+                low = main.get('temp_min', main.get('temp'))
+                high = main.get('temp_max', main.get('temp'))
+                if isinstance(low, (int, float)):
+                    bucket['mins'].append(low)
+                if isinstance(high, (int, float)):
+                    bucket['maxs'].append(high)
+
+                distance = abs(local_dt.hour - 12)
+                if distance < bucket['icon_distance']:
+                    weather = (item.get('weather') or [{}])[0]
+                    oid = weather.get('id', 800)
+                    if 200 <= oid < 300:   icon = 'furtuna'
+                    elif 300 <= oid < 400: icon = 'burnita'
+                    elif 500 <= oid < 600: icon = 'ploaie'
+                    elif 600 <= oid < 700: icon = 'ninsoare'
+                    elif 700 <= oid < 800: icon = 'ceata'
+                    elif oid == 800:       icon = 'soare'
+                    elif oid in (801, 802): icon = 'partial'
+                    else:                  icon = 'nor'
+                    bucket['icon'] = icon
+                    bucket['icon_distance'] = distance
+
+            local_today = datetime.utcfromtimestamp(time.time() + timezone_offset).strftime('%Y-%m-%d')
+            today_bucket = grouped.get(local_today)
+            if today_bucket:
+                if out['maxAzi'] is None and today_bucket['maxs']:
+                    out['maxAzi'] = round(max(today_bucket['maxs']))
+                if out['minAzi'] is None and today_bucket['mins']:
+                    out['minAzi'] = round(min(today_bucket['mins']))
+
+            zile_ro = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du']
+            fallback_days = []
+            for day_key in sorted(grouped):
+                if day_key <= local_today:
+                    continue
+                bucket = grouped[day_key]
+                if not bucket['mins'] or not bucket['maxs']:
+                    continue
+                fallback_days.append({
+                    'zi': zile_ro[bucket['date'].weekday()],
+                    'max': round(max(bucket['maxs'])),
+                    'min': round(min(bucket['mins'])),
+                    'icon': bucket['icon']
+                })
+                if len(fallback_days) == 3:
+                    break
+            out['zile'] = fallback_days
+        except Exception as e:
+            print(f"⚠️  widget/prognoză rezervă {oras}: {e}")
     # 2) Avertizarea ANM este afișată numai pentru județul orașului selectat.
     if county_code:
         try:
