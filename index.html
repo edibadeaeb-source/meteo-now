@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.1">
+    <meta name="application-version" content="2026.09.13.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -6130,17 +6130,64 @@ function ascundeWelcome() {
     setTimeout(function() { html.style.scrollBehavior = prev || ''; }, 1900);
 }
 
+function pozitieOData(optiuni) {
+    return new Promise(function(resolve, reject) {
+        navigator.geolocation.getCurrentPosition(resolve, reject, optiuni);
+    });
+}
+async function asteaptaPermisiuneaLocatiei() {
+    if (!navigator.permissions || !navigator.permissions.query) return '';
+    var intarzieri = [250, 650, 1200];
+    var stare = '';
+    for (var i = 0; i < intarzieri.length; i++) {
+        await new Promise(function(resolve) { setTimeout(resolve, intarzieri[i]); });
+        try {
+            stare = (await navigator.permissions.query({ name: 'geolocation' })).state || '';
+        } catch (e) {
+            return '';
+        }
+        if (stare === 'granted' || stare === 'denied') return stare;
+    }
+    return stare;
+}
+async function pozitieCuReincercare(optiuni) {
+    try {
+        return await pozitieOData(optiuni);
+    } catch (primaEroare) {
+        // În TWA, primul rezultat poate fi PERMISSION_DENIED chiar după ce
+        // utilizatorul a apăsat „Permite”. Așteptăm sincronizarea Android/Chrome.
+        var stare = await asteaptaPermisiuneaLocatiei();
+        var refuzReal = stare === 'denied';
+        var altaEroare = primaEroare && primaEroare.code !== 1;
+        if (!refuzReal && (stare === 'granted' || altaEroare)) {
+            var dinNou = Object.assign({}, optiuni || {}, {
+                maximumAge: 0,
+                timeout: Math.max(20000, +(optiuni && optiuni.timeout) || 0)
+            });
+            return await pozitieOData(dinNou);
+        }
+        throw primaEroare;
+    }
+}
+
 function cereLocatie() {
     var err = document.getElementById('wEroare');
     var btn = document.getElementById('wLocatieTxt');
+    var buton = document.getElementById('wLocatie');
     if (!navigator.geolocation) {
         err.textContent = T('locNesuportat');
         return;
     }
+    if (buton && buton.disabled) return;
+    if (buton) {
+        buton.disabled = true;
+        buton.setAttribute('aria-busy', 'true');
+    }
+    err.textContent = '';
     btn.textContent = T('seCauta');
-    navigator.geolocation.getCurrentPosition(function(pos) {
+    pozitieCuReincercare({ timeout: 20000, maximumAge: 600000, enableHighAccuracy: false }).then(function(pos) {
         // aflăm numele localității din coordonate
-        fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+        return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
               pos.coords.latitude + '&longitude=' + pos.coords.longitude + '&localityLanguage=ro')
             .then(function(r) { return r.json(); })
             .then(function(g) {
@@ -6157,11 +6204,15 @@ function cereLocatie() {
                                  lat: pos.coords.latitude, lon: pos.coords.longitude });
                 ascundeWelcome();
             });
-    }, function() {
+    }).catch(function(e) {
+        if (buton) {
+            buton.disabled = false;
+            buton.removeAttribute('aria-busy');
+        }
         btn.textContent = T('folosesteLocatia');
-        err.textContent = T('locRefuzat');
+        err.textContent = e && e.code === 1 ? T('locRefuzat') : T('locIndisponibila');
         document.getElementById('wCauta').focus();
-    }, { timeout: 12000, maximumAge: 600000 });
+    });
 }
 
 // căutare oraș în ecranul de întâmpinare
