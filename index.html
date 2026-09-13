@@ -6122,6 +6122,43 @@ var LOC = {
     nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița',
     lat: 44.9266, lon: 25.4566
 };
+var _widgetChooserId = '';
+
+function actiuneWidgetDinUrl() {
+    var params = new URLSearchParams(location.search);
+    var widgetId = params.get('widgetId') || '';
+    if (params.get('widgetChoose') === '1' && /^\d{1,10}$/.test(widgetId)) {
+        _widgetChooserId = widgetId;
+    }
+
+    var ceruta = null;
+    if (params.get('widgetOpen') === '1') {
+        var lat = Number(params.get('widgetLat'));
+        var lon = Number(params.get('widgetLon'));
+        var nume = (params.get('widgetCity') || '').trim();
+        if (nume && isFinite(lat) && isFinite(lon)
+                && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+            ceruta = {
+                nume: nume.slice(0, 60),
+                admin: (params.get('widgetAdmin') || '').slice(0, 60),
+                tara: (params.get('widgetCountry') || '').slice(0, 3).toUpperCase(),
+                lat: lat, lon: lon
+            };
+        }
+    }
+
+    var chei = ['widgetOpen', 'widgetCity', 'widgetAdmin', 'widgetCountry',
+                'widgetLat', 'widgetLon', 'widgetChoose', 'widgetId'];
+    var schimbat = false;
+    chei.forEach(function(cheie) {
+        if (params.has(cheie)) { params.delete(cheie); schimbat = true; }
+    });
+    if (schimbat) {
+        var curat = location.pathname + (params.toString() ? '?' + params.toString() : '') + location.hash;
+        try { history.replaceState(null, '', curat); } catch (e) {}
+    }
+    return ceruta;
+}
 
 function esteRomania() { return (LOC.tara || '').toUpperCase() === 'RO'; }
 function esteTargoviste() {
@@ -6844,10 +6881,17 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
 // Ulterior, locația se schimbă din panoul de sub săgeata din bara de sus.
 (function porneste() {
     aplicaLimba(LANG);
-    if (incarcaLoc() && LOC.lat != null) {
+    var dinWidget = actiuneWidgetDinUrl();
+    if (dinWidget) {
+        seteazaLocatie(dinWidget, false);
+        try { window.scrollTo({ top: 0 }); } catch (e) {}
+    } else if (incarcaLoc() && LOC.lat != null) {
         seteazaLocatie(LOC, false);
     } else {
         setTimeout(aratăWelcome, 900);      // după splash, doar prima dată
+    }
+    if (_widgetChooserId) {
+        setTimeout(function() { mobDeschideFoaie('orase'); }, 650);
     }
 })();
 
@@ -9311,6 +9355,22 @@ function mobDeschideFoaie(care) {
 }
 
 /* ══ LISTA DE ORAȘE ══ */
+function trimiteOrasCatreWidget(loc) {
+    if (!_widgetChooserId || !loc) return false;
+    var widgetId = _widgetChooserId;
+    _widgetChooserId = '';
+    var q = new URLSearchParams();
+    q.set('widgetId', widgetId);
+    q.set('city', loc.nume || loc.name || 'Locația mea');
+    q.set('admin', loc.admin || loc.admin1 || '');
+    q.set('country', (loc.tara || loc.country_code || '').toUpperCase());
+    q.set('lat', String(loc.lat != null ? loc.lat : loc.latitude));
+    q.set('lon', String(loc.lon != null ? loc.lon : loc.longitude));
+    location.href = 'intent://widget-city?' + q.toString() +
+        '#Intent;scheme=meteonow;package=com.onrender.meteo_targoviste.twa;end';
+    return true;
+}
+
 function mobLocalizeazaOras() {
     var btn = document.getElementById('moLocalizeaza');
     var stare = document.getElementById('moLocStare');
@@ -9341,6 +9401,7 @@ function mobLocalizeazaOras() {
                 lat: lat, lon: lon
             };
             adaugaOras(loc);
+            if (trimiteOrasCatreWidget(loc)) return;
             seteazaLocatie(loc);
             mobPuncte();
             mobInchideFoaie();
@@ -9359,7 +9420,10 @@ function mobLocalizeazaOras() {
 
 function mobFoaieOrase() {
     var titlu = document.getElementById('mfTitlu');
-    titlu.innerHTML = '<span>' + T('oraseleMele') + '</span>' +
+    var titluOrase = _widgetChooserId
+        ? (LANG === 'en' ? 'Choose for the widget' : 'Alege pentru widget')
+        : T('oraseleMele');
+    titlu.innerHTML = '<span>' + titluOrase + '</span>' +
         '<button type="button" class="mo-localizeaza" id="moLocalizeaza" title="' + T('folosesteLocatia') +
         '" aria-label="' + T('folosesteLocatia') + '">' +
         '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
@@ -9398,7 +9462,10 @@ function mobFoaieOrase() {
         el.addEventListener('click', function(e) {
             if (e.target.hasAttribute('data-sterge')) return;
             var o = oraseSalvate()[+el.getAttribute('data-i')];
-            if (o) { seteazaLocatie(o); mobInchideFoaie(); window.scrollTo({ top: 0 }); }
+            if (o) {
+                if (trimiteOrasCatreWidget(o)) return;
+                seteazaLocatie(o); mobInchideFoaie(); window.scrollTo({ top: 0 });
+            }
         });
     });
     Array.prototype.forEach.call(document.querySelectorAll('#mfContinut [data-sterge]'), function(b) {
@@ -9468,6 +9535,7 @@ function mobFoaieOrase() {
                             var x = g[+el.getAttribute('data-g')];
                             var loc = { nume: x.name, tara: x.country_code, admin: x.admin1, lat: x.latitude, lon: x.longitude };
                             adaugaOras(loc);
+                            if (trimiteOrasCatreWidget(loc)) return;
                             seteazaLocatie(loc);
                             mobInchideFoaie();
                             window.scrollTo({ top: 0 });
@@ -9488,6 +9556,7 @@ function mobInchideFoaie() {
             delete _mobHarti.mfHartaAnm;
         }
     } catch (e) {}
+    _widgetChooserId = '';
     deblocheazaFundal();
 }
 
