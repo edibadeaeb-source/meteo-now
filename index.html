@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.5">
+    <meta name="application-version" content="2026.09.13.6">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -5411,7 +5411,7 @@ function stareNotificariAndroid() {
 function cereStareNotificariAndroid(actiune) {
     try {
         sessionStorage.setItem('meteo-native-inflight', actiune || 'status');
-        sessionStorage.setItem('meteo-redeschide-setari', '1');
+
     } catch (e) {}
     location.href = 'meteonow://notifications/' + (actiune || 'status');
 }
@@ -5625,6 +5625,43 @@ async function sincronizeazaPush(discret, stareFortata) {
     }
 }
 
+async function revalideazaAbonamentAndroid(cereActivare) {
+    var el = document.getElementById('setPush');
+    if (!el) return false;
+    el.disabled = true;
+
+    try {
+        var reg = await navigator.serviceWorker.ready;
+        var existent = await reg.pushManager.getSubscription();
+        if (!cereActivare && !existent) {
+            el.checked = false;
+            el.disabled = false;
+            return false;
+        }
+
+        if (existent) await pushUnsubscribe();
+        var ok = await pushSubscribe(true);
+        el.checked = ok === true;
+        if (ok === true) {
+            try { sessionStorage.setItem('meteo-android-notifications', 'granted'); } catch (e) {}
+        }
+        el.disabled = false;
+        return ok === true;
+    } catch (e) {
+        var msg = String(e && (e.name + ' ' + e.message) || e);
+        el.checked = false;
+        if (/denied|permission|NotAllowedError/i.test(msg)) {
+            try { sessionStorage.setItem('meteo-android-notifications', 'denied'); } catch (ignorat) {}
+            pushNote('Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
+        } else {
+            pushNote('Permisiunea a fost verificată, dar abonarea nu a reușit: ' +
+                     String(e && e.message || e), 'var(--red)');
+        }
+        el.disabled = false;
+        return false;
+    }
+}
+
 (function initPush() {
     var el = document.getElementById('setPush');
     if (!el) return;
@@ -5640,38 +5677,17 @@ async function sincronizeazaPush(discret, stareFortata) {
         el.checked = false;
         stopLocalAlerts();
         pushNote('Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
-    } else if (esteAplicatiaAndroid() &&
-               rezultatNativ === 'granted' &&
-               PUSH_ANDROID.actiune === 'request') {
-        el.disabled = true;
-        setTimeout(async function() {
-            try {
-                el.checked = (await pushSubscribe(true)) === true;
-            } catch (e) {
-                el.checked = false;
-                pushNote('Permisiunea Android este activă, dar abonarea nu a reușit: ' +
-                         String(e && e.message || e), 'var(--red)');
-            }
-            el.disabled = false;
-        }, 350);
     } else {
         sincronizeazaPush(true, rezultatNativ);
     }
 
-    try {
-        if (sessionStorage.getItem('meteo-redeschide-setari') === '1') {
-            sessionStorage.removeItem('meteo-redeschide-setari');
-            setTimeout(function() {
-                if (!document.getElementById('settingsSheet').classList.contains('open')) {
-                    deschideSetari();
-                }
-            }, 700);
-        }
-    } catch (e) {}
-
     el.addEventListener('change', async function() {
         if (el.checked && esteAplicatiaAndroid()) {
             el.checked = false;
+            el.disabled = true;
+            stopLocalAlerts();
+            await pushUnsubscribe();
+            el.disabled = false;
             pushSubscribe(false);
             return;
         }
@@ -5716,12 +5732,23 @@ async function sincronizeazaPush(discret, stareFortata) {
             pushNote('Se verifică permisiunea Android pentru METEO NOW…');
             return;
         }
+
         if (!document.hidden && setariAscunse) {
             setariAscunse = false;
             var inCurs = '';
-            try { inCurs = sessionStorage.getItem('meteo-native-inflight') || ''; } catch (e) {}
-            if (!inCurs) {
-                setTimeout(function() { cereStareNotificariAndroid('status'); }, 150);
+            try {
+                inCurs = sessionStorage.getItem('meteo-native-inflight') || '';
+                if (inCurs) sessionStorage.removeItem('meteo-native-inflight');
+            } catch (e) {}
+
+            if (inCurs) {
+                setTimeout(function() {
+                    revalideazaAbonamentAndroid(inCurs === 'request');
+                }, 300);
+            } else {
+                setTimeout(function() {
+                    cereStareNotificariAndroid('status');
+                }, 150);
             }
         }
     });
