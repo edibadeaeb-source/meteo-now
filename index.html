@@ -3380,9 +3380,9 @@ function getAppWeatherSnapshot() {
     baza.actualizat_in_aplicatie = cache && cache.t ? new Date(cache.t).toISOString() : new Date().toISOString();
     baza.moment_date_curente = c.time || null;
     baza.curent = {
-        temperatura: fT(c.temperature_2m, 1),
+        temperatura: fT(c.temperature_2m, 0),
         temperatura_c: c.temperature_2m,
-        resimtita: fT(c.apparent_temperature, 1),
+        resimtita: fT(c.apparent_temperature, 0),
         stare: wmoText(c.weather_code), cod_wmo: c.weather_code,
         umiditate_procente: c.relative_humidity_2m,
         presiune_hpa: c.surface_pressure,
@@ -3395,8 +3395,8 @@ function getAppWeatherSnapshot() {
     };
     baza.azi = {
         data: zi.time && zi.time[0],
-        minima: zi.temperature_2m_min && fT(zi.temperature_2m_min[0], 1),
-        maxima: zi.temperature_2m_max && fT(zi.temperature_2m_max[0], 1),
+        minima: zi.temperature_2m_min && fT(zi.temperature_2m_min[0], 0),
+        maxima: zi.temperature_2m_max && fT(zi.temperature_2m_max[0], 0),
         cod_wmo: zi.weather_code && zi.weather_code[0],
         rasarit: zi.sunrise && zi.sunrise[0], apus: zi.sunset && zi.sunset[0],
         precipitatii_total_mm: zi.precipitation_sum && zi.precipitation_sum[0],
@@ -3411,7 +3411,7 @@ function getAppWeatherSnapshot() {
     baza.prognoza_ore = [];
     for (var h = start; h < Math.min(start + 12, o.time.length); h++) {
         baza.prognoza_ore.push({
-            moment: o.time[h], temperatura: fT(o.temperature_2m[h], 1),
+            moment: o.time[h], temperatura: fT(o.temperature_2m[h], 0),
             stare: wmoText(o.weather_code[h]),
             probabilitate_precipitatii_procente: o.precipitation_probability[h],
             precipitatii_mm: o.precipitation[h], vant_kmh: o.wind_speed_10m[h],
@@ -3421,7 +3421,7 @@ function getAppWeatherSnapshot() {
     baza.prognoza_zile = [];
     for (var z = 0; z < Math.min(10, zi.time.length); z++) {
         baza.prognoza_zile.push({
-            data: zi.time[z], minima: fT(zi.temperature_2m_min[z], 1), maxima: fT(zi.temperature_2m_max[z], 1),
+            data: zi.time[z], minima: fT(zi.temperature_2m_min[z], 0), maxima: fT(zi.temperature_2m_max[z], 0),
             stare: wmoText(zi.weather_code[z]), precipitatii_mm: zi.precipitation_sum[z],
             probabilitate_maxima_precipitatii_procente: zi.precipitation_probability_max[z],
             vant_maxim_kmh: zi.wind_speed_10m_max[z], rafale_maxime_kmh: zi.wind_gusts_10m_max[z]
@@ -3449,7 +3449,7 @@ function getAppWeatherSnapshot() {
         antet: [textSimplu('mbOras', 100), textSimplu('mbTara', 120), textSimplu('mbTemp', 40) + UNIT,
                 textSimplu('mbStare', 180), textSimplu('mbMm', 160)].filter(Boolean).join(' · '),
         continut: textSimplu('mbContinut', 16000),
-        detalii_deschise: textSimplu('mfContinut', 8000)
+        detalii_deschise: (document.getElementById('mobFoaie') || {}).classList && document.getElementById('mobFoaie').classList.contains('deschis') ? textSimplu('mfContinut', 8000) : ''
     };
     // Compatibilitate cu serverele vechi în timpul unui deploy fără întrerupere.
     baza.temperatura = baza.curent.temperatura;
@@ -6651,7 +6651,8 @@ function actualizeazaChat() {
 var _ccUltimaLoc = null;
 var _ccDate = null;          // rezultatul calculat (în °C) — refolosit la schimbarea unității/limbii
 
-var _ccInCurs = false;          // o singură cerere odată, nu zece în paralel
+var _ccInCurs = false;          // o singură cerere pentru locația curentă
+var _ccCerereId = 0, _ccCerereLoc = null;
 var _ccEsuatLa = 0;             // când a picat ultima încercare
 
 /* ══════════════════════════════════════════════════════════════
@@ -6661,21 +6662,22 @@ var _ccEsuatLa = 0;             // când a picat ultima încercare
    Îi ținem pe telefon, pe locație și pe zi. La următoarele deschideri
    cardul apare instant, iar din rețea se ia doar maxima de azi.
    ══════════════════════════════════════════════════════════════ */
-function ccCheie(fel) {
+function ccCheie(fel, loc) {
+    loc = loc || LOC;
     var azi = new Date();
     var mmdd = ('0' + (azi.getMonth() + 1)).slice(-2) + '-' + ('0' + azi.getDate()).slice(-2);
-    return 'cc-' + fel + ':' + LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2) + ':' + mmdd;
+    return 'cc-' + fel + ':' + (+loc.lat).toFixed(2) + ',' + (+loc.lon).toFixed(2) + ':' + mmdd;
 }
-function ccCitesteCache(fel, valabilZile) {
+function ccCitesteCache(fel, valabilZile, loc) {
     try {
-        var v = JSON.parse(localStorage.getItem(ccCheie(fel)) || 'null');
+        var v = JSON.parse(localStorage.getItem(ccCheie(fel, loc)) || 'null');
         if (!v || !v.t) return null;
         if (Date.now() - v.t > valabilZile * 86400000) return null;
         return v.d;
     } catch (e) { return null; }
 }
-function ccScrieCache(fel, date) {
-    try { localStorage.setItem(ccCheie(fel), JSON.stringify({ t: Date.now(), d: date })); }
+function ccScrieCache(fel, date, loc) {
+    try { localStorage.setItem(ccCheie(fel, loc), JSON.stringify({ t: Date.now(), d: date })); }
     catch (e) {}   // memorie plină sau mod privat — mergem mai departe fără cache
 }
 function ccFetchJSON(url, limitaMs) {
@@ -6690,16 +6692,18 @@ function ccFetchJSON(url, limitaMs) {
 }
 
 function analizeazaZiua() {
-    var cheie = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
-    if (_ccUltimaLoc === cheie && _ccDate) {     // aceeași locație → doar redesenăm
+    var locAnaliza = { lat: +LOC.lat, lon: +LOC.lon, tz: LOC.tz || '' };
+    var cheie = locAnaliza.lat.toFixed(2) + ',' + locAnaliza.lon.toFixed(2);
+    if (_ccUltimaLoc === cheie && _ccDate) {
         deseneazaAnaliza(_ccDate);
         return;
     }
-    if (_ccInCurs) return;                       // deja se aduce; nu pornim alta
+    if (_ccInCurs && _ccCerereLoc === cheie) return;
 
     // 1) rezultatul de azi, dacă l-am calculat deja în ziua asta
-    var gata = ccCitesteCache('zi', 1);
+    var gata = ccCitesteCache('zi', 1, locAnaliza);
     if (gata) {
+        ++_ccCerereId; _ccInCurs = false; _ccCerereLoc = null;
         _ccUltimaLoc = cheie; _ccDate = gata;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: gata.abatere }); } catch (e) {}
@@ -6707,7 +6711,10 @@ function analizeazaZiua() {
         return;
     }
 
-    _ccUltimaLoc = cheie;
+    var idCerere = ++_ccCerereId;
+    _ccCerereLoc = cheie;
+    _ccUltimaLoc = null;
+    _ccDate = null;
     _ccInCurs = true;
     var corp = document.getElementById('ccCorp');
     if (corp) corp.innerHTML = '<div class="cc-loading">' + T('ccIncarca') + '</div>';
@@ -6724,24 +6731,31 @@ function analizeazaZiua() {
        Open-Meteo, pentru toți utilizatorii, și îl ține pe disc. Înainte îl
        cerea fiecare telefon în parte — o cerere pe 30 de ani e foarte grea
        și epuiza cota zilnică gratuită pentru toată lumea. */
-    var ist = ccCitesteCache('ist', 180);
+    var ist = ccCitesteCache('ist', 180, locAnaliza);
     var prinServer = location.protocol.indexOf('http') === 0;
     var cereIstoric;
     if (ist) {
         cereIstoric = Promise.resolve(null);
     } else if (prinServer) {
-        cereIstoric = ccFetchJSON('api/clima?lat=' + LOC.lat.toFixed(4) + '&lon=' + LOC.lon.toFixed(4), 45000)
+        cereIstoric = ccFetchJSON('api/clima?lat=' + locAnaliza.lat.toFixed(4) + '&lon=' + locAnaliza.lon.toFixed(4), 45000)
             .then(function(j) { return { _valori: j.valori }; });
     } else {
-        cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+        cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat + '&longitude=' + LOC.lon +
                 '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
                 '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); });
     }
 
-    var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + LOC.lat + '&longitude=' + LOC.lon +
+    var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + locAnaliza.lat + '&longitude=' + LOC.lon +
               '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto').then(function(r) { return r.json(); });
 
     Promise.all([cereIstoric, cereAzi]).then(function(res) {
+        var cheieCurenta = (+LOC.lat).toFixed(2) + ',' + (+LOC.lon).toFixed(2);
+        if (idCerere !== _ccCerereId) return;
+        if (cheie !== cheieCurenta) {
+            _ccInCurs = false; _ccCerereLoc = null;
+            setTimeout(analizeazaZiua, 0);
+            return;
+        }
         var azi_ = res[1].daily;
         if (!azi_ || !azi_.temperature_2m_max) throw new Error('date lipsă pentru azi');
 
@@ -6759,7 +6773,7 @@ function analizeazaZiua() {
                 }
             }
             if (!ist || ist.length < 5) throw new Error('prea puține date');
-            ccScrieCache('ist', ist);
+            ccScrieCache('ist', ist, locAnaliza);
         }
 
         var maxAzi = azi_.temperature_2m_max[0];
@@ -6780,14 +6794,18 @@ function analizeazaZiua() {
             recordCald: recordCald, recordRece: recordRece,
             anStart: ist[0].an, anEnd: ist[ist.length - 1].an, mmdd: mmdd
         };
-        ccScrieCache('zi', _ccDate);
-        _ccInCurs = false;
+        ccScrieCache('zi', _ccDate, locAnaliza);
+        _ccInCurs = false; _ccCerereLoc = null;
+        _ccUltimaLoc = cheie;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
         try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
     }).catch(function(e) {
-        _ccInCurs = false;
+        if (idCerere !== _ccCerereId) return;
+        var cheieCurenta = (+LOC.lat).toFixed(2) + ',' + (+LOC.lon).toFixed(2);
+        _ccInCurs = false; _ccCerereLoc = null;
         _ccUltimaLoc = null;
+        if (cheie !== cheieCurenta) { setTimeout(analizeazaZiua, 0); return; }
         /* Pauză înainte de o nouă încercare. Fără ea intram în buclă:
            cardul cerea datele, cererea pica, pagina se redesena, cardul
            cerea din nou — și tot așa, cu clipit cu tot. */
@@ -8339,7 +8357,7 @@ function mobAntet() {
     document.getElementById('mbTemp').innerHTML = Math.round(cv(c.temperature_2m)) + '<sup>°</sup>';
     document.getElementById('mbStare').textContent = wmoText(c.weather_code);
     document.getElementById('mbMm').textContent =
-        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[0], 0, true) + '  ' +
+        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[0], 0, true) + ' · ' +
         T('minScurt') + ': ' + fT(zi.temperature_2m_min[0], 0, true);
     document.getElementById('mbBaraOras').textContent = LOC.nume || '';
     document.getElementById('mbBaraSub').textContent = Math.round(cv(c.temperature_2m)) + '° | ' + wmoText(c.weather_code);
@@ -8469,7 +8487,7 @@ function mobCardClima() {
     /* Cardul rămâne MEREU pe pagină. Înainte dispărea de tot cât timp se
        aduceau cei 30 de ani de arhivă — și dacă apelul întârzia sau pica,
        nu mai revenea deloc. Acum arată că se încarcă și cere singur datele. */
-    if (typeof _ccDate === 'undefined' || !_ccDate) {
+    if (typeof _ccDate === 'undefined' || !_ccDate || _ccUltimaLoc !== LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2)) {
         // cerem datele o singură dată; `_ccInCurs` oprește cererile paralele,
         // iar după un eșec așteptăm 3 minute înainte de o nouă încercare
         if (!_ccInCurs && Date.now() - _ccEsuatLa > 180000) {
@@ -9065,7 +9083,7 @@ function mobGrila() {
     var uvEt = uv <= 2 ? T('uvScazut') : uv <= 5 ? T('uvModerat') : uv <= 7 ? T('uvRidicat') : uv <= 10 ? T('uvFoarteRidicat') : T('uvExtrem');
     var viz = null;
     try { viz = o.visibility[Math.max(0, ora_curenta_index())] / 1000; } catch (e) {}
-    var rez = (typeof _ccDate !== 'undefined' && _ccDate) ? _ccDate : null;
+    var rez = (typeof _ccDate !== 'undefined' && _ccDate && _ccUltimaLoc === LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2)) ? _ccDate : null;
 
     function mic(ico, cap, val, sub, nota) {
         return '<div class="mb-card"><div class="mb-cap"><span class="mbc-ico">' + ico + '</span><span>' + cap + '</span></div>' +

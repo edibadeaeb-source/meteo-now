@@ -22,7 +22,7 @@ function between(a, b) {
   eval(between('function mobAntet()', '/* ══ BANDA PE ORE'));
   mobAntet();
   assert.strictEqual(els.mbTemp.innerHTML, '12<sup>°</sup>');
-  assert.strictEqual(els.mbMm.textContent, 'Max: 19°  Min: 8°');
+  assert.strictEqual(els.mbMm.textContent, 'Max: 19° · Min: 8°');
   assert(!els.mbMm.textContent.includes('°°'));
 }
 
@@ -71,9 +71,33 @@ function between(a, b) {
   const snap=getAppWeatherSnapshot();
   assert.strictEqual(snap.localitate.nume,'New York City');
   assert.strictEqual(snap.curent.temperatura_c,12.3);
-  assert.strictEqual(snap.azi.maxima,'31.0°C');
+  assert.strictEqual(snap.azi.maxima,'31°C');
   assert.notStrictEqual(snap.curent.temperatura,snap.azi.maxima);
 }
 
 assert(html.includes("Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k]))"));
 console.log('mobile regressions: ok');
+
+
+// A slow climate response from the previous city cannot overwrite the current city.
+(async function climateRaceRegression() {
+  var LOC={lat:44.93,lon:25.46,tz:'Europe/Bucharest'}, location={protocol:'https:'};
+  var document={getElementById:()=>null};
+  var localStorage={_m:{},getItem(k){return this._m[k]||null},setItem(k,v){this._m[k]=v}};
+  var T=k=>k, actualizeazaContext=()=>{}, mobActualizeazaClima=()=>{}, deseneazaAnaliza=()=>{};
+  const pending=[];
+  var fetch=()=>new Promise(resolve=>pending.push(data=>resolve({ok:true,json:()=>Promise.resolve(data)})));
+  eval(between('var _ccUltimaLoc = null;', 'function deseneazaAnaliza(d)'));
+  analizeazaZiua();
+  LOC={lat:40.71,lon:-74.01,tz:'America/New_York'};
+  analizeazaZiua();
+  const histB={valori:Array.from({length:6},(_,i)=>({an:2020+i,max:20+i,min:8+i}))};
+  pending[2](histB); pending[3]({daily:{temperature_2m_max:[31],temperature_2m_min:[18]}});
+  await new Promise(r=>setTimeout(r,0)); await new Promise(r=>setTimeout(r,0));
+  const histA={valori:Array.from({length:6},(_,i)=>({an:2020+i,max:10+i,min:1+i}))};
+  pending[0](histA); pending[1]({daily:{temperature_2m_max:[14],temperature_2m_min:[4]}});
+  await new Promise(r=>setTimeout(r,0)); await new Promise(r=>setTimeout(r,0));
+  assert.strictEqual(_ccUltimaLoc,'40.71,-74.01');
+  assert.strictEqual(_ccDate.maxAzi,31);
+  console.log('climate race regression: ok');
+})().catch(e=>{ console.error(e); process.exitCode=1; });
