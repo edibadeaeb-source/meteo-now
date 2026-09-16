@@ -3333,6 +3333,132 @@ function getCurrentSensorContext() {
     };
 }
 
+function textSimplu(id, limita) {
+    var el = document.getElementById(id);
+    if (!el || !el.isConnected) return '';
+    return String(el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, limita || 2000);
+}
+
+/* Snapshotul este construit din exact aceleași obiecte din care se desenează
+   interfața mobilă. Astfel AI-ul nu mai citește panoul desktop ascuns și nu
+   poate amesteca Târgoviște, București sau New York. */
+function getAppWeatherSnapshot() {
+    var loc = {
+        nume: LOC.nume, admin: LOC.admin, tara: LOC.tara,
+        lat: +LOC.lat, lon: +LOC.lon, fus_orar: LOC.tz || ''
+    };
+    var baza = {
+        schema: 2,
+        localitate: loc,
+        limba: LANG,
+        unitate_temperatura: '°' + UNIT,
+        mod_interfata: esteMobil() ? 'mobil' : 'desktop'
+    };
+    var d = (esteMobil() && typeof mobDatePentruLoc === 'function') ? mobDatePentruLoc(LOC) : null;
+    if (!d || !d.current || !d.daily || !d.hourly) {
+        if (!esteMobil()) {
+            var tempDesktop = document.querySelector('#weatherInfo .hero-temp');
+            var detDesktop = document.querySelector('#weatherInfo .hero-extra');
+            baza.stare_date = tempDesktop ? 'disponibile' : 'se_incarca';
+            baza.temperatura = tempDesktop ? tempDesktop.innerText.replace(/\s+/g, ' ').trim() : null;
+            baza.detalii = detDesktop ? detDesktop.innerText.replace(/\s+/g, ' ').trim() : null;
+            baza.rasarit = textSimplu('sunriseVal', 80);
+            baza.apus = textSimplu('sunsetVal', 80);
+            baza.fazaLunii = textSimplu('moonName', 100);
+            baza.afisaj = { continut: textSimplu('weatherInfo', 3000) };
+        } else {
+            baza.stare_date = 'se_incarca';
+            baza.afisaj = { antet: textSimplu('mbHero', 1000) };
+        }
+        return baza;
+    }
+
+    var c = d.current, zi = d.daily, o = d.hourly;
+    var cache = _mobCache[mobCheieLoc(LOC)];
+    baza.stare_date = 'disponibile';
+    baza.sursa = 'Open-Meteo current conditions + prognoza';
+    baza.actualizat_in_aplicatie = cache && cache.t ? new Date(cache.t).toISOString() : new Date().toISOString();
+    baza.moment_date_curente = c.time || null;
+    baza.curent = {
+        temperatura: fT(c.temperature_2m, 1),
+        temperatura_c: c.temperature_2m,
+        resimtita: fT(c.apparent_temperature, 1),
+        stare: wmoText(c.weather_code), cod_wmo: c.weather_code,
+        umiditate_procente: c.relative_humidity_2m,
+        presiune_hpa: c.surface_pressure,
+        precipitatii_mm: c.precipitation,
+        vant_kmh: c.wind_speed_10m,
+        rafale_kmh: c.wind_gusts_10m,
+        directie_vant_grade: c.wind_direction_10m,
+        indice_uv: c.uv_index,
+        este_zi: c.is_day === 1
+    };
+    baza.azi = {
+        data: zi.time && zi.time[0],
+        minima: zi.temperature_2m_min && fT(zi.temperature_2m_min[0], 1),
+        maxima: zi.temperature_2m_max && fT(zi.temperature_2m_max[0], 1),
+        cod_wmo: zi.weather_code && zi.weather_code[0],
+        rasarit: zi.sunrise && zi.sunrise[0], apus: zi.sunset && zi.sunset[0],
+        precipitatii_total_mm: zi.precipitation_sum && zi.precipitation_sum[0],
+        probabilitate_maxima_precipitatii_procente: zi.precipitation_probability_max && zi.precipitation_probability_max[0],
+        indice_uv_maxim: zi.uv_index_max && zi.uv_index_max[0]
+    };
+
+    var start = 0, acum = mobAcumLocal();
+    for (var i = 0; i < o.time.length; i++) {
+        if (mobDinIso(o.time[i]) >= acum) { start = i; break; }
+    }
+    baza.prognoza_ore = [];
+    for (var h = start; h < Math.min(start + 12, o.time.length); h++) {
+        baza.prognoza_ore.push({
+            moment: o.time[h], temperatura: fT(o.temperature_2m[h], 1),
+            stare: wmoText(o.weather_code[h]),
+            probabilitate_precipitatii_procente: o.precipitation_probability[h],
+            precipitatii_mm: o.precipitation[h], vant_kmh: o.wind_speed_10m[h],
+            rafale_kmh: o.wind_gusts_10m[h], vizibilitate_km: o.visibility[h] == null ? null : +(o.visibility[h] / 1000).toFixed(1)
+        });
+    }
+    baza.prognoza_zile = [];
+    for (var z = 0; z < Math.min(10, zi.time.length); z++) {
+        baza.prognoza_zile.push({
+            data: zi.time[z], minima: fT(zi.temperature_2m_min[z], 1), maxima: fT(zi.temperature_2m_max[z], 1),
+            stare: wmoText(zi.weather_code[z]), precipitatii_mm: zi.precipitation_sum[z],
+            probabilitate_maxima_precipitatii_procente: zi.precipitation_probability_max[z],
+            vant_maxim_kmh: zi.wind_speed_10m_max[z], rafale_maxime_kmh: zi.wind_gusts_10m_max[z]
+        });
+    }
+
+    if (esteRomania()) {
+        baza.avertizari_anm = (window._anmWarns || []).slice(0, 20).map(function(w) {
+            var det = anmDetalii(w);
+            return { nivel: nivelAvert(w), tip: w.numeTipMesaj || '', fenomene: det.fenomene,
+                     interval: det.interval, zone: String(det.zone || det.rezumat || '').slice(0, 1800) };
+        });
+    } else baza.avertizari_anm = 'nu se aplica in afara Romaniei';
+
+    var cheieClima = LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
+    if (typeof _ccDate !== 'undefined' && _ccDate && _ccUltimaLoc === cheieClima) baza.analiza_climatica = _ccDate;
+    baza.luna_afisata = {
+        faza: textSimplu('mlFaza', 120), data: textSimplu('mlData', 160), iluminare: textSimplu('mlIlum', 80),
+        rasarit: textSimplu('mlRas', 80), apus: textSimplu('mlApus', 80),
+        urmatoarea_luna_plina: textSimplu('mlPlina', 120), distanta: textSimplu('mlDist', 100)
+    };
+    var spatiu = document.querySelector('.space-card');
+    baza.vreme_spatiala_afisata = spatiu ? String(spatiu.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 2500) : '';
+    baza.afisaj = {
+        antet: [textSimplu('mbOras', 100), textSimplu('mbTara', 120), textSimplu('mbTemp', 40) + UNIT,
+                textSimplu('mbStare', 180), textSimplu('mbMm', 160)].filter(Boolean).join(' · '),
+        continut: textSimplu('mbContinut', 16000),
+        detalii_deschise: textSimplu('mfContinut', 8000)
+    };
+    // Compatibilitate cu serverele vechi în timpul unui deploy fără întrerupere.
+    baza.temperatura = baza.curent.temperatura;
+    baza.detalii = baza.curent.stare + ' · umiditate ' + c.relative_humidity_2m + '% · vânt ' + c.wind_speed_10m + ' km/h';
+    baza.rasarit = mobOra(zi.sunrise[0]); baza.apus = mobOra(zi.sunset[0]);
+    baza.fazaLunii = baza.luna_afisata.faza;
+    return baza;
+}
+
 function sendChatMessage(text) {
     if (!text || !text.trim()) return;
     addMessage(text, true);
@@ -3346,19 +3472,8 @@ function sendChatMessage(text) {
 
     var context = getCurrentSensorContext();
 
-    // vremea afișată acum pentru locația aleasă (ca asistentul să știe despre ce vorbește)
-    var vremeaAcum = {};
-    try {
-        var t = document.querySelector('#weatherInfo .hero-temp');
-        var ex = document.querySelector('#weatherInfo .hero-extra');
-        vremeaAcum = {
-            temperatura: t ? t.innerText.replace(/\s+/g, ' ').trim() : null,
-            detalii: ex ? ex.innerText.replace(/\s+/g, ' ').trim() : null,
-            rasarit: (document.getElementById('sunriseVal') || {}).innerText,
-            apus: (document.getElementById('sunsetVal') || {}).innerText,
-            fazaLunii: (document.getElementById('moonName') || {}).innerText
-        };
-    } catch (e) {}
+    // Snapshot coerent cu orașul și valorile afișate acum în aplicație.
+    var vremeaAcum = getAppWeatherSnapshot();
 
     fetch('/ask', {
         method: 'POST',
@@ -3370,7 +3485,7 @@ function sendChatMessage(text) {
             lang: LANG,
             locatie: {
                 nume: LOC.nume, tara: LOC.tara, admin: LOC.admin,
-                lat: LOC.lat, lon: LOC.lon,
+                lat: LOC.lat, lon: LOC.lon, tz: LOC.tz || '',
                 areStatiiProprii: (typeof esteTargoviste === 'function') ? esteTargoviste() : false,
                 inRomania: (typeof esteRomania === 'function') ? esteRomania() : false
             },
@@ -6209,7 +6324,17 @@ function seteazaLocatie(loc, reincarca) {
     });
     var mbTemp = document.getElementById('mbTemp');
     if (mbTemp && typeof mobDateDinCache === 'function' && !mobDateDinCache(LOC)) {
+        _mobDateCheie = '';
         mbTemp.innerHTML = '…<sup>°</sup>';
+        var stare = document.getElementById('mbStare');
+        var mm = document.getElementById('mbMm');
+        var baraSub = document.getElementById('mbBaraSub');
+        if (stare) stare.textContent = T('seIncarca');
+        if (mm) mm.textContent = '';
+        if (baraSub) baraSub.textContent = T('seIncarca');
+        try { mobDetaseazaHarti(); } catch (e) {}
+        var continut = document.getElementById('mbContinut');
+        if (continut) continut.innerHTML = '<div class="mb-card" aria-busy="true"><div class="mb-nota">' + T('seIncarca') + '</div></div>';
     }
     document.title = 'METEO NOW · ' + LOC.nume;
 
@@ -7782,6 +7907,7 @@ input, textarea, select, [contenteditable="true"] {
    se ia din ce încarcă deja aplicația.
    ══════════════════════════════════════════════════════════════════ */
 var MOBD = null;            // datele de la Open-Meteo
+var _mobDateCheie = '';     // coordonatele cărora le aparțin datele din MOBD
 if (typeof _ccEsuatLa === 'undefined') { var _ccEsuatLa = 0; }
 var _mobOraMod = 'temp';    // temp | precip | vant
 var _mobHarti = {};
@@ -7915,7 +8041,11 @@ function mobUrl(loc) {
 }
 function mobDateDinCache(loc) {
     var x = _mobCache[mobCheieLoc(loc)];
-    return x && Date.now() - x.t < 10 * 60 * 1000 ? x.d : null;
+    return x && Date.now() - x.t < 5 * 60 * 1000 ? x.d : null;
+}
+function mobDatePentruLoc(loc) {
+    loc = loc || LOC;
+    return MOBD && _mobDateCheie === mobCheieLoc(loc) ? MOBD : null;
 }
 function mobPuneCache(loc, d) {
     if (d && d.current && d.hourly && d.daily) {
@@ -7959,9 +8089,14 @@ function mobIncarca() {
         lat: +LOC.lat, lon: +LOC.lon
     };
     var cheie = mobCheieLoc(locCeruta);
+    if (_mobController) {
+        try { _mobController.abort(); } catch (e) {}
+    }
+    var idCerere = ++_mobCerereId;
     var dinCache = mobDateDinCache(locCeruta);
     if (dinCache) {
         MOBD = dinCache;
+        _mobDateCheie = cheie;
         if (dinCache.timezone) LOC.tz = dinCache.timezone;
         _ultimaRandare = 0;
         mobRandare();
@@ -7970,11 +8105,7 @@ function mobIncarca() {
         return Promise.resolve(dinCache);
     }
 
-    if (_mobController) {
-        try { _mobController.abort(); } catch (e) {}
-    }
     _mobController = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var idCerere = ++_mobCerereId;
     var opt = _mobController ? { signal: _mobController.signal } : {};
     return fetch(mobUrl(locCeruta), opt).then(function(r) {
         if (!r.ok) throw new Error('meteo: ' + r.status);
@@ -7983,6 +8114,7 @@ function mobIncarca() {
         mobPuneCache(locCeruta, d);
         if (idCerere !== _mobCerereId || cheie !== mobCheieLoc(LOC)) return d;
         MOBD = d;
+        _mobDateCheie = cheie;
         if (d.timezone) LOC.tz = d.timezone;
         _ultimaRandare = 0;
         mobRandare();
@@ -8207,8 +8339,8 @@ function mobAntet() {
     document.getElementById('mbTemp').innerHTML = Math.round(cv(c.temperature_2m)) + '<sup>°</sup>';
     document.getElementById('mbStare').textContent = wmoText(c.weather_code);
     document.getElementById('mbMm').textContent =
-        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[0], 0, true) + '°  ' +
-        T('minScurt') + ': ' + fT(zi.temperature_2m_min[0], 0, true) + '°';
+        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[0], 0, true) + '  ' +
+        T('minScurt') + ': ' + fT(zi.temperature_2m_min[0], 0, true);
     document.getElementById('mbBaraOras').textContent = LOC.nume || '';
     document.getElementById('mbBaraSub').textContent = Math.round(cv(c.temperature_2m)) + '° | ' + wmoText(c.weather_code);
     document.getElementById('mjLocText').textContent = LOC.nume || '';
@@ -8250,12 +8382,13 @@ function mobCardOre() {
         var t = mobDinIso(o.time[k]), urm = mobDinIso(o.time[Math.min(k+1, o.time.length-1)]);
         var etOra = (k === start) ? T('acum') : mobOra(o.time[k]);
         var val, sub = '';
-        if (_mobOraMod === 'temp') { val = Math.round(cv(o.temperature_2m[k])) + '°'; sub = o.precipitation_probability[k] >= 15 ? o.precipitation_probability[k] + '%' : ''; }
+        var esteAcum = k === start;
+        if (_mobOraMod === 'temp') { val = Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k])) + '°'; sub = o.precipitation_probability[k] >= 15 ? o.precipitation_probability[k] + '%' : ''; }
         else if (_mobOraMod === 'precip') { val = (o.precipitation_probability[k] || 0) + '%'; sub = (o.precipitation[k] || 0) > 0.05 ? (o.precipitation[k].toFixed(1) + ' mm') : ''; }
-        else { val = Math.round(o.wind_speed_10m[k]); sub = 'km/h'; }
+        else { val = Math.round(esteAcum ? MOBD.current.wind_speed_10m : o.wind_speed_10m[k]); sub = 'km/h'; }
         h += '<div class="mb-ora' + (k === start ? ' acum' : '') + '">' +
              '<div class="o-t">' + etOra + '</div>' +
-             '<div class="o-i">' + wmoIcon(o.weather_code[k]) + '</div>' +
+             '<div class="o-i">' + wmoIcon(esteAcum ? MOBD.current.weather_code : o.weather_code[k]) + '</div>' +
              '<div class="o-p">' + (_mobOraMod === 'temp' ? sub : '') + '</div>' +
              '<div class="o-v">' + val + (_mobOraMod === 'vant' ? '<div style="font-size:0.6rem;opacity:0.65;">km/h</div>' : '') + '</div>' +
              '</div>';
@@ -9069,20 +9202,20 @@ function mobCandVizibil(id, fn, margine) {
     _mobObservatori.push(obs);
 }
 
+var _mobElementePastrate = {};
 function mobDetaseazaHarti() {
-    var pastrate = {};
     ['mbRadar', 'mbHartaAnmJos', 'mbLuna'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el && (_mobHarti[id] || (id === 'mbLuna' && el._construit))) {
-            pastrate[id] = el;
+            _mobElementePastrate[id] = el;
             el.remove();
         }
     });
-    return pastrate;
+    return _mobElementePastrate;
 }
 
 function mobReataseazaHarti(pastrate) {
-    Object.keys(pastrate).forEach(function(id) {
+    Object.keys(pastrate || {}).forEach(function(id) {
         var locNou = document.getElementById(id);
         var vechi = pastrate[id];
         if (locNou && vechi) locNou.replaceWith(vechi);
@@ -9103,7 +9236,7 @@ function mobRandare() {
     mobRandareAcum();
 }
 function mobRandareAcum() {
-    if (!esteMobil() || !MOBD) return;
+    if (!esteMobil() || !mobDatePentruLoc()) return;
     mobOpresteObservatori();
     // Păstrăm containerele Leaflet în viață cât timp refacem restul
     // cardurilor. Dalele și straturile deja descărcate nu se mai pierd
@@ -9774,7 +9907,15 @@ function mobActualizeazaAnmStraturi(id) {
 
 function mobHartaAnm(id) {
     var el = document.getElementById(id);
-    if (!el || _mobHarti[id]) return;
+    if (!el) return;
+    if (_mobHarti[id]) {
+        if (_mobHarti[id].getContainer && _mobHarti[id].getContainer() === el) {
+            setTimeout(function() { if (el.isConnected) _mobHarti[id].invalidateSize({ animate: false }); }, 0);
+            return;
+        }
+        try { _mobHarti[id].remove(); } catch (e) {}
+        delete _mobHarti[id];
+    }
     if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
         // geometria județelor încă nu s-a încărcat — reîncercăm o dată
         setTimeout(function() { mobHartaAnm(id); }, 2500);
@@ -10016,7 +10157,10 @@ function mobHartaAnm(id) {
 // pornim, și reîncărcăm când se schimbă locația sau unitatea
 if (esteMobil()) {
     setTimeout(mobIncarca, 300);
-    setInterval(mobIncarca, 10 * 60 * 1000);
+    setInterval(mobIncarca, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) mobIncarca();
+    });
 }
 // dacă ecranul devine îngust (rotire, fereastră redimensionată), pornim și atunci
 /* Pe telefon, `resize` se declanșează de zeci de ori: la fiecare derulare,
