@@ -56,5 +56,48 @@ class WeatherPromptTests(unittest.TestCase):
         self.assertNotIn("ora Romaniei).", sent)
 
 
+
+class NotificationCopyTests(unittest.TestCase):
+    @staticmethod
+    def forecast():
+        return {
+            "daily": {
+                "temperature_2m_max": [14, 18, 20],
+                "temperature_2m_min": [5, 9, 11],
+                "weather_code": [2, 61, 80],
+                "precipitation_probability_max": [10, 70, 60],
+                "uv_index_max": [2, 3, 3],
+                "wind_gusts_10m_max": [15, 20, 25],
+            }
+        }
+
+    def test_daily_notification_uses_natural_copy_without_arrows(self):
+        title, body = meteo._compune_rezumat(
+            self.forecast(), "dimineata", "ro", "C", "Moreni")
+        self.assertEqual(title, "Moreni | Ploaie slabă")
+        self.assertIn("maxima va fi de 18°C", body)
+        self.assertIn("minima de 9°C", body)
+        self.assertNotIn("↑", body)
+        self.assertNotIn("↓", body)
+
+    def test_warning_copy_is_semantic_and_complete(self):
+        body = meteo._rezumat_scurt_avertizare({
+            "fenomene": "conform textelor;",
+            "mesaj": (
+                "<p>Fenomene vizate: intensificări ale vântului, "
+                "răcire accentuată, ploi moderate</p>"
+                "<p>Zone afectate: conform hărții</p>"
+                "<p>Mai târziu pot apărea descărcări electrice.</p>"
+            ),
+        })
+        self.assertEqual(
+            body,
+            "În județul Dâmbovița sunt prognozate ploi, "
+            "intensificări ale vântului și o răcire accentuată.",
+        )
+        self.assertNotIn("conform", body.lower())
+        self.assertNotIn("…", body)
+
+
 if __name__ == "__main__":
     unittest.main()

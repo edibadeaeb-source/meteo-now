@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import csv
+import html
 import json
 import os
 import subprocess
@@ -216,7 +217,10 @@ def judete_geojson():
                 f.write(r.content)
         except Exception as e:
             return jsonify({'error': str(e)}), 502
-    return send_file(local, mimetype='application/geo+json')
+    # Geometria județelor este statică. Browserul o poate păstra o săptămână,
+    # astfel harta ANM apare imediat la următoarele deschideri ale aplicației.
+    return send_file(local, mimetype='application/geo+json', conditional=True,
+                     max_age=7 * 24 * 60 * 60)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -496,6 +500,7 @@ def _push_check_intern():
                 'tip': w.get('numeTipMesaj') or 'Avertizare meteorologică',
                 'fenomene': (w.get('fenomeneVizate') or '').strip(),
                 'interval': (w.get('intervalul') or '').strip(),
+                'mesaj': w.get('mesaj') or '',
                 'expira': w.get('dataExpirarii') or ''
             })
 
@@ -514,12 +519,8 @@ def _push_check_intern():
 
     top = max(active, key=lambda a: a['nivel'])
     cod_txt = _COD_NUME.get(top['nivel'], 'avertizare')
-    titlu = f"⚠️ {cod_txt.upper()} — Dâmbovița"
-    corp = top['tip']
-    if top['fenomene'] and top['fenomene'] != 'conform textelor':
-        corp = top['fenomene']
-    if top['interval'] and top['interval'] != 'conform textelor':
-        corp += f" · {top['interval']}"
+    titlu = f"Dâmbovița | {cod_txt.capitalize()}"
+    corp = _rezumat_scurt_avertizare(top)
 
     t, s = broadcast_push({'title': titlu, 'body': corp, 'url': '/#warnings-section',
                            'tag': 'anm-avertizare', 'nivel': top['nivel']})
@@ -735,13 +736,69 @@ _WMO_EN = {
 }
 
 
+def _text_anm(value):
+    """Transformă textul HTML ANM într-un text simplu, bun pentru notificări."""
+    value = re.sub(r'<br\s*/?>|</(?:p|div|li|tr|h\d)>', ' ', str(value or ''),
+                   flags=re.IGNORECASE)
+    value = re.sub(r'<[^>]+>', ' ', value)
+    return re.sub(r'\s+', ' ', html.unescape(value).replace('\xa0', ' ')).strip(' ;,.')
+
+
+def _rezumat_scurt_avertizare(avertizare):
+    """Compune o propoziție scurtă și completă din mesajul ANM.
+
+    ANM folosește uneori „conform textelor” în câmpurile scurte. Nu trimitem
+    acel substituent și nu tăiem textul cu puncte de suspensie; identificăm
+    fenomenele din mesajul complet și formulăm o propoziție nouă.
+    """
+    direct = _text_anm(avertizare.get('fenomene', ''))
+    if direct and not direct.lower().startswith('conform text'):
+        text = direct
+    else:
+        mesaj = _text_anm(avertizare.get('mesaj', ''))
+        gasit = re.search(r'fenomene vizate\s*:\s*(.*?)(?:zone afectate\s*:|$)',
+                          mesaj, flags=re.IGNORECASE)
+        text = gasit.group(1) if gasit else mesaj
+    text = text.lower()
+    fenomene = []
+
+    def adauga(conditie, formulare):
+        if conditie and formulare not in fenomene:
+            fenomene.append(formulare)
+
+    adauga(bool(re.search(r'vijeli|furtun|desc[ăa]rc[ăa]ri electrice', text)),
+           'furtuni și vijelii')
+    adauga(bool(re.search(r'ploi|averse|precipita', text)), 'ploi')
+    adauga(bool(re.search(r'v[âa]nt|rafal', text)), 'intensificări ale vântului')
+    adauga(bool(re.search(r'ninsoar|lapovi[țt]|viscol|z[ăa]pad', text)),
+           'lapoviță și ninsoare')
+    adauga(bool(re.search(r'polei|ghe[țt]u', text)), 'polei')
+    adauga(bool(re.search(r'cea[țt][ăa]', text)), 'ceață')
+    adauga(bool(re.search(r'canicul|val de c[ăa]ldur|disconfort termic', text)),
+           'temperaturi foarte ridicate')
+    adauga(bool(re.search(r'r[ăa]cire accentuat|vremea devenind rece', text)),
+           'o răcire accentuată')
+    adauga(bool(re.search(r'ger\b', text)), 'ger')
+
+    # Trei idei sunt suficiente pentru ecranul restrâns al notificării. Alegem
+    # semantic fenomenele, nu tăiem o frază existentă la un număr de caractere.
+    fenomene = fenomene[:3]
+    if not fenomene:
+        return 'Este în vigoare o avertizare meteorologică pentru județul Dâmbovița.'
+    if len(fenomene) == 1:
+        lista = fenomene[0]
+    else:
+        lista = ', '.join(fenomene[:-1]) + ' și ' + fenomene[-1]
+    return f"În județul Dâmbovița sunt prognozate {lista}."
+
+
 def _grade(c, unitate):
     """Temperatura în unitatea aleasă de utilizator, rotunjită."""
     if c is None:
         return '--°'
     if unitate == 'F':
         return f"{round(c * 9 / 5 + 32)}°F"
-    return f"{round(c)}°"
+    return f"{round(c)}°C"
 
 
 def _sfat_zi(maxi, uv, prob, rafale, cod, limba):
@@ -805,21 +862,28 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     if len(maxime) > ref and maxime[ref] is not None and maxi is not None:
         dif = maxi - maxime[ref]
 
-    cand = ('Tomorrow' if en else 'Mâine') if seara else ('Today' if en else 'Azi')
-    titlu = f"{_grade(maxi, unitate)} {cand.lower()}"
-    if vreme:
-        titlu += f" · {vreme}"
+    loc = nume or ('your area' if en else 'zona ta')
+    descriere = vreme[:1].upper() + vreme[1:] if vreme else ('Forecast' if en else 'Prognoză')
+    if seara:
+        titlu = f"Tomorrow in {loc}" if en else f"Mâine în {loc}"
+        corp = (f"{descriere}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+                if en else
+                f"{descriere}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
+    else:
+        titlu = f"{loc} | {descriere}"
+        corp = (f"Today the high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+                if en else
+                f"Astăzi, maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
+
     if dif is not None and abs(dif) >= 3:
         pas = abs(dif) * 9 / 5 if unitate == 'F' else abs(dif)
-        u = '°F' if unitate == 'F' else '°'
+        u = '°F' if unitate == 'F' else '°C'
         if en:
-            titlu += f" · {round(pas)}{u} {'warmer' if dif > 0 else 'colder'}"
+            reper = 'today' if seara else 'yesterday'
+            corp += f"It will be {round(pas)}{u} {'warmer' if dif > 0 else 'colder'} than {reper}. "
         else:
-            titlu += f" · cu {round(pas)}{u} mai {'cald' if dif > 0 else 'rece'}"
-
-    loc = nume or ('your area' if en else 'zona ta')
-    # săgeți în loc de cratimă: la temperaturi negative „-17°–-9°" era ilizibil
-    corp = f"{loc} · ↑{_grade(maxi, unitate)} ↓{_grade(mini, unitate)}. "
+            reper = 'astăzi' if seara else 'ieri'
+            corp += f"Va fi cu {round(pas)}{u} mai {'cald' if dif > 0 else 'rece'} decât {reper}. "
     corp += _sfat_zi(maxi, uv, prob, rafale, cod, limba)
     return titlu, corp
 
@@ -872,7 +936,7 @@ def _rezumat_intern(moment):
                 continue
             titlu, corp = rez
             ok, cod = _send_push(sub, {
-                'title': ('🌤️ ' + titlu), 'body': corp, 'url': '/',
+                'title': titlu, 'body': corp, 'url': '/',
                 'tag': 'rezumat-' + moment
             })
             if ok:

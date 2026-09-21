@@ -1046,10 +1046,10 @@
             position: fixed; inset: 0; z-index: 99999;
             background: var(--band);
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-            transition: opacity 0.45s ease, visibility 0.45s ease;
+            transition: opacity 0.20s ease, visibility 0.20s ease;
         }
         #splash.hide { opacity: 0; visibility: hidden; }
-        #splash { background: linear-gradient(180deg, #101b3c 0%, #1e2b55 45%, #45416f 100%); }
+        #splash { background: #071031; }
         #splash .sp-sticla {
             display: flex; flex-direction: column; align-items: center; gap: 22px;
             padding: 26px 34px;
@@ -3749,9 +3749,26 @@ function loadSpaceWeather() {
 loadSpaceWeather();
 setInterval(loadSpaceWeather, 15 * 60000);
 
-// ── FETCH ANM cu fallback pe proxy Flask ──
+// ── FETCH ANM cu o singură cerere și rezervă locală ──
+var _anmCereri = Object.create(null);
+var _anmRaspunsuri = Object.create(null);
+function anmCacheKey(endpoint) { return 'meteo-anm:' + endpoint; }
+function anmCitesteCache(endpoint, limitaMs) {
+    try {
+        var x = JSON.parse(localStorage.getItem(anmCacheKey(endpoint)) || 'null');
+        return x && x.t && Date.now() - x.t < limitaMs ? x.d : null;
+    } catch (e) { return null; }
+}
+function anmScrieCache(endpoint, date) {
+    try { localStorage.setItem(anmCacheKey(endpoint), JSON.stringify({ t: Date.now(), d: date })); }
+    catch (e) {}
+}
 function fetchANM(endpoint) {
-    // 1) proxy-ul Flask (fără CORS, cu cache) → 2) direct la ANM
+    // Dublurile create de harta desktop și cardul mobil împart aceeași cerere.
+    var mem = _anmRaspunsuri[endpoint];
+    if (mem && Date.now() - mem.t < 60000) return Promise.resolve(mem.d);
+    if (_anmCereri[endpoint]) return _anmCereri[endpoint];
+
     var proxy = fetch('api/anm/' + endpoint).then(function(r) {
         if (!r.ok) throw new Error('proxy http ' + r.status);
         return r.json();
@@ -3759,13 +3776,31 @@ function fetchANM(endpoint) {
         if (j && j.error) throw new Error('proxy: ' + j.error);
         return j;
     });
-    return proxy.catch(function() {
+    var cerere = proxy.catch(function() {
         return fetch('https://www.meteoromania.ro/wp-json/meteoapi/v2/' + endpoint)
             .then(function(r) {
                 if (!r.ok) throw new Error('anm http ' + r.status);
                 return r.json();
             });
+    }).then(function(j) {
+        _anmRaspunsuri[endpoint] = { t: Date.now(), d: j };
+        anmScrieCache(endpoint, j);
+        return j;
+    }).catch(function(e) {
+        // Dacă ANM răspunde greu, afișăm ultima situație cunoscută în locul
+        // unei hărți goale. Cererea periodică o va înlocui când sursa revine.
+        var vechi = anmCitesteCache(endpoint, 12 * 60 * 60 * 1000);
+        if (vechi) return vechi;
+        throw e;
     });
+    _anmCereri[endpoint] = cerere.then(function(j) {
+        delete _anmCereri[endpoint];
+        return j;
+    }, function(e) {
+        delete _anmCereri[endpoint];
+        throw e;
+    });
+    return _anmCereri[endpoint];
 }
 
 // ── HARTA SINOPTICĂ (stații oficiale ANM, stil IMGW) ──
@@ -4118,8 +4153,12 @@ function anmDetalii(w) {
         var m = linii.match(new RegExp('^\\s*' + et + '\\s*:\\s*(.+)$', 'im'));
         return m ? m[1].replace(/[;,.]\s*$/, '').trim() : '';
     };
-    var fen = esteGol(w.fenomeneVizate) ? caut('Fenomene vizate')          : stripHtml(w.fenomeneVizate);
-    var itv = esteGol(w.intervalul)     ? caut('Interval de valabilitate') : stripHtml(w.intervalul);
+    var fen = esteGol(w.fenomeneVizate)
+        ? (_dinMesaj(linii, 'Fenomene vizate', 'Zone afectate') || caut('Fenomene vizate'))
+        : stripHtml(w.fenomeneVizate);
+    var itv = esteGol(w.intervalul)
+        ? (_dinMesaj(linii, 'Interval de valabilitate', 'Fenomene vizate') || caut('Interval de valabilitate'))
+        : stripHtml(w.intervalul);
     var zon = esteGol(w.zonaAfectata)   ? caut('Zone afectate')            : stripHtml(w.zonaAfectata);
     if (esteGol(zon)) zon = '';
 
@@ -4135,15 +4174,24 @@ function anmDetalii(w) {
     };
 }
 function loadJudeteGeo() {
-    // întâi prin serverul Flask (fără CORS, cache pe disc), apoi direct de pe GitHub
+    if (_judeteGeo) return Promise.resolve(_judeteGeo);
+    if (_judeteGeoPromise) return _judeteGeoPromise;
+    // întâi prin serverul Flask (fără CORS, cu cache HTTP), apoi direct de pe GitHub
     var gh = 'https://raw.githubusercontent.com/GabrielRondelli/geojson/main/romania-counties.geojson';
-    if (location.protocol.indexOf('http') === 0) {
-        return fetch('api/judete-geojson').then(function(r) {
-            if (!r.ok) throw new Error('proxy');
-            return r.json();
-        }).catch(function() { return fetch(gh).then(function(r) { return r.json(); }); });
-    }
-    return fetch(gh).then(function(r) { return r.json(); });
+    var cerere = location.protocol.indexOf('http') === 0
+        ? fetch('api/judete-geojson', { cache: 'force-cache' }).then(function(r) {
+              if (!r.ok) throw new Error('proxy');
+              return r.json();
+          }).catch(function() { return fetch(gh, { cache: 'force-cache' }).then(function(r) { return r.json(); }); })
+        : fetch(gh, { cache: 'force-cache' }).then(function(r) { return r.json(); });
+    _judeteGeoPromise = cerere.then(function(geo) {
+        _judeteGeo = geo;
+        return geo;
+    }, function(e) {
+        _judeteGeoPromise = null;
+        throw e;
+    });
+    return _judeteGeoPromise;
 }
 // extrage avertizările și le despachetează câmpurile din @attributes
 function getWarns(av) {
@@ -4152,7 +4200,7 @@ function getWarns(av) {
     if (!Array.isArray(a)) a = [a];
     return a.map(anmObj);
 }
-var _judeteGeo = null;
+var _judeteGeo = null, _judeteGeoPromise = null;
 function initWarnMap() {
     // zoomSnap: 0.1 → „fitBounds" umple containerul. Cu valoarea implicită (1)
     // Leaflet cobora la zoom întreg și pe telefon România rămânea mică de tot,
@@ -4160,7 +4208,11 @@ function initWarnMap() {
     warnMapL = L.map('warnMap', { scrollWheelZoom: false, zoomControl: false, zoomSnap: 0.1, zoomDelta: 0.5 }).setView([45.9, 25.0], 6);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '© OSM © CARTO' }).addTo(warnMapL);
     warnMapL.on('zoomend resize', comutaEticheteJudete);
-    loadJudeteGeo().then(function(geo) { _judeteGeo = geo; refreshWarnings(); }).catch(function(e) { console.error('GeoJSON judete:', e); refreshWarnings(); });
+    // Avertizările și contururile pornesc în paralel. A doua randare folosește
+    // răspunsul ANM deja aflat în memorie, deci nu mai face o cerere dublă.
+    refreshWarnings();
+    loadJudeteGeo().then(function() { refreshWarnings(); })
+        .catch(function(e) { console.error('GeoJSON judete:', e); });
 }
 function refreshWarnings() {
     var avP = fetchANM('avertizari-generale');
@@ -4229,7 +4281,7 @@ function refreshWarnings() {
 
     // 2) harta: județe verzi ca fundal + zonele exact afectate (poligoanele ANM) deasupra
     avP.then(function(av) {
-        if (!_judeteGeo) return;
+        if (!_judeteGeo || !warnMapL) return;
         _avWarns = getWarns(av);
         if (_avSel >= _avWarns.length) _avSel = -1;      // selecția veche nu mai există
 
@@ -4258,6 +4310,15 @@ function refreshWarnings() {
    ══════════════════════════════════════════════════════════════ */
 var _avWarns = [];      // avertizările curente
 var _avSel = -1;        // -1 = toate, altfel indicele avertizării
+
+// La redeschidere sau după schimbarea unui oraș, lista avertizărilor este
+// disponibilă imediat. În fundal pornim în continuare actualizarea oficială.
+(function restaureazaAvertizariANM() {
+    var vechi = anmCitesteCache('avertizari-generale', 12 * 60 * 60 * 1000);
+    if (!vechi) return;
+    window._anmWarns = getWarns(vechi);
+    _avWarns = window._anmWarns;
+})();
 
 // nivelul unei avertizări = cel mai grav cod din județele/zonele ei
 function nivelAvert(w) {
@@ -5041,7 +5102,10 @@ window.addEventListener('load', function() {
     try { aflaFusOrar(); } catch (e) {}          // ora locală corectă imediat după reîncărcare
     try { analizeazaZiua(); } catch (e) {}
     try { initSynopMap(); } catch (e) {}
-    try { initWarnMap(); } catch (e) {}
+    try {
+        if (typeof esteMobil === 'function' && esteMobil()) mobAnmSecundar();
+        else initWarnMap();
+    } catch (e) {}
     // marcajul locației pe hărțile create acum
     setTimeout(function() { try { puneMarcajLocatie(); } catch (e) {} }, 600);
     try { loadFlood(); } catch (e) {}
@@ -5657,6 +5721,24 @@ async function pushUnsubscribe() {
     pushNote('Notificările sunt dezactivate.');
 }
 // ── ALERTE LOCALE (rezervă când browserul nu acceptă push în fundal) ──
+function rezumatAvertizareLocala(w) {
+    var d = anmDetalii(w);
+    var text = (d.fenomene || d.rezumat || '').toLowerCase();
+    var f = [];
+    function adauga(ok, valoare) { if (ok && f.indexOf(valoare) < 0) f.push(valoare); }
+    adauga(/vijeli|furtun|desc[ăa]rc[ăa]ri electrice/.test(text), 'furtuni și vijelii');
+    adauga(/ploi|averse|precipita/.test(text), 'ploi');
+    adauga(/v[âa]nt|rafal/.test(text), 'intensificări ale vântului');
+    adauga(/ninsoar|lapovi[țt]|viscol|z[ăa]pad/.test(text), 'lapoviță și ninsoare');
+    adauga(/polei|ghe[țt]u/.test(text), 'polei');
+    adauga(/cea[țt][ăa]/.test(text), 'ceață');
+    adauga(/canicul|val de c[ăa]ldur|disconfort termic/.test(text), 'temperaturi foarte ridicate');
+    adauga(/r[ăa]cire accentuat|vremea devenind rece/.test(text), 'o răcire accentuată');
+    f = f.slice(0, 3);
+    if (!f.length) return 'Este în vigoare o avertizare meteorologică pentru județul Dâmbovița.';
+    var lista = f.length === 1 ? f[0] : f.slice(0, -1).join(', ') + ' și ' + f[f.length - 1];
+    return 'În județul Dâmbovița sunt prognozate ' + lista + '.';
+}
 var _localAlertTimer = null;
 function startLocalAlerts() {
     if (_localAlertTimer) return;
@@ -5681,10 +5763,12 @@ function startLocalAlerts() {
             PREF.set('lastalert', amprenta);
             if (!nivel) return;
             var cod = ['', 'COD GALBEN', 'COD PORTOCALIU', 'COD ROȘU'][nivel] || 'AVERTIZARE';
-            var corp = (info.fen && info.fen !== 'conform textelor') ? info.fen : info.tip;
-            if (info.int && info.int !== 'conform textelor') corp += ' · ' + info.int;
+            var avertizareAleasa = warns.filter(function(w) {
+                return (w.numeTipMesaj || 'Avertizare meteorologică') === info.tip;
+            })[0] || {};
+            var corp = rezumatAvertizareLocala(avertizareAleasa);
             try {
-                new Notification('⚠️ ' + cod + ' — ' + (LOC.nume || ''), {
+                new Notification('Dâmbovița | ' + cod.charAt(0) + cod.slice(1).toLowerCase(), {
                     body: corp, icon: 'icon-192.png', tag: 'anm-local'
                 });
             } catch (e) {}
@@ -6650,10 +6734,12 @@ function actualizeazaChat() {
 // ═══════════════════════════════════════════════════════════
 var _ccUltimaLoc = null;
 var _ccDate = null;          // rezultatul calculat (în °C) — refolosit la schimbarea unității/limbii
+var _ccDatePeLoc = Object.create(null); // fiecare oraș își păstrează analiza încărcată
 
-var _ccInCurs = false;          // o singură cerere pentru locația curentă
+var _ccInCurs = false;          // cererea urmărită pentru locația curentă
 var _ccCerereId = 0, _ccCerereLoc = null;
-var _ccEsuatLa = 0;             // când a picat ultima încercare
+var _ccEsuatLa = 0;             // compatibilitate cu versiunile anterioare
+var _ccEsuatLaLoc = Object.create(null);
 
 /* ══════════════════════════════════════════════════════════════
    MEMORIA CLIMATICĂ
@@ -6694,7 +6780,15 @@ function ccFetchJSON(url, limitaMs) {
 function analizeazaZiua() {
     var locAnaliza = { lat: +LOC.lat, lon: +LOC.lon, tz: LOC.tz || '' };
     var cheie = locAnaliza.lat.toFixed(2) + ',' + locAnaliza.lon.toFixed(2);
+    var mem = _ccDatePeLoc[cheie];
+    if (mem) {
+        _ccUltimaLoc = cheie; _ccDate = mem;
+        deseneazaAnaliza(_ccDate);
+        try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
+        return;
+    }
     if (_ccUltimaLoc === cheie && _ccDate) {
+        _ccDatePeLoc[cheie] = _ccDate;
         deseneazaAnaliza(_ccDate);
         return;
     }
@@ -6705,6 +6799,7 @@ function analizeazaZiua() {
     if (gata) {
         ++_ccCerereId; _ccInCurs = false; _ccCerereLoc = null;
         _ccUltimaLoc = cheie; _ccDate = gata;
+        _ccDatePeLoc[cheie] = gata;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: gata.abatere }); } catch (e) {}
         try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
@@ -6740,12 +6835,12 @@ function analizeazaZiua() {
         cereIstoric = ccFetchJSON('api/clima?lat=' + locAnaliza.lat.toFixed(4) + '&lon=' + locAnaliza.lon.toFixed(4), 45000)
             .then(function(j) { return { _valori: j.valori }; });
     } else {
-        cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat + '&longitude=' + LOC.lon +
+        cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat + '&longitude=' + locAnaliza.lon +
                 '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
                 '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); });
     }
 
-    var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + locAnaliza.lat + '&longitude=' + LOC.lon +
+    var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + locAnaliza.lat + '&longitude=' + locAnaliza.lon +
               '&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto').then(function(r) { return r.json(); });
 
     Promise.all([cereIstoric, cereAzi]).then(function(res) {
@@ -6797,6 +6892,8 @@ function analizeazaZiua() {
         ccScrieCache('zi', _ccDate, locAnaliza);
         _ccInCurs = false; _ccCerereLoc = null;
         _ccUltimaLoc = cheie;
+        _ccDatePeLoc[cheie] = _ccDate;
+        _ccEsuatLaLoc[cheie] = 0;
         deseneazaAnaliza(_ccDate);
         try { actualizeazaContext({ abatere: abatere }); } catch (e) {}
         try { if (typeof mobActualizeazaClima === 'function') mobActualizeazaClima(); } catch (e) {}
@@ -6810,6 +6907,7 @@ function analizeazaZiua() {
            cardul cerea datele, cererea pica, pagina se redesena, cardul
            cerea din nou — și tot așa, cu clipit cu tot. */
         _ccEsuatLa = Date.now();
+        _ccEsuatLaLoc[cheie] = _ccEsuatLa;
         console.warn('analiza climatică:', e && e.message);
         var c = document.getElementById('ccCorp');
         if (c) c.innerHTML = '<div class="cc-loading">' + T('ccIndisponibil') + '</div>';
@@ -8087,18 +8185,23 @@ function mobPrefetchVecini() {
     });
 }
 function mobAnmSecundar() {
-    if (!esteRomania() || Date.now() - _mobAnmLa < 5 * 60 * 1000) return;
+    if (!esteRomania()) return;
+    var proaspat = Date.now() - _mobAnmLa < 5 * 60 * 1000;
+    if (proaspat && _judeteGeo && window._anmWarns) return;
     _mobAnmLa = Date.now();
     try {
-        if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
-            loadJudeteGeo().then(function(g) {
-                _judeteGeo = g;
-                refreshWarnings();
-            }).catch(function(e) { _mobAnmLa = 0; console.error('judete:', e); });
-        } else if (!window._anmWarns) {
-            refreshWarnings();
-        }
-    } catch (e) { console.error('ANM mobil:', e); }
+        // Pornim imediat ambele resurse. Crearea efectivă a hărții rămâne
+        // amânată până când cardul se apropie de ecran, ca scrollul să fie fluid.
+        var geoP = loadJudeteGeo();
+        if (!proaspat || !window._anmWarns) refreshWarnings();
+        geoP.then(function() {
+            var el = document.getElementById('mbHartaAnmJos');
+            if (el && el.isConnected) {
+                mobHartaAnm('mbHartaAnmJos');
+                mobActualizeazaAnmStraturi('mbHartaAnmJos');
+            }
+        }).catch(function(e) { _mobAnmLa = 0; console.error('judete:', e); });
+    } catch (e) { _mobAnmLa = 0; console.error('ANM mobil:', e); }
 }
 function mobIncarca() {
     if (!esteMobil()) return Promise.resolve(null);
@@ -8119,7 +8222,7 @@ function mobIncarca() {
         _ultimaRandare = 0;
         mobRandare();
         mobPrefetchVecini();
-        mobilCandLinistit(mobAnmSecundar, 700);
+        mobAnmSecundar();
         return Promise.resolve(dinCache);
     }
 
@@ -8137,7 +8240,7 @@ function mobIncarca() {
         _ultimaRandare = 0;
         mobRandare();
         mobPrefetchVecini();
-        mobilCandLinistit(mobAnmSecundar, 700);
+        mobAnmSecundar();
         return d;
     }).catch(function(e) {
         if (!e || e.name !== 'AbortError') console.error('mobil:', e);
@@ -8487,10 +8590,18 @@ function mobCardClima() {
     /* Cardul rămâne MEREU pe pagină. Înainte dispărea de tot cât timp se
        aduceau cei 30 de ani de arhivă — și dacă apelul întârzia sau pica,
        nu mai revenea deloc. Acum arată că se încarcă și cere singur datele. */
-    if (typeof _ccDate === 'undefined' || !_ccDate || _ccUltimaLoc !== LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2)) {
+    var cheieClima = (+LOC.lat).toFixed(2) + ',' + (+LOC.lon).toFixed(2);
+    var dateLoc = _ccDatePeLoc[cheieClima] || ccCitesteCache('zi', 1, LOC);
+    if (dateLoc) {
+        _ccDatePeLoc[cheieClima] = dateLoc;
+        _ccUltimaLoc = cheieClima;
+        _ccDate = dateLoc;
+    }
+    if (!_ccDate || _ccUltimaLoc !== cheieClima) {
         // cerem datele o singură dată; `_ccInCurs` oprește cererile paralele,
         // iar după un eșec așteptăm 3 minute înainte de o nouă încercare
-        if (!_ccInCurs && Date.now() - _ccEsuatLa > 180000) {
+        var esuatLa = _ccEsuatLaLoc[cheieClima] || 0;
+        if ((!_ccInCurs || _ccCerereLoc !== cheieClima) && Date.now() - esuatLa > 180000) {
             setTimeout(function() { try { analizeazaZiua(); } catch (e) {} }, 0);
         }
         return '<div class="mb-card" id="mbCardClima">' +
@@ -9935,8 +10046,11 @@ function mobHartaAnm(id) {
         delete _mobHarti[id];
     }
     if (typeof _judeteGeo === 'undefined' || !_judeteGeo) {
-        // geometria județelor încă nu s-a încărcat — reîncercăm o dată
-        setTimeout(function() { mobHartaAnm(id); }, 2500);
+        // Ne legăm de cererea deja pornită și desenăm imediat ce geometria vine.
+        loadJudeteGeo().then(function() {
+            var curent = document.getElementById(id);
+            if (curent && curent.isConnected) mobHartaAnm(id);
+        }).catch(function(e) { console.error('hartă ANM mobilă:', e); });
         return;
     }
     var m = L.map(id, { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false });

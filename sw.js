@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-tgv-net-v17';
+const CACHE = 'meteo-tgv-net-v18';
 
 self.addEventListener('install', function() {
   self.skipWaiting();
@@ -55,9 +55,9 @@ self.addEventListener('fetch', function(e) {
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; }
-  catch (err) { d = { title: 'METEO Târgoviște', body: (e.data && e.data.text()) || '' }; }
+  catch (err) { d = { title: 'METEO NOW', body: (e.data && e.data.text()) || '' }; }
 
-  var titlu = d.title || '⚠️ METEO Târgoviște';
+  var titlu = d.title || 'METEO NOW';
   var optiuni = {
     body: d.body || 'Avertizare meteorologică în zona ta.',
     icon: 'icon-192.png',
