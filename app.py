@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from flask import send_file
 import tempfile, zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 CORS(app)
@@ -550,33 +549,41 @@ def _clima_raspuns(date):
     return raspuns
 
 
-def _clima_zi_din_an(lat, lon, an, mmdd):
-    """Descarcă strict ziua necesară dintr-un an, nu întregul an."""
-    data = f'{an}-{mmdd}'
-    try:
-        datetime.strptime(data, '%Y-%m-%d')
-    except ValueError:
-        return None
+def _clima_interval_30_ani(lat, lon, an_start, an_end, mmdd):
+    """Ia intervalul o singură dată și păstrează doar ziua calendaristică.
 
+    Varianta cu o cerere separată pentru fiecare an eșua des pentru un oraș
+    nou: 30 de conexiuni concurente puteau primi răspunsuri 429/5xx, iar
+    telefonul abandona cardul după 45 de secunde. Open-Meteo livrează același
+    interval într-un singur răspuns comprimat, apoi noi trimitem telefonului
+    numai cele aproximativ 30 de valori care îl interesează.
+    """
     r = requests.get('https://archive-api.open-meteo.com/v1/archive', params={
         'latitude': lat,
         'longitude': lon,
-        'start_date': data,
-        'end_date': data,
+        'start_date': f'{an_start}-01-01',
+        'end_date': f'{an_end}-12-31',
         'daily': 'temperature_2m_max,temperature_2m_min',
         'timezone': 'auto',
-    }, timeout=8, headers={'User-Agent': 'MeteoNow/1.0'})
+        # Un singur model pe toată perioada evită salturile artificiale dintre
+        # generații de modele și e recomandat pentru comparații climatice.
+        'models': 'era5_land',
+    }, timeout=25, headers={'User-Agent': 'MeteoNow/1.0'})
     r.raise_for_status()
-    zi = (r.json().get('daily') or {})
-    maxime = zi.get('temperature_2m_max') or []
-    minime = zi.get('temperature_2m_min') or []
-    if not maxime or maxime[0] is None:
-        return None
-    return {
-        'an': an,
-        'max': maxime[0],
-        'min': minime[0] if minime else None,
-    }
+    zilnic = (r.json().get('daily') or {})
+    date = zilnic.get('time') or []
+    maxime = zilnic.get('temperature_2m_max') or []
+    minime = zilnic.get('temperature_2m_min') or []
+    istoric = []
+    for i, data in enumerate(date):
+        if not str(data).endswith(mmdd) or i >= len(maxime) or maxime[i] is None:
+            continue
+        istoric.append({
+            'an': int(str(data)[:4]),
+            'max': maxime[i],
+            'min': minime[i] if i < len(minime) else None,
+        })
+    return istoric
 
 
 @app.route('/api/clima')
@@ -617,27 +624,16 @@ def clima_istoric():
         if gata:
             return _clima_raspuns(gata)
 
-        # Cerem numai ziua calendaristică folosită de card: 30 de răspunsuri
-        # mici, în grupuri de maximum 6. Varianta veche descărca ~10.950 de zile.
         an = azi.year
-        ist = []
-        erori = []
-        with ThreadPoolExecutor(max_workers=6) as executor:
-            lucrari = {
-                executor.submit(_clima_zi_din_an, lat, lon, y, mmdd): y
-                for y in range(an - 30, an)
-            }
-            for lucrare in as_completed(lucrari):
-                try:
-                    valoare = lucrare.result()
-                    if valoare:
-                        ist.append(valoare)
-                except Exception as e:
-                    erori.append(str(e))
+        eroare = ''
+        try:
+            ist = _clima_interval_30_ani(lat, lon, an - 30, an - 1, mmdd)
+        except Exception as e:
+            ist = []
+            eroare = str(e)
 
-        ist.sort(key=lambda x: x['an'])
         if len(ist) < 5:
-            mesaj = erori[0] if erori else 'prea puține date'
+            mesaj = eroare or 'prea puține date'
             print(f"⚠️  arhivă climatică {lat},{lon}: {mesaj}", flush=True)
             return jsonify({'error': 'indisponibil'}), 502
 

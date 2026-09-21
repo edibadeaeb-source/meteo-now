@@ -75,6 +75,13 @@ function between(a, b) {
   assert.notStrictEqual(snap.curent.temperatura,snap.azi.maxima);
 }
 
+
+// Both cached and freshly fetched weather explicitly start climate analysis.
+{
+  const load = between('function mobIncarca()', '/* ── fundalul-cer');
+  assert.strictEqual((load.match(/analizeazaZiua\(\)/g) || []).length, 2);
+}
+
 assert(html.includes("Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k]))"));
 console.log('mobile regressions: ok');
 

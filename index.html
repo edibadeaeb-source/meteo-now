@@ -6476,7 +6476,6 @@ function reincarcaTot() {
         if (typeof mobilCandLinistit === 'function') {
             mobilCandLinistit(function() {
                 try { aflaFusOrar(); } catch (e) {}
-                try { analizeazaZiua(); } catch (e) {}
             }, 500);
         }
         return;
@@ -6832,7 +6831,7 @@ function analizeazaZiua() {
     if (ist) {
         cereIstoric = Promise.resolve(null);
     } else if (prinServer) {
-        cereIstoric = ccFetchJSON('api/clima?lat=' + locAnaliza.lat.toFixed(4) + '&lon=' + locAnaliza.lon.toFixed(4), 45000)
+        cereIstoric = ccFetchJSON('api/clima?lat=' + locAnaliza.lat.toFixed(4) + '&lon=' + locAnaliza.lon.toFixed(4), 60000)
             .then(function(j) { return { _valori: j.valori }; });
     } else {
         cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat + '&longitude=' + locAnaliza.lon +
@@ -8221,6 +8220,7 @@ function mobIncarca() {
         if (dinCache.timezone) LOC.tz = dinCache.timezone;
         _ultimaRandare = 0;
         mobRandare();
+        try { analizeazaZiua(); } catch (e) {}
         mobPrefetchVecini();
         mobAnmSecundar();
         return Promise.resolve(dinCache);
@@ -8239,6 +8239,7 @@ function mobIncarca() {
         if (d.timezone) LOC.tz = d.timezone;
         _ultimaRandare = 0;
         mobRandare();
+        try { analizeazaZiua(); } catch (e) {}
         mobPrefetchVecini();
         mobAnmSecundar();
         return d;

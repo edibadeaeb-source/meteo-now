@@ -57,6 +57,40 @@ class WeatherPromptTests(unittest.TestCase):
 
 
 
+class ClimateArchiveTests(unittest.TestCase):
+    @patch.object(meteo.requests, "get")
+    def test_cold_city_uses_one_archive_request(self, get):
+        dates = []
+        maxime = []
+        minime = []
+        for year in range(1996, 2026):
+            dates.extend([f"{year}-09-20", f"{year}-09-21"])
+            maxime.extend([10.0, 20.0 + (year % 5)])
+            minime.extend([2.0, 8.0 + (year % 4)])
+
+        get.return_value.raise_for_status.return_value = None
+        get.return_value.json.return_value = {
+            "daily": {
+                "time": dates,
+                "temperature_2m_max": maxime,
+                "temperature_2m_min": minime,
+            }
+        }
+
+        result = meteo._clima_interval_30_ani(
+            48.8566, 2.3522, 1996, 2025, "09-21")
+
+        self.assertEqual(len(result), 30)
+        self.assertEqual(result[0]["an"], 1996)
+        self.assertEqual(result[-1]["an"], 2025)
+        get.assert_called_once()
+        params = get.call_args.kwargs["params"]
+        self.assertEqual(params["start_date"], "1996-01-01")
+        self.assertEqual(params["end_date"], "2025-12-31")
+        self.assertEqual(params["models"], "era5_land")
+
+
+
 class NotificationCopyTests(unittest.TestCase):
     @staticmethod
     def forecast():
