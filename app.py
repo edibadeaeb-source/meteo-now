@@ -431,8 +431,8 @@ def push_test():
     if request.args.get('secret') != PUSH_CRON_SECRET:
         return jsonify({'error': 'acces interzis'}), 403
     t, s = broadcast_push({
-        'title': '🌤️ METEO Târgoviște',
-        'body': 'Notificările funcționează. Vei primi alerte la avertizări meteo.',
+        'title': 'METEO NOW | Test notificare',
+        'body': 'Notificările sunt active. Vei primi prognoza zilei și avertizările meteo.',
         'url': '/'
     })
     return jsonify({'trimise': t, 'sterse': s})
