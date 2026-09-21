@@ -86,6 +86,40 @@ assert(html.includes("Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.t
 console.log('mobile regressions: ok');
 
 
+
+// A cold city still loads when the server archive is temporarily rate-limited.
+(async function climateDirectFallbackRegression() {
+  var LOC={lat:48.86,lon:2.35,tz:'Europe/Paris'}, location={protocol:'https:'};
+  var document={getElementById:()=>null};
+  var localStorage={_m:{},getItem(k){return this._m[k]||null},setItem(k,v){this._m[k]=v}};
+  var T=k=>k, actualizeazaContext=()=>{}, mobActualizeazaClima=()=>{}, deseneazaAnaliza=()=>{};
+  let directCalls=0;
+  var fetch=url=>{
+    if (String(url).startsWith('api/clima')) {
+      return Promise.resolve({ok:false,status:502,json:()=>Promise.resolve({})});
+    }
+    if (String(url).includes('archive-api.open-meteo.com')) {
+      directCalls++;
+      return Promise.resolve({ok:true,json:()=>Promise.resolve({daily:{
+        time:Array.from({length:6},(_,i)=>(2020+i)+'-09-21'),
+        temperature_2m_max:[20,21,22,23,24,25],
+        temperature_2m_min:[8,9,10,11,12,13]
+      }})});
+    }
+    return Promise.resolve({ok:true,json:()=>Promise.resolve({
+      daily:{temperature_2m_max:[27],temperature_2m_min:[14]}
+    })});
+  };
+  eval(between('var _ccUltimaLoc = null;', 'function deseneazaAnaliza(d)'));
+  analizeazaZiua();
+  await new Promise(r=>setTimeout(r,0));
+  await new Promise(r=>setTimeout(r,0));
+  assert.strictEqual(directCalls,1);
+  assert.strictEqual(_ccUltimaLoc,'48.86,2.35');
+  assert.strictEqual(_ccDate.maxAzi,27);
+  console.log('climate direct fallback regression: ok');
+})().catch(e=>{ console.error(e); process.exitCode=1; });
+
 // A slow climate response from the previous city cannot overwrite the current city.
 (async function climateRaceRegression() {
   var LOC={lat:44.93,lon:25.46,tz:'Europe/Bucharest'}, location={protocol:'https:'};

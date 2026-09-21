@@ -6827,16 +6827,24 @@ function analizeazaZiua() {
        și epuiza cota zilnică gratuită pentru toată lumea. */
     var ist = ccCitesteCache('ist', 180, locAnaliza);
     var prinServer = location.protocol.indexOf('http') === 0;
+    var urlIstoricDirect = 'https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat +
+            '&longitude=' + locAnaliza.lon + '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
+            '&daily=temperature_2m_max,temperature_2m_min&timezone=auto&models=era5_land';
     var cereIstoric;
     if (ist) {
         cereIstoric = Promise.resolve(null);
     } else if (prinServer) {
         cereIstoric = ccFetchJSON('api/clima?lat=' + locAnaliza.lat.toFixed(4) + '&lon=' + locAnaliza.lon.toFixed(4), 60000)
-            .then(function(j) { return { _valori: j.valori }; });
+            .then(function(j) { return { _valori: j.valori }; })
+            .catch(function(e) {
+                // Render poate primi temporar 429 de la arhivă. Orașul nou nu
+                // rămâne blocat: telefonul face o singură cerere directă,
+                // apoi păstrează rezultatul local timp de șase luni.
+                console.warn('arhiva prin server:', e && e.message);
+                return ccFetchJSON(urlIstoricDirect, 60000);
+            });
     } else {
-        cereIstoric = fetch('https://archive-api.open-meteo.com/v1/archive?latitude=' + locAnaliza.lat + '&longitude=' + locAnaliza.lon +
-                '&start_date=' + anStart + '-01-01&end_date=' + anEnd + '-12-31' +
-                '&daily=temperature_2m_max,temperature_2m_min&timezone=auto').then(function(r) { return r.json(); });
+        cereIstoric = ccFetchJSON(urlIstoricDirect, 60000);
     }
 
     var cereAzi = fetch('https://api.open-meteo.com/v1/forecast?latitude=' + locAnaliza.lat + '&longitude=' + locAnaliza.lon +
