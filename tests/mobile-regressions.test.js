@@ -94,6 +94,7 @@ console.log('mobile regressions: ok');
   var localStorage={_m:{},getItem(k){return this._m[k]||null},setItem(k,v){this._m[k]=v}};
   var T=k=>k, actualizeazaContext=()=>{}, mobActualizeazaClima=()=>{}, deseneazaAnaliza=()=>{};
   let directCalls=0;
+  const aziTest=new Date(), mmddTest=String(aziTest.getMonth()+1).padStart(2,'0')+'-'+String(aziTest.getDate()).padStart(2,'0');
   var fetch=url=>{
     if (String(url).startsWith('api/clima')) {
       return Promise.resolve({ok:false,status:502,json:()=>Promise.resolve({})});
@@ -101,7 +102,7 @@ console.log('mobile regressions: ok');
     if (String(url).includes('archive-api.open-meteo.com')) {
       directCalls++;
       return Promise.resolve({ok:true,json:()=>Promise.resolve({daily:{
-        time:Array.from({length:6},(_,i)=>(2020+i)+'-09-21'),
+        time:Array.from({length:6},(_,i)=>(2020+i)+'-'+mmddTest),
         temperature_2m_max:[20,21,22,23,24,25],
         temperature_2m_min:[8,9,10,11,12,13]
       }})});
