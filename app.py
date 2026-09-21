@@ -1092,12 +1092,12 @@ def widget_data():
     except Exception as e:
         print(f"⚠️  widget/vreme {oras}: {e}")
 
-    # 1b) Prognoza pe 3 zile + max/min azi, în fusul local al orașului.
+    # 1b) Prognoza pe 4 zile + max/min azi, în fusul local al orașului.
     try:
         r = requests.get('https://api.open-meteo.com/v1/forecast', params={
             'latitude': lat, 'longitude': lon,
             'daily': 'temperature_2m_max,temperature_2m_min,weathercode',
-            'forecast_days': 4, 'timezone': 'auto'
+            'forecast_days': 5, 'timezone': 'auto'
         }, timeout=12)
         r.raise_for_status()
         dz = r.json().get('daily', {})
@@ -1125,7 +1125,7 @@ def widget_data():
             out['minAzi'] = round(mins[0])
 
         zile = []
-        for i in range(1, min(4, len(times))):
+        for i in range(1, min(5, len(times))):
             try:
                 d_ = datetime.strptime(times[i], '%Y-%m-%d')
                 zile.append({
@@ -1206,7 +1206,7 @@ def widget_data():
                     'min': round(min(bucket['mins'])),
                     'icon': bucket['icon']
                 })
-                if len(fallback_days) == 3:
+                if len(fallback_days) == 4:
                     break
             out['zile'] = fallback_days
         except Exception as e:

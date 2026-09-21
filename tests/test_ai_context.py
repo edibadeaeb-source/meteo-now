@@ -2,7 +2,7 @@ import importlib.util
 import json
 import pathlib
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("meteo_app", ROOT / "app.py")
@@ -56,6 +56,41 @@ class WeatherPromptTests(unittest.TestCase):
         self.assertNotIn("ora Romaniei).", sent)
 
 
+
+class WidgetApiTests(unittest.TestCase):
+    @patch.object(meteo.requests, "get")
+    def test_widget_returns_four_future_days(self, get):
+        current = MagicMock()
+        current.raise_for_status.return_value = None
+        current.json.return_value = {
+            "main": {"temp": 14.2, "feels_like": 13.1, "humidity": 55},
+            "weather": [{"id": 801, "icon": "02d", "description": "puțin noros"}],
+            "wind": {"speed": 2.5},
+            "sys": {"sunrise": 0, "sunset": 0},
+            "timezone": 0,
+        }
+        daily = MagicMock()
+        daily.raise_for_status.return_value = None
+        daily.json.return_value = {
+            "daily": {
+                "time": ["2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26"],
+                "temperature_2m_max": [18, 19, 20, 21, 22],
+                "temperature_2m_min": [8, 9, 10, 11, 12],
+                "weathercode": [1, 2, 3, 61, 0],
+            }
+        }
+        get.side_effect = [current, daily]
+        meteo._widget_cache.clear()
+
+        response = meteo.app.test_client().get(
+            "/api/widget?lat=40.7128&lon=-74.006&oras=New%20York&admin=New%20York&country=US"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.get_json()
+        self.assertEqual(len(data["zile"]), 4)
+        self.assertEqual(data["zile"][0]["max"], 19)
+        self.assertEqual(data["zile"][3]["min"], 12)
 
 class ClimateArchiveTests(unittest.TestCase):
     @patch.object(meteo.requests, "get")

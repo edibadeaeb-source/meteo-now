@@ -908,32 +908,72 @@
         /* ══ ECRAN DE ÎNTÂMPINARE (alegerea locației) ══ */
         #welcome {
             position: fixed; inset: 0; z-index: 99998;
-            background: var(--band);
+            background:
+                radial-gradient(circle at 82% 12%, rgba(82,126,255,0.30), transparent 34%),
+                radial-gradient(circle at 10% 88%, rgba(44,198,190,0.18), transparent 38%),
+                linear-gradient(155deg, #071031 0%, #0b183c 52%, #111b42 100%);
             display: none; flex-direction: column; align-items: center; justify-content: center;
-            padding: 28px 22px; text-align: center; overflow-y: auto;
+            padding: 72px 22px 32px; text-align: center; overflow-y: auto;
+            overscroll-behavior: contain;
         }
         #welcome.show { display: flex; }
-        #welcome .w-logo { width: 84px; height: 84px; border-radius: 20px; margin-bottom: 16px; }
-        #welcome h1 { font-size: 1.7rem; font-weight: 800; color: #fff; letter-spacing: 0.5px; }
-        #welcome .w-sub { font-size: 0.9rem; color: #9fb0d8; margin: 8px 0 26px; max-width: 340px; line-height: 1.5; }
+        #welcome::before {
+            content: ''; position: absolute; inset: 12% 8%; pointer-events: none;
+            border-radius: 42px; border: 1px solid rgba(255,255,255,0.08);
+            background: linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.012));
+            box-shadow: 0 26px 80px rgba(0,0,0,0.24);
+        }
+        #welcome > * { position: relative; z-index: 1; }
+        #welcome .w-lang-switch {
+            position: absolute; z-index: 2;
+            top: max(18px, env(safe-area-inset-top, 0px)); right: 18px;
+            display: flex; gap: 3px; padding: 4px;
+            border: 1px solid rgba(255,255,255,0.20); border-radius: 999px;
+            background: rgba(255,255,255,0.09);
+            -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+        }
+        #welcome .w-lang-switch button {
+            min-width: 43px; height: 34px; padding: 0 10px; border: 0; border-radius: 999px;
+            background: transparent; color: rgba(255,255,255,0.62);
+            font: 800 0.74rem/1 inherit; letter-spacing: 0.5px; cursor: pointer;
+        }
+        #welcome .w-lang-switch button.active {
+            color: #fff; background: rgba(255,255,255,0.20);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.12);
+        }
+        #welcome .w-logo {
+            width: 82px; height: 82px; border-radius: 23px; margin-bottom: 16px;
+            box-shadow: 0 16px 38px rgba(0,0,0,0.30), 0 0 0 1px rgba(255,255,255,0.14);
+        }
+        #welcome h1 { font-size: 1.75rem; font-weight: 850; color: #fff; letter-spacing: 1px; }
+        #welcome .w-sub { font-size: 0.92rem; color: #b9c6e5; margin: 9px 0 24px; max-width: 340px; line-height: 1.55; }
         #welcome .w-btn {
-            width: min(330px, 100%); padding: 14px 20px; border-radius: 12px; cursor: pointer;
-            font-size: 0.95rem; font-weight: 700; font-family: inherit; border: none;
-            background: var(--navy); color: #fff; margin-bottom: 10px;
+            width: min(340px, 100%); min-height: 50px; padding: 13px 20px; border-radius: 16px; cursor: pointer;
+            font-size: 0.95rem; font-weight: 750; font-family: inherit;
+            border: 1px solid rgba(255,255,255,0.17);
+            background: linear-gradient(135deg, #467af7, #315dd9); color: #fff; margin-bottom: 11px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 12px 28px rgba(35,79,190,0.28);
         }
-        #welcome .w-btn:hover { background: var(--navy-dark); }
-        #welcome .w-btn.secundar { background: transparent; border: 1px solid rgba(255,255,255,0.4); }
-        #welcome .w-btn.secundar:hover { background: rgba(255,255,255,0.1); }
-        #welcome .w-search { width: min(330px, 100%); position: relative; margin-bottom: 10px; }
+        #welcome .w-btn:active { transform: scale(0.985); }
+        #welcome .w-btn:disabled, #welcome .w-search input:disabled { opacity: 0.62; cursor: default; }
+        #welcome .w-btn.secundar {
+            background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.22);
+            box-shadow: none;
+        }
+        #welcome .w-search { width: min(340px, 100%); position: relative; margin-bottom: 11px; }
         #welcome .w-search input {
-            width: 100%; padding: 13px 16px; border-radius: 12px; font-size: 0.92rem;
-            border: 1px solid #33415f; background: #0c1631; color: #e6e7eb; outline: none; font-family: inherit;
+            width: 100%; min-height: 50px; padding: 13px 16px; border-radius: 16px; font-size: 0.95rem;
+            border: 1px solid rgba(255,255,255,0.18); background: rgba(4,12,35,0.62);
+            color: #fff; outline: none; font-family: inherit;
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
         }
-        #welcome .w-search input:focus { border-color: var(--navy); }
-        #welcome .w-note { font-size: 0.75rem; color: #6d7b9e; margin-top: 14px; max-width: 320px; line-height: 1.5; }
-        #welcome .w-eroare { font-size: 0.8rem; color: #ffb4b8; margin-bottom: 10px; min-height: 1em; }
-
+        #welcome .w-search input::placeholder { color: #8796bb; }
+        #welcome .w-search input:focus { border-color: #6e98ff; box-shadow: 0 0 0 3px rgba(79,131,255,0.16); }
+        #welcome .w-note { font-size: 0.75rem; color: #7f8fb6; margin-top: 12px; max-width: 325px; line-height: 1.5; }
+        #welcome .w-eroare { font-size: 0.8rem; color: #ffb4b8; margin-bottom: 10px; min-height: 1.2em; }
+        #welcome .w-eroare.incarca { color: #c9d7ff; }
         /* ══ „Cât de neobișnuită e ziua" — funcția unică ══ */
         .climate-card { margin-bottom: 20px; overflow: hidden; }
         .cc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -1363,6 +1403,10 @@
 
 <!-- ═══ ECRAN DE ÎNTÂMPINARE — alegerea locației ═══ -->
 <div id="welcome">
+    <div class="w-lang-switch" role="group" aria-label="Language / Limbă">
+        <button type="button" id="wLangRO" data-lang="ro">RO</button>
+        <button type="button" id="wLangEN" data-lang="en">EN</button>
+    </div>
     <img class="w-logo" src="icon-192.png" alt="METEO NOW">
     <h1>METEO NOW</h1>
     <div class="w-sub" id="wSub">Vremea în timp real, oriunde în lume.<br>Alege locația pentru care vrei prognoza.</div>
@@ -6244,6 +6288,13 @@ function aplicaLimba(l) {
         en.style.opacity = LANG === 'en' ? '1' : '0.4';
         ro.style.cursor = en.style.cursor = 'pointer';
     }
+    var wRo = document.getElementById('wLangRO'), wEn = document.getElementById('wLangEN');
+    if (wRo && wEn) {
+        wRo.classList.toggle('active', LANG === 'ro');
+        wEn.classList.toggle('active', LANG === 'en');
+        wRo.setAttribute('aria-pressed', LANG === 'ro' ? 'true' : 'false');
+        wEn.setAttribute('aria-pressed', LANG === 'en' ? 'true' : 'false');
+    }
     try { actualizeazaChat(); } catch (e) {}
     // reîmprospătăm tot ce conține text generat din JS
     try { updateMoonPhase(); } catch (e) {}
@@ -6552,6 +6603,47 @@ function ascundeWelcome() {
     setTimeout(function() { html.style.scrollBehavior = prev || ''; }, 1900);
 }
 
+var _welcomeOcupat = false;
+function seteazaWelcomeOcupat(pornit) {
+    _welcomeOcupat = !!pornit;
+    ['wLocatie', 'wTargoviste', 'wCauta'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = _welcomeOcupat;
+    });
+    var rezultate = document.getElementById('wRezultate');
+    if (rezultate && pornit) rezultate.style.display = 'none';
+    var stare = document.getElementById('wEroare');
+    if (stare) {
+        stare.classList.toggle('incarca', _welcomeOcupat);
+        if (_welcomeOcupat) stare.textContent = T('seIncarca');
+        else stare.textContent = '';
+    }
+}
+
+function intraDinWelcome(loc) {
+    if (_welcomeOcupat || !loc) return;
+    seteazaWelcomeOcupat(true);
+    seteazaLocatie(loc, false);
+
+    var incarcare = null;
+    try {
+        if (typeof esteMobil === 'function' && esteMobil() && typeof mobIncarca === 'function') {
+            incarcare = mobIncarca();
+        } else {
+            reincarcaTot();
+        }
+    } catch (e) {}
+
+    Promise.resolve(incarcare).then(function() {
+        return new Promise(function(resolve) {
+            requestAnimationFrame(function() { requestAnimationFrame(resolve); });
+        });
+    }).then(function() {
+        seteazaWelcomeOcupat(false);
+        _scrollInainte = 0;
+        ascundeWelcome();
+    });
+}
 function pozitieOData(optiuni) {
     return new Promise(function(resolve, reject) {
         navigator.geolocation.getCurrentPosition(resolve, reject, optiuni);
@@ -6610,21 +6702,20 @@ function cereLocatie() {
     pozitieCuReincercare({ timeout: 20000, maximumAge: 600000, enableHighAccuracy: false }).then(function(pos) {
         // aflăm numele localității din coordonate
         return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
-              pos.coords.latitude + '&longitude=' + pos.coords.longitude + '&localityLanguage=ro')
+              pos.coords.latitude + '&longitude=' + pos.coords.longitude + '&localityLanguage=' +
+              (LANG === 'en' ? 'en' : 'ro'))
             .then(function(r) { return r.json(); })
             .then(function(g) {
-                seteazaLocatie({
+                intraDinWelcome({
                     nume: g.city || g.locality || g.principalSubdivision || T('locatiaMea'),
                     tara: g.countryCode || '',
                     admin: g.principalSubdivision || '',
                     lat: pos.coords.latitude, lon: pos.coords.longitude
                 });
-                ascundeWelcome();
             })
             .catch(function() {
-                seteazaLocatie({ nume: T('locatiaMea'), tara: '', admin: '',
-                                 lat: pos.coords.latitude, lon: pos.coords.longitude });
-                ascundeWelcome();
+                intraDinWelcome({ nume: T('locatiaMea'), tara: '', admin: '',
+                                  lat: pos.coords.latitude, lon: pos.coords.longitude });
             });
     }).catch(function(e) {
         if (buton) {
@@ -6656,10 +6747,9 @@ function cereLocatie() {
                         var div = document.createElement('div');
                         div.textContent = p.name + (p.admin1 ? ', ' + p.admin1 : '') + ' · ' + (p.country || p.country_code);
                         div.addEventListener('click', function() {
-                            seteazaLocatie({ nume: p.name, tara: p.country_code, admin: p.admin1,
-                                             lat: p.latitude, lon: p.longitude });
                             res.style.display = 'none';
-                            ascundeWelcome();
+                            intraDinWelcome({ nume: p.name, tara: p.country_code, admin: p.admin1,
+                                              lat: p.latitude, lon: p.longitude });
                         });
                         res.appendChild(div);
                     });
@@ -6670,9 +6760,14 @@ function cereLocatie() {
 })();
 
 document.getElementById('wLocatie').addEventListener('click', cereLocatie);
+['wLangRO', 'wLangEN'].forEach(function(id) {
+    var button = document.getElementById(id);
+    if (button) button.addEventListener('click', function() {
+        aplicaLimba(button.getAttribute('data-lang'));
+    });
+});
 document.getElementById('wTargoviste').addEventListener('click', function() {
-    seteazaLocatie({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
-    ascundeWelcome();
+    intraDinWelcome({ nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița', lat: 44.9266, lon: 25.4566 });
 });
 // ═══════════════════════════════════════════════════════════
 //  ASISTENTUL AI — se adaptează la limbă și la orașul selectat
@@ -7131,7 +7226,7 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
     } else if (incarcaLoc() && LOC.lat != null) {
         seteazaLocatie(LOC, false);
     } else {
-        setTimeout(aratăWelcome, 900);      // după splash, doar prima dată
+        aratăWelcome();                    // rămâne sub splash și apare direct după animație
     }
     if (_widgetChooserId) {
         setTimeout(function() { mobDeschideFoaie('orase'); }, 650);
