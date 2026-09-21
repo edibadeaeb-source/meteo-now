@@ -951,6 +951,8 @@ def _rezumat_intern(moment):
 # ═══════════════════════════════════════════════════════════════
 _widget_cache = {}
 _WIDGET_CACHE_MAX = 128
+_WIDGET_CITY_ID_RE = re.compile(r'^[a-f0-9]{64}$')
+_WIDGET_CITY_B64_RE = re.compile(r'^[A-Za-z0-9+/]*={0,2}$')
 
 _RO_COUNTY_CODES = {
     'alba': 'AB', 'arad': 'AR', 'arges': 'AG', 'bacau': 'BC', 'bihor': 'BH',
@@ -989,6 +991,43 @@ def _widget_county_code(admin, country):
     normalized = ''.join(c for c in normalized if not unicodedata.combining(c))
     normalized = normalized.lower().replace('judetul ', '').strip()
     return _RO_COUNTY_CODES.get(normalized)
+
+
+def _widget_city_sync_id():
+    payload = request.get_json(silent=True) if request.method == 'POST' else None
+    sync_id = (payload or {}).get('id') if isinstance(payload, dict) else None
+    sync_id = str(sync_id or request.args.get('id', '')).strip().lower()
+    return sync_id if _WIDGET_CITY_ID_RE.fullmatch(sync_id) else None
+
+
+@app.route('/api/widget/cities', methods=['GET', 'POST'])
+def widget_cities():
+    """Păstrează numai pachetul criptat end-to-end al listei pentru widget."""
+    sync_id = _widget_city_sync_id()
+    if not sync_id:
+        return jsonify({'ok': False, 'error': 'invalid_id'}), 400
+    path = f'widget_cities_e2e/{sync_id}'
+
+    if request.method == 'POST':
+        payload = request.get_json(silent=True) or {}
+        iv = str(payload.get('iv', '')).strip()
+        ciphertext = str(payload.get('ciphertext', '')).strip()
+        if (not 12 <= len(iv) <= 32 or not 24 <= len(ciphertext) <= 16384
+                or not _WIDGET_CITY_B64_RE.fullmatch(iv)
+                or not _WIDGET_CITY_B64_RE.fullmatch(ciphertext)):
+            return jsonify({'ok': False, 'error': 'invalid_envelope'}), 400
+        envelope = {'iv': iv, 'ciphertext': ciphertext, 'updatedAt': int(time.time())}
+        stored = _fb(path, 'PUT', envelope)
+        if stored is None:
+            return jsonify({'ok': False, 'error': 'storage_unavailable'}), 503
+        response = jsonify({'ok': True})
+    else:
+        stored = _fb(path, 'GET')
+        envelope = stored if isinstance(stored, dict) else None
+        response = jsonify({'ok': True, 'envelope': envelope})
+
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @app.route('/api/widget')

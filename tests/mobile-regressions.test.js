@@ -83,6 +83,12 @@ function between(a, b) {
 }
 
 assert(html.includes("Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k]))"));
+
+// Widget selector sync is encrypted, excludes the fresh-install placeholder, and welcome controls fit the outline.
+assert(html.includes("crypto.subtle.encrypt({ name: 'AES-GCM'"));
+assert(html.includes("nativeWidgetToken"));
+assert(html.includes("if (!welcomeVizibil)"));
+assert(html.includes("width: min(340px, 82vw)"));
 console.log('mobile regressions: ok');
 
 

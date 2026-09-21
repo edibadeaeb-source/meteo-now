@@ -56,7 +56,7 @@
 
     <!-- ══════════════ ROMÂNĂ ══════════════ -->
     <div class="sec-ro">
-        <p><b>Ultima actualizare:</b> 12 septembrie 2026</p>
+        <p><b>Ultima actualizare:</b> 22 septembrie 2026</p>
 
         <div class="box">
             <p><b>Pe scurt:</b> METEO NOW nu creează conturi și nu vinde informații nimănui. Locația este folosită pentru vremea locală și este păstrată pe server numai dacă activezi notificările, împreună cu abonamentul tehnic necesar alertelor.</p>
@@ -69,9 +69,10 @@
         <h2>2. Ce date folosim</h2>
         <ul>
             <li><b>Locația aproximativă sau precisă</b> — doar dacă îți dai acordul. O folosim pentru a determina localitatea și a afișa vremea pentru ea. La folosirea butonului de localizare, coordonatele sunt trimise către BigDataCloud pentru identificarea localității și apoi către serviciile meteo (vezi secțiunea 5) pentru prognoză. Pentru utilizarea obișnuită nu le salvăm pe serverele noastre. Dacă activezi notificările, coordonatele și numele localității selectate sunt păstrate împreună cu abonamentul tehnic, pentru a trimite alerte relevante. Poți refuza accesul și poți căuta manual orice oraș.</li>
-            <li><b>Preferințele tale</b> (orașul ales, tema, limba, locațiile recente) — se salvează
-            <b>local, pe dispozitivul tău</b>, în memoria aplicației. Nu ajung la noi și dispar dacă
-            dezinstalezi aplicația sau ștergi datele acesteia.</li>
+            <li><b>Preferințele tale</b> (orașul ales, tema, limba, locațiile recente) se salvează
+            local, în memoria aplicației. Pentru ca orașele salvate să apară în selectorul widgeturilor,
+            lista este sincronizată prin Firebase numai sub formă criptată end-to-end (AES-GCM);
+            cheia rămâne pe dispozitiv, iar serverul nu poate citi orașele sau coordonatele.</li>
             <li><b>Notificări</b> — dacă le activezi, dispozitivul generează o adresă tehnică de livrare și chei de abonament, pe care le păstrăm în Firebase împreună cu localitatea aleasă. Nu includ numele sau e-mailul tău. Dezactivarea notificărilor cere ștergerea abonamentului; după dezinstalare, acesta este eliminat când serviciul de livrare îl raportează ca expirat.</li>
             <li><b>Întrebările către asistentul AI</b> — sunt trimise pentru procesare către Anthropic
             (Claude) împreună cu vremea afișată în acel moment. Nu le asociem cu identitatea ta și nu le
@@ -101,7 +102,7 @@
             <li><b>DWD</b> — hărți sinoptice</li>
             <li><b>ANM (meteoromania.ro)</b> — avertizări oficiale, doar pentru România</li>
             <li><b>Anthropic (Claude)</b> — răspunsurile asistentului AI</li>
-            <li><b>Google Firebase</b> — stocarea măsurătorilor stațiilor proprii și, când activezi notificările, a abonamentului push și localității pentru care primești alerte</li>
+            <li><b>Google Firebase</b> — stocarea măsurătorilor stațiilor proprii, a abonamentelor push activate și a pachetului criptat end-to-end folosit pentru sincronizarea orașelor cu widgeturile</li>
         </ul>
         <p>Fiecare serviciu are propria politică de confidențialitate.</p>
 
@@ -122,7 +123,7 @@
 
     <!-- ══════════════ ENGLISH ══════════════ -->
     <div class="sec-en">
-        <p><b>Last updated:</b> 12 September 2026</p>
+        <p><b>Last updated:</b> 22 September 2026</p>
 
         <div class="box">
             <p><b>In short:</b> METEO NOW does not create accounts or sell information. Location is used for local weather and is stored on the server only if you enable notifications, together with the technical subscription required to deliver alerts.</p>
@@ -135,9 +136,10 @@
         <h2>2. Data we use</h2>
         <ul>
             <li><b>Approximate or precise location</b> — only with your consent. We use it to determine your locality and show its weather. When you use the location button, coordinates are sent to BigDataCloud to identify the locality and then to the weather services listed in section 5. During ordinary use we do not store them on our servers. If you enable notifications, the selected locality name and coordinates are stored with the technical push subscription so that relevant alerts can be delivered. You may decline permission and search for any city manually.</li>
-            <li><b>Your preferences</b> (selected city, theme, language, recent locations) are stored
-            <b>locally on your device</b>. They never reach us and are removed if you uninstall the app
-            or clear its data.</li>
+            <li><b>Your preferences</b> (selected city, theme, language and recent locations) are
+            stored locally in the app. To make saved cities available in the native widget selector,
+            the city list is synced through Firebase only as an end-to-end encrypted AES-GCM package;
+            the key stays on the device, so the server cannot read city names or coordinates.</li>
             <li><b>Notifications</b> — if enabled, your device creates a technical delivery endpoint and subscription keys. We store them in Firebase together with the selected locality. They do not contain your name or e-mail. Turning notifications off requests subscription deletion; after uninstalling, it is removed when the delivery service reports it as expired.</li>
             <li><b>Questions to the AI assistant</b> — sent for processing to Anthropic (Claude) together
             with the weather currently displayed. They are not linked to your identity and are not used
@@ -166,7 +168,7 @@
             <li><b>DWD</b> — synoptic charts</li>
             <li><b>ANM (meteoromania.ro)</b> — official warnings, for Romania only</li>
             <li><b>Anthropic (Claude)</b> — AI assistant responses</li>
-            <li><b>Google Firebase</b> — storage of readings from our own stations and, when notifications are enabled, the push subscription and locality used for alerts</li>
+            <li><b>Google Firebase</b> — storage of readings from our own stations, enabled push subscriptions and the end-to-end encrypted package used to sync saved cities with widgets</li>
         </ul>
         <p>Each service has its own privacy policy.</p>
 

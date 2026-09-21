@@ -92,6 +92,44 @@ class WidgetApiTests(unittest.TestCase):
         self.assertEqual(data["zile"][0]["max"], 19)
         self.assertEqual(data["zile"][3]["min"], 12)
 
+
+class WidgetCitySyncTests(unittest.TestCase):
+    def test_encrypted_envelope_roundtrip_stores_no_city_plaintext(self):
+        storage = {}
+
+        def fake_fb(path, method='GET', payload=None):
+            if method == 'PUT':
+                storage[path] = payload
+                return payload
+            return storage.get(path)
+
+        sync_id = 'a' * 64
+        envelope = {
+            'id': sync_id,
+            'iv': 'AAAAAAAAAAAAAAAA',
+            'ciphertext': 'Q2lwaGVydGV4dE9ubHkxMjM0NTY3ODkw',
+        }
+        with patch.object(meteo, '_fb', side_effect=fake_fb):
+            client = meteo.app.test_client()
+            saved = client.post('/api/widget/cities', json=envelope)
+            loaded = client.get('/api/widget/cities?id=' + sync_id)
+
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(loaded.status_code, 200)
+        data = loaded.get_json()['envelope']
+        self.assertEqual(data['iv'], envelope['iv'])
+        self.assertEqual(data['ciphertext'], envelope['ciphertext'])
+        self.assertNotIn('city', json.dumps(storage).lower())
+        self.assertEqual(loaded.headers.get('Cache-Control'), 'no-store')
+
+    def test_encrypted_sync_rejects_invalid_identifier_and_payload(self):
+        client = meteo.app.test_client()
+        self.assertEqual(client.get('/api/widget/cities?id=Targoviste').status_code, 400)
+        response = client.post('/api/widget/cities', json={
+            'id': 'b' * 64, 'iv': 'not base64!', 'ciphertext': 'Moreni'
+        })
+        self.assertEqual(response.status_code, 400)
+
 class ClimateArchiveTests(unittest.TestCase):
     @patch.object(meteo.requests, "get")
     def test_cold_city_uses_one_archive_request(self, get):
