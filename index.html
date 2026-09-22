@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.13.7">
+    <meta name="application-version" content="2026.09.22.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -104,7 +104,8 @@
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
     <title>METEO NOW | Vremea în timp real, radar și avertizări</title>
     <meta name="description" content="METEO NOW — vremea în timp real pentru orice loc din lume: temperatură, radar de precipitații, prognoze pe 10 zile, avertizări oficiale ANM pentru România și stații meteo proprii la Târgoviște.">
     <meta name="theme-color" content="#071031">
@@ -300,7 +301,7 @@
         .sfat-banda.nv2 { background: rgba(245,197,0,0.16); border-color: rgba(245,197,0,0.45); }
         .sfat-banda.nv3 { background: rgba(249,115,22,0.18); border-color: rgba(249,115,22,0.5); }
         .sfat-banda.nv4 { background: rgba(229,72,77,0.20); border-color: rgba(229,72,77,0.55); }
-        @media (max-width: 760px) { .sfat-banda { font-size: 0.82rem; padding: 9px 10px; } }
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) { .sfat-banda { font-size: 0.82rem; padding: 9px 10px; } }
 
         /* ══════════════════════════════════════════════════════
            MESAJUL DE ÎNTÂMPINARE — o fâșie mică, în colț
@@ -353,7 +354,7 @@
         .st-card.nv2 { background: rgba(94, 74, 8, 0.90); border-color: rgba(245,197,0,0.45); }
         .st-card.nv3 { background: rgba(104, 50, 12, 0.90); border-color: rgba(249,115,22,0.50); }
         .st-card.nv4 { background: rgba(102, 28, 32, 0.92); border-color: rgba(229,72,77,0.55); }
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             /* pe telefon îl coborâm sub bara care apare la derulare */
             #sfatToast { top: calc(60px + env(safe-area-inset-top, 0px)); right: 12px; left: 12px; width: auto; }
             .st-text { font-size: 0.84rem; }
@@ -854,7 +855,7 @@
         html, body { max-width: 100%; overflow-x: hidden; }
         img, svg, canvas, iframe, video { max-width: 100%; }
 
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             /* nimic nu mai are voie să forțeze pagina mai lată decât ecranul */
             .hero-left, .hero-mid, .hero-card, .status-card,
             .chart-card, .card, .light-panel, .monitor-left,
@@ -1038,7 +1039,7 @@
 
         /* Pe telefon cardul climatic ocupa prea mult. Păstrăm ce contează —
            fraza, abaterea și termometrul — și strângem restul. */
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             .climate-card { margin-bottom: 14px; }
             .cc-ico { font-size: 1.25rem; }
             .cc-head h3 { font-size: 0.98rem; }
@@ -1303,7 +1304,7 @@
            de bază ale panoului (scrise mai sus, cu aceeași
            specificitate). Pe desktop rămâne panoul clasic.
            ══════════════════════════════════════════════════════ */
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             /* fundal mai transparent, cu blur: aplicația rămâne vizibilă în spate */
             .sheet-backdrop {
                 align-items: flex-end; padding: 0;
@@ -1371,7 +1372,7 @@
             padding-bottom: max(28px, env(safe-area-inset-bottom, 0px));
         }
         .loc-panel { margin-top: env(safe-area-inset-top, 0px); }
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             .chat-fab { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); }
         }
 
@@ -1385,7 +1386,7 @@
            micșorează niciodată; dacă spațiul e mic, se strânge numele
            aplicației. Așa roata dințată rămâne mereu vizibilă.
            ══════════════════════════════════════════════════════ */
-        @media (max-width: 760px) {
+        @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             .topbar-inner { flex-wrap: nowrap; gap: 6px; padding: 8px 10px; }
 
             /* stânga: se strânge prima, cu „…" dacă nu încape */
@@ -7341,7 +7342,7 @@ try { aplicaLimba(LANG); } catch (e) {}
 
 <!-- ══════════════════════════════════════════════════════════════════
      INTERFAȚA DE TELEFON
-     Sub 760px ascundem complet layout-ul de desktop (stil IMGW) și
+     Pe telefoane și tablete compacte ascundem layout-ul de desktop și
      randăm ecranul ăsta: fundal-cer, carduri de sticlă, exact ordinea
      din aplicația de vreme a iPhone-ului, dar cu elementele noastre.
      Desktopul rămâne neatins.
@@ -7354,7 +7355,7 @@ try { aplicaLimba(LANG); } catch (e) {}
 #mobApp { display: none; }
 
 #mobApp {
-    position: relative; min-height: 100vh; z-index: 0;
+    position: relative; min-height: 100vh; min-height: 100svh; z-index: 0;
     color: #fff;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     padding-bottom: 120px;
@@ -7454,7 +7455,7 @@ input, textarea, select, [contenteditable="true"] {
     -webkit-touch-callout: default;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
     /* ascundem interfața de desktop, fără s-o scoatem din pagină
        (codul vechi încă scrie în ea, dar nu se mai vede) */
     body > header.topbar, body > .hero-band, body > main.container,
@@ -7555,7 +7556,7 @@ input, textarea, select, [contenteditable="true"] {
 .mb-hero.mic .mb-temp, .mb-hero.mic .mb-mm { opacity: 0; }
 .mb-luna { overscroll-behavior-x: contain; }
 .ml-glob, .ml-rigla { touch-action: none; }
-@media (max-width: 760px) {
+@media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
     html { overscroll-behavior-x: none; }
     #mobApp { overflow-x: clip; }
     #sfatToast:not(.vizibil) { visibility: hidden; }
@@ -7836,7 +7837,7 @@ input, textarea, select, [contenteditable="true"] {
 .mo-rez div:hover { background: rgba(255,255,255,0.14); }
 .mo-rez small { display: block; font-size: 0.72rem; color: rgba(255,255,255,0.58); }
 /* trecerea de la un oraș la altul urmărește degetul */
-.mb-hero, #mbContinut { will-change: transform; }
+.mb-hero.gliseaza, #mbContinut.gliseaza { will-change: transform, opacity; }
 .mb-hero.lin, #mbContinut.lin { transition: transform 0.28s cubic-bezier(0.25,0.9,0.3,1), opacity 0.28s ease; }
 
 /* ── foaia care se deschide la apăsarea unui card ── */
@@ -8068,6 +8069,93 @@ input, textarea, select, [contenteditable="true"] {
 }
 /* harta din interiorul cardului nu se mișcă și nu se mărește */
 .mb-harta .leaflet-container { cursor: default; }
+
+/* ══════════════════════════════════════════════════════════════
+   COMPATIBILITATE TELEFOANE / TABLETE
+   Folosim viewportul dinamic pentru Safari și barele Android, respectăm
+   decupajele pe toate laturile și păstrăm comenzile utilizabile pe 320 px.
+   ══════════════════════════════════════════════════════════════ */
+@supports (min-height: 100dvh) {
+    #mobApp { min-height: 100dvh; }
+    .mf-corp, .sheet { max-height: 88dvh; }
+}
+@media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
+    .mb-card {
+        margin-left: max(14px, calc(env(safe-area-inset-left, 0px) + 8px));
+        margin-right: max(14px, calc(env(safe-area-inset-right, 0px) + 8px));
+    }
+    .mb-grid {
+        margin-left: max(14px, calc(env(safe-area-inset-left, 0px) + 8px));
+        margin-right: max(14px, calc(env(safe-area-inset-right, 0px) + 8px));
+    }
+    #mobJos {
+        padding-left: calc(18px + env(safe-area-inset-left, 0px));
+        padding-right: calc(18px + env(safe-area-inset-right, 0px));
+    }
+    .mf-corp {
+        padding-left: calc(16px + env(safe-area-inset-left, 0px));
+        padding-right: calc(16px + env(safe-area-inset-right, 0px));
+    }
+    #mrInchide { left: calc(14px + env(safe-area-inset-left, 0px)); }
+    .mr-dreapta { right: calc(14px + env(safe-area-inset-right, 0px)); }
+    #mrLegenda { left: calc(14px + env(safe-area-inset-left, 0px)); }
+    .mb-oras {
+        max-width: 100%; padding: 0 8px;
+        overflow-wrap: anywhere; text-wrap: balance;
+    }
+    .mb-cap .mbc-dr, .mo-nume {
+        min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #mobApp button, #mobFoaie button, .sheet button {
+        touch-action: manipulation;
+    }
+}
+@media (max-width: 360px) {
+    .mb-hero { padding-left: 12px; padding-right: 12px; }
+    .mb-oras { font-size: 1.82rem; }
+    .mb-temp { font-size: 4.8rem; }
+    .mb-stare, .mb-mm { font-size: 1.06rem; }
+    .mb-card { margin-left: 8px; margin-right: 8px; padding: 12px; border-radius: 18px; }
+    .mb-grid { margin-left: 8px; margin-right: 8px; gap: 8px; }
+    .mb-grid .mb-card { min-height: 140px; }
+    .mb-zi { gap: 6px; }
+    .mb-zi .z-n { width: 40px; font-size: 0.88rem; }
+    .mb-zi .z-i { width: 30px; }
+    .mb-zi .z-min, .mb-zi .z-max { width: 31px; font-size: 0.88rem; }
+    #mobJos { gap: 8px; padding-left: 10px; padding-right: 10px; }
+    .mj-rot { width: 46px; height: 46px; }
+    .mj-pilula { max-width: 220px; gap: 6px; }
+    .mj-pilula .p-loc { max-width: 105px; font-size: 0.8rem; }
+}
+@media (max-height: 560px) and (orientation: landscape) and (pointer: coarse) {
+    #mobApp { padding-bottom: 88px; }
+    .mb-hero {
+        padding-top: calc(4px + env(safe-area-inset-top, 0px));
+        padding-bottom: 10px;
+    }
+    .mb-acasa { font-size: 0.62rem; }
+    .mb-oras { font-size: 1.45rem; margin-top: 0; }
+    .mb-temp { font-size: 3.35rem; letter-spacing: -2px; }
+    .mb-stare, .mb-mm { font-size: 0.9rem; }
+    .mb-card { margin-bottom: 10px; }
+    .mf-corp { max-height: 94dvh; }
+    .sheet { max-height: 94dvh; }
+    .chat-window {
+        top: calc(8px + env(safe-area-inset-top, 0px));
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        height: auto; max-height: none;
+    }
+    #welcome {
+        justify-content: flex-start;
+        padding-top: calc(62px + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    }
+    #welcome .w-logo { width: 52px; height: 52px; border-radius: 15px; margin-bottom: 7px; }
+    #welcome h1 { font-size: 1.35rem; }
+    #welcome .w-sub { margin: 4px 0 10px; }
+    #welcome .w-btn, #welcome .w-search input { min-height: 44px; padding-top: 10px; padding-bottom: 10px; }
+    #welcome .w-note { margin-top: 4px; }
+}
 </style>
 
 <div id="mobApp">
@@ -8173,7 +8261,9 @@ var _mobHarti = {};
 
 var SVG_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
-function esteMobil() { return window.matchMedia('(max-width: 760px)').matches; }
+function esteMobil() {
+    return window.matchMedia('(max-width: 900px), (max-height: 560px) and (pointer: coarse)').matches;
+}
 
 /* Vibrație scurtă la gesturi — dă senzația de „clic" fizic.
    Android o susține; pe iOS e ignorată în siguranță. */
@@ -8329,9 +8419,15 @@ function mobPartiSlide() {
 function mobMuta(dx, opac, lin) {
     mobPartiSlide().forEach(function(el) {
         if (!el) return;
+        el.classList.add('gliseaza');
         el.classList.toggle('lin', !!lin);
-        el.style.transform = dx ? ('translateX(' + dx + 'px)') : '';
+        el.style.transform = dx ? ('translate3d(' + dx + 'px,0,0)') : '';
         el.style.opacity = (opac === undefined) ? '' : opac;
+        if (!dx && (opac === undefined || opac === 1)) {
+            setTimeout(function() {
+                if (!el.style.transform) el.classList.remove('gliseaza');
+            }, lin ? 340 : 20);
+        }
     });
 }
 function mobPuncte() {
