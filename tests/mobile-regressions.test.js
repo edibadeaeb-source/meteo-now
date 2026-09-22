@@ -89,6 +89,12 @@ assert(html.includes("crypto.subtle.encrypt({ name: 'AES-GCM'"));
 assert(html.includes("nativeWidgetToken"));
 assert(html.includes("if (!welcomeVizibil)"));
 assert(html.includes("width: min(340px, 82vw)"));
+
+// GPS refreshes only after the user chose it, and a manual city choice can stop it.
+assert(html.includes("var LOC_AUTO_KEY = 'meteo-locatie-automata'"));
+assert(html.includes("actualizeazaLocatieAutomat(true)"));
+assert(html.includes("seteazaLocatie(loc, true, 'gps')"));
+assert(html.includes("seteazaLocatie(loc, true, 'manual')"));
 console.log('mobile regressions: ok');
 
 

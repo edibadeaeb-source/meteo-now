@@ -373,7 +373,9 @@ def push_unsubscribe():
     sub = request.get_json(silent=True) or {}
     endpoint = sub.get('endpoint')
     if endpoint:
-        _fb(f'push_subs/{_sub_key(endpoint)}', 'DELETE')
+        key = _sub_key(endpoint)
+        _fb(f'push_subs/{key}', 'DELETE')
+        _fb(f'push_weather_state/{key}', 'DELETE')
     return jsonify({'ok': True})
 
 
@@ -449,12 +451,24 @@ def push_check():
     """
     if request.args.get('secret') != PUSH_CRON_SECRET:
         return jsonify({'error': 'acces interzis'}), 403
+    rezultat = {'ok': True}
     try:
-        return _push_check_intern()
+        raspuns = _push_check_intern()
+        if isinstance(raspuns, tuple):
+            raspuns = raspuns[0]
+        date = raspuns.get_json(silent=True) if hasattr(raspuns, 'get_json') else None
+        rezultat['anm'] = date if isinstance(date, dict) else {'ok': True}
     except Exception as e:
         import traceback
-        print("❌ push_check:", traceback.format_exc(), flush=True)
-        return jsonify({'ok': False, 'eroare': str(e)[:200]}), 200
+        print("❌ push_check ANM:", traceback.format_exc(), flush=True)
+        rezultat['anm'] = {'ok': False, 'eroare': str(e)[:200]}
+    try:
+        rezultat['meteo'] = _push_weather_intern()
+    except Exception as e:
+        import traceback
+        print("❌ push_check meteo:", traceback.format_exc(), flush=True)
+        rezultat['meteo'] = {'ok': False, 'eroare': str(e)[:200]}
+    return jsonify(rezultat), 200
 
 
 def _push_check_intern():
@@ -730,6 +744,264 @@ _WMO_EN = {
     80: 'showers', 81: 'showers', 82: 'heavy showers',
     95: 'thunderstorm', 96: 'thunderstorm with hail', 99: 'thunderstorm with hail',
 }
+
+
+
+_PRECIP_WMO = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82}
+_SNOW_WMO = {71, 73, 75, 77, 85, 86}
+_STORM_WMO = {95, 96, 99}
+_FOG_WMO = {45, 48}
+
+
+def _prognoza_evenimente(lat, lon):
+    """Cele 12 ore folosite pentru alerte care pot apărea la orice oră."""
+    r = requests.get('https://api.open-meteo.com/v1/forecast', params={
+        'latitude': lat, 'longitude': lon,
+        'current': 'temperature_2m,weather_code,precipitation,rain,showers,snowfall,wind_gusts_10m',
+        'hourly': ('temperature_2m,precipitation_probability,precipitation,rain,'
+                   'showers,snowfall,weather_code,wind_gusts_10m,visibility'),
+        'forecast_hours': 12, 'timezone': 'auto',
+    }, timeout=20, headers={'User-Agent': 'MeteoNow/1.0'})
+    r.raise_for_status()
+    return r.json()
+
+
+def _event_dt(value):
+    try:
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _event_num(values, index, default=0.0):
+    try:
+        value = values[index]
+        return default if value is None else float(value)
+    except (IndexError, TypeError, ValueError):
+        return default
+
+
+def _event_code(values, index):
+    try:
+        return int(values[index])
+    except (IndexError, TypeError, ValueError):
+        return -1
+
+
+def _precip_kind(code, precipitation=0, rain=0, showers=0, snow=0):
+    if code in _SNOW_WMO or float(snow or 0) > .02:
+        return 'snow'
+    if (code in _PRECIP_WMO or float(precipitation or 0) > .05
+            or float(rain or 0) > .05 or float(showers or 0) > .05):
+        return 'rain'
+    return ''
+
+
+def _moment_eveniment(target, now, limba):
+    en = limba == 'en'
+    if not target:
+        return 'soon' if en else 'în curând'
+    if 0 <= (target - now).total_seconds() <= 4500:
+        return 'within the next hour' if en else 'în următoarea oră'
+    tomorrow, hour = target.date() != now.date(), target.hour
+    if en:
+        part = ('overnight' if hour < 5 or hour >= 23 else
+                'morning' if hour < 12 else 'afternoon' if hour < 18 else 'evening')
+        return ('tomorrow ' if tomorrow else 'this ') + part
+    if hour < 5 or hour >= 23:
+        return 'mâine-noapte' if tomorrow else 'în cursul nopții'
+    if hour < 12:
+        return 'mâine dimineață' if tomorrow else 'în această dimineață'
+    if hour < 18:
+        return 'mâine după-amiază' if tomorrow else 'în această după-amiază'
+    return 'mâine seară' if tomorrow else 'în această seară'
+
+
+def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
+    """Alege cea mai relevantă schimbare și scrie o propoziție completă."""
+    current, hourly = p.get('current') or {}, p.get('hourly') or {}
+    times = [_event_dt(x) for x in hourly.get('time') or []]
+    if not times:
+        return None
+    now = _event_dt(current.get('time')) or times[0] or datetime.now()
+    future = [i for i, value in enumerate(times)
+              if value and now < value <= now + timedelta(hours=8)]
+    if not future:
+        return None
+
+    codes = hourly.get('weather_code') or []
+    probs = hourly.get('precipitation_probability') or []
+    precip = hourly.get('precipitation') or []
+    rain, showers = hourly.get('rain') or [], hourly.get('showers') or []
+    snow = hourly.get('snowfall') or []
+    gusts, visibility = hourly.get('wind_gusts_10m') or [], hourly.get('visibility') or []
+
+    def kind_at(i):
+        return _precip_kind(_event_code(codes, i), _event_num(precip, i),
+                            _event_num(rain, i), _event_num(showers, i), _event_num(snow, i))
+
+    current_code = int(current.get('weather_code') or -1)
+    current_kind = _precip_kind(
+        current_code, current.get('precipitation') or 0, current.get('rain') or 0,
+        current.get('showers') or 0, current.get('snowfall') or 0)
+    en = limba == 'en'
+    loc = str(nume or ('Your area' if en else 'Zona ta')).strip()[:60]
+
+    def result(kind, ro_title, en_title, ro_body, en_body, target=None, level=0):
+        return {
+            'kind': kind,
+            'title': f"{loc} | {en_title if en else ro_title}",
+            'body': en_body if en else ro_body,
+            'fingerprint': f"{kind}:{(target or now):%Y%m%d%H}",
+            'tag': 'meteo-' + kind.replace('_', '-'), 'nivel': level,
+        }
+
+    storm = next((i for i in future[:3] if _event_code(codes, i) in _STORM_WMO), None)
+    if current_code in _STORM_WMO or storm is not None:
+        target = now if current_code in _STORM_WMO else times[storm]
+        moment = _moment_eveniment(target, now, limba)
+        return result(
+            'storm_now' if current_code in _STORM_WMO else 'storm_start',
+            'Furtună', 'Thunderstorm',
+            'Sunt posibile furtuni chiar acum. Evită zonele deschise.' if current_code in _STORM_WMO else f'Sunt posibile furtuni {moment}.',
+            'Thunderstorms are possible right now. Avoid open areas.' if current_code in _STORM_WMO else f'Thunderstorms are possible {moment}.',
+            target, 2)
+
+    if current_kind:
+        ending = None
+        for pos, i in enumerate(future[:-1]):
+            j = future[pos + 1]
+            if (not kind_at(i) and not kind_at(j)
+                    and _event_num(probs, i) < 35 and _event_num(probs, j) < 35):
+                ending = i
+                break
+        if ending is not None:
+            target, moment = times[ending], _moment_eveniment(times[ending], now, limba)
+            if current_kind == 'snow':
+                return result('snow_end', 'Ninsoare', 'Snow',
+                              f'Este probabil ca ninsoarea să se oprească {moment}.',
+                              f'The snow is likely to stop {moment}.', target)
+            return result('rain_end', 'Ploaie', 'Rain',
+                          f'Este probabil ca ploaia să se oprească {moment}.',
+                          f'The rain is likely to stop {moment}.', target)
+        if current_kind == 'snow':
+            return result('snow_now', 'Ninsoare', 'Snow',
+                          'Ninge acum și este probabil să continue în următoarele ore.',
+                          'It is snowing now and is likely to continue for the next few hours.')
+        return result('rain_now', 'Ploaie', 'Rain',
+                      'Plouă acum și este probabil să continue în următoarele ore.',
+                      'It is raining now and is likely to continue for the next few hours.')
+
+    for i in future[:3]:
+        kind = kind_at(i)
+        if not kind or (_event_num(probs, i) < 50 and _event_num(precip, i) <= .05):
+            continue
+        target, moment = times[i], _moment_eveniment(times[i], now, limba)
+        if kind == 'snow':
+            return result('snow_start', 'Ninsoare în curând', 'Snow soon',
+                          f'Este probabil să înceapă ninsoarea {moment}.',
+                          f'Snow is likely to start {moment}.', target)
+        return result('rain_start', 'Ploaie în curând', 'Rain soon',
+                      f'Este probabil să înceapă ploaia {moment}.',
+                      f'Rain is likely to start {moment}.', target)
+
+    fog = next((i for i in future[:3] if _event_code(codes, i) in _FOG_WMO
+                or 0 < _event_num(visibility, i, 999999) <= 1200), None)
+    if current_code in _FOG_WMO or fog is not None:
+        target = now if current_code in _FOG_WMO else times[fog]
+        moment = _moment_eveniment(target, now, limba)
+        return result(
+            'fog_now' if current_code in _FOG_WMO else 'fog_start', 'Ceață', 'Fog',
+            'Este ceață acum. Vizibilitatea poate fi redusă pe drum.' if current_code in _FOG_WMO else f'Este probabil să se formeze ceață {moment}.',
+            'It is foggy now. Visibility may be poor on the road.' if current_code in _FOG_WMO else f'Fog is likely to form {moment}.',
+            target)
+
+    current_gust = float(current.get('wind_gusts_10m') or 0)
+    wind = next((i for i in future[:3] if _event_num(gusts, i) >= 60), None)
+    if current_gust >= 60 or wind is not None:
+        target = now if current_gust >= 60 else times[wind]
+        speed = current_gust if current_gust >= 60 else _event_num(gusts, wind)
+        moment = _moment_eveniment(target, now, limba)
+        shown, unit = (round(speed * .621371), 'mph') if unitate == 'F' else (round(speed), 'km/h')
+        return result(
+            'wind_now' if current_gust >= 60 else 'wind_start',
+            'Vânt puternic', 'Strong wind',
+            f'Rafalele ajung acum la aproximativ {shown} {unit}.' if current_gust >= 60 else f'Rafalele pot ajunge la {shown} {unit} {moment}.',
+            f'Gusts are reaching about {shown} {unit} now.' if current_gust >= 60 else f'Gusts may reach {shown} {unit} {moment}.',
+            target)
+    return None
+
+
+@app.route('/api/push/meteo')
+def push_weather():
+    if request.args.get('secret') != PUSH_CRON_SECRET:
+        return jsonify({'error': 'acces interzis'}), 403
+    try:
+        return jsonify(_push_weather_intern()), 200
+    except Exception as e:
+        import traceback
+        print("❌ push_weather:", traceback.format_exc(), flush=True)
+        return jsonify({'ok': False, 'eroare': str(e)[:200]}), 200
+
+
+def _push_weather_intern():
+    subs = _fb('push_subs') or {}
+    if not isinstance(subs, dict):
+        return {'ok': True, 'abonati': 0, 'trimise': 0}
+    states = _fb('push_weather_state') or {}
+    states = states if isinstance(states, dict) else {}
+    groups = {}
+    for key, sub in subs.items():
+        if not isinstance(sub, dict) or not sub.get('endpoint'):
+            continue
+        try:
+            lat, lon = float(sub.get('lat')), float(sub.get('lon'))
+        except (TypeError, ValueError):
+            continue
+        groups.setdefault((round(lat, 2), round(lon, 2)), []).append((key, sub))
+
+    sent = deleted = missing = quiet = duplicates = 0
+    now_ts = time.time()
+    for (lat, lon), entries in groups.items():
+        try:
+            forecast = _prognoza_evenimente(lat, lon)
+        except Exception as e:
+            print(f"⚠️  evenimente meteo {lat},{lon}: {e}", flush=True)
+            missing += len(entries)
+            continue
+        for key, sub in entries:
+            event = _compune_eveniment_meteo(
+                forecast, sub.get('limba', 'ro'), sub.get('unitate', 'C'), sub.get('nume'))
+            if not event:
+                quiet += 1
+                continue
+            location_key = f"{lat:.2f},{lon:.2f}"
+            old = states.get(key) if isinstance(states.get(key), dict) else {}
+            last = float(old.get('lastSent') or 0)
+            duplicate = (old.get('location') == location_key and
+                         (old.get('fingerprint') == event['fingerprint']
+                          or (old.get('kind') == event['kind'] and now_ts - last < 21600)))
+            if duplicate:
+                duplicates += 1
+                continue
+            ok, code = _send_push(sub, {
+                'title': event['title'], 'body': event['body'], 'url': '/',
+                'tag': event['tag'], 'nivel': event['nivel']})
+            if ok:
+                sent += 1
+                state = {'location': location_key, 'kind': event['kind'],
+                         'fingerprint': event['fingerprint'], 'lastSent': int(now_ts),
+                         'updated': now_ro().isoformat(timespec='seconds')}
+                _fb(f'push_weather_state/{key}', 'PUT', state)
+                states[key] = state
+            elif code in (404, 410):
+                _fb(f'push_subs/{key}', 'DELETE')
+                _fb(f'push_weather_state/{key}', 'DELETE')
+                deleted += 1
+    return {'ok': True, 'abonati': sum(map(len, groups.values())),
+            'grupuri': len(groups), 'trimise': sent, 'duplicate': duplicates,
+            'faraEveniment': quiet, 'faraDate': missing, 'sterse': deleted}
+
 
 
 def _text_anm(value):

@@ -187,6 +187,48 @@ class NotificationCopyTests(unittest.TestCase):
         self.assertNotIn("↑", body)
         self.assertNotIn("↓", body)
 
+    @staticmethod
+    def event_forecast(current_code=2, current_precipitation=0, hourly_codes=None, hourly_probabilities=None):
+        hourly_codes = hourly_codes or [2, 2, 2, 2, 2, 2]
+        hourly_probabilities = hourly_probabilities or [5, 5, 5, 5, 5, 5]
+        hours = ['2026-09-22T19:00', '2026-09-22T20:00', '2026-09-22T21:00',
+                 '2026-09-22T22:00', '2026-09-22T23:00', '2026-09-23T00:00']
+        return {
+            'current': {
+                'time': '2026-09-22T19:22', 'weather_code': current_code,
+                'precipitation': current_precipitation, 'rain': current_precipitation,
+                'showers': 0, 'snowfall': 0, 'wind_gusts_10m': 10,
+            },
+            'hourly': {
+                'time': hours, 'weather_code': hourly_codes,
+                'precipitation_probability': hourly_probabilities,
+                'precipitation': [0.5 if c in (61, 63, 65, 80, 81, 82) else 0 for c in hourly_codes],
+                'rain': [0.5 if c in (61, 63, 65, 80, 81, 82) else 0 for c in hourly_codes],
+                'showers': [0] * len(hours), 'snowfall': [0] * len(hours),
+                'wind_gusts_10m': [10] * len(hours), 'visibility': [10000] * len(hours),
+            },
+        }
+
+    def test_weather_event_explains_when_rain_is_likely_to_end(self):
+        event = meteo._compune_eveniment_meteo(
+            self.event_forecast(63, 0.7, [63, 63, 2, 2, 2, 2], [90, 90, 10, 5, 5, 5]),
+            'ro', 'C', 'Moreni')
+        self.assertEqual(event['title'], 'Moreni | Ploaie')
+        self.assertEqual(event['body'], 'Este probabil ca ploaia să se oprească în această seară.')
+        self.assertEqual(event['kind'], 'rain_end')
+
+    def test_weather_event_warns_before_rain_starts(self):
+        event = meteo._compune_eveniment_meteo(
+            self.event_forecast(2, 0, [2, 2, 61, 61, 2, 2], [5, 5, 75, 70, 10, 5]),
+            'ro', 'C', 'Ghirdoveni')
+        self.assertEqual(event['title'], 'Ghirdoveni | Ploaie în curând')
+        self.assertEqual(event['body'], 'Este probabil să înceapă ploaia în această seară.')
+        self.assertEqual(event['kind'], 'rain_start')
+
+    def test_calm_weather_does_not_create_a_notification(self):
+        self.assertIsNone(meteo._compune_eveniment_meteo(
+            self.event_forecast(), 'ro', 'C', 'Târgoviște'))
+
     def test_warning_copy_is_semantic_and_complete(self):
         body = meteo._rezumat_scurt_avertizare({
             "fenomene": "conform textelor;",
