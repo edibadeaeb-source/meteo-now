@@ -35,6 +35,12 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
  const cdpCity=await context.newCDPSession(page);
  await page.addInitScript(({loc,second})=>{
+   // Pixel assertions repeatedly read this bitmap. Keep those reads on the CPU;
+   // SwiftShader can otherwise return an old buffer after a GPU video transition.
+   const getContext=HTMLCanvasElement.prototype.getContext;
+   HTMLCanvasElement.prototype.getContext=function(type,options){
+     return getContext.call(this,type,type==='2d'&&this.className==='weather-precipitation'?{...options,willReadFrequently:true}:options);
+   };
    // Keep controlled weather fixtures stable during this long visual pass.
    const interval=window.setInterval.bind(window);window.setInterval=(fn,ms,...args)=>ms>=300000?0:interval(fn,ms,...args);
    localStorage.setItem('meteo-loc',JSON.stringify(loc));localStorage.setItem('meteo-orase',JSON.stringify([loc,second]));localStorage.setItem('meteo-lang','ro');localStorage.setItem('meteo-unit','C');localStorage.setItem('meteo-noutati','2026.08.13');
@@ -95,12 +101,14 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  for(const [endX,city]of [[30,second.nume],[390,loc.nume]]){
    await touch('touchStart');await touch('touchMove',endX,120);await page.waitForTimeout(60);await touch('touchEnd');
    await page.waitForFunction(city=>LOC.nume===city,city,{timeout:10000});await page.waitForTimeout(800);
-   assert.equal(await neutral(),true);await quietTap();
+   assert.equal(await neutral(),true,JSON.stringify(await page.evaluate(()=>({parts:mobPartiSlide().map(el=>({className:el.className,style:el.getAttribute('style')})),changes:tapChanges.slice(-10)}))));await quietTap();
  }
  // Even a single saved city should remain visually idle on touch.
  await page.evaluate(({loc})=>localStorage.setItem('meteo-orase',JSON.stringify([loc])),{loc});await quietTap();
  await page.evaluate(({loc,second})=>{localStorage.setItem('meteo-orase',JSON.stringify([loc,second]));tapObserver.disconnect();},{loc,second});
  console.log('PASS: taps, jitter, cancellation and city boundaries leave forecast untouched; real swipes still change cities and clear temporary layers');
+ // Romanian city frames are covered in their own pass; retain this generic-sky regression pass.
+ await page.evaluate(()=>{window.MeteoRomania=null;});
  const scenes=[['clear-day',0,12,1],['partly-cloudy',2,12,1],['overcast',3,12,1],['rain',63,12,1],['storm',95,12,1],['snow',85,12,1],['fog',45,12,1],['clear-night',0,23,0],['twilight',1,19,1]]
    .filter(s=>!process.env.METEO_WEATHER_SCENE||s[0]===process.env.METEO_WEATHER_SCENE);
  const canvasDigest=()=>page.locator('.weather-precipitation').evaluate(el=>{
@@ -161,7 +169,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
    {nume:'Constanța',lat:44.1598,lon:28.6348,temp:23,code:2,expected:'coast-cloudy'},
    {nume:'Predeal',lat:45.5,lon:25.57,temp:10,code:0,elevation:1050,expected:'highland'},
    {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:63,expected:'rain'},
-   {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:1,night:true,expected:'partly-cloudy'}
+   {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:1,night:true,expected:'partly-cloudy-night'}
  ].filter(item=>!process.env.METEO_WEATHER_CONTEXT||item.nume===process.env.METEO_WEATHER_CONTEXT);
  for(const item of cityContexts){
    console.log('Checking context: '+item.nume+' / '+item.expected);
@@ -173,7 +181,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
    },item);
    await page.waitForFunction(movie=>document.querySelector('#mobCer').getAttribute('data-movie')===movie&&document.querySelector('#mobCer[data-video="playing"] .weather-video.is-visible'),item.expected,{timeout:20000});
    const details=await page.locator('.weather-video.is-visible').evaluate(v=>({url:v.currentSrc,width:v.videoWidth,height:v.videoHeight,paused:v.paused}));
-   assert.match(details.url,/weather-video\/v2\//);assert.equal(details.paused,false);
+   assert.match(details.url,item.night?/weather-video\/v4\//:/weather-video\/v2\//);assert.equal(details.paused,false);
    if(['new-york','miami','coast','highland','coast-cloudy'].includes(item.expected)){assert.equal(details.width,1440);assert.equal(details.height,2560);}
    await page.waitForTimeout(800);
    await page.screenshot({path:path.join(out,'context-'+item.expected+(item.night?'-night':'')+'-412.png')});

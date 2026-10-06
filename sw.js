@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v31';
+const CACHE = 'meteo-now-net-v32';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
 const WEATHER_VIDEO = 'meteo-weather-video-v2';
 const videoLoads = new Map();
@@ -84,11 +84,11 @@ self.addEventListener('fetch', function(e) {
   var req = e.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
-  if (url.origin === self.location.origin && /^\/assets\/weather-video\/v[123]\//.test(url.pathname) && url.pathname.endsWith('.mp4')) {
+  if (url.origin === self.location.origin && /^\/assets\/weather-video\/v[1234]\//.test(url.pathname) && url.pathname.endsWith('.mp4')) {
     e.respondWith(weatherVideoResponse(req));
     return;
   }
-  if (url.origin === self.location.origin && (url.pathname.startsWith('/assets/weather/v1/') || (/^\/assets\/weather-video\/v[23]\//.test(url.pathname) && url.pathname.endsWith('.webp')))) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith('/assets/weather/v1/') || (url.pathname.startsWith('/assets/weather-romania/v1/') && url.pathname.endsWith('.webp')) || (/^\/assets\/weather-video\/v[234]\//.test(url.pathname) && url.pathname.endsWith('.webp')))) {
     e.respondWith(caches.open(WEATHER_ASSETS).then(function(cache) {
       return cache.match(req).then(function(cached) {
         if (cached) return cached;
@@ -103,15 +103,17 @@ self.addEventListener('fetch', function(e) {
 
   // Doar navigarea (documentul HTML) primește rezervă offline
   if (req.mode === 'navigate') {
+    // Informational pages must never replace the weather app's offline document.
+    const navigationKey = url.pathname === '/' || url.pathname === '/index.html' ? '/' : url.pathname;
     e.respondWith(
       fetch(req)
         .then(function(resp) {
           var copy = resp.clone();
-          caches.open(CACHE).then(function(c) { c.put('/', copy); }).catch(function() {});
+          caches.open(CACHE).then(function(c) { c.put(navigationKey, copy); }).catch(function() {});
           return resp;
         })
         .catch(function() {
-          return caches.match('/').then(function(r) {
+          return caches.match(navigationKey).then(function(r) {
             return r || new Response('<h1>Offline</h1><p>Nu există conexiune la internet.</p>',
                                      { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
           });

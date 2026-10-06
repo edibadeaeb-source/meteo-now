@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.1">
+    <meta name="application-version" content="2026.10.07.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -1560,7 +1560,7 @@
                 </div>
                 <div class="set-note">
                     Surse de date: ANM (meteoromania.ro) · NOAA SWPC · Open-Meteo · RainViewer · OpenWeatherMap · DWD.<br>
-                    Dezvoltat de Eduard-Emanuel Badea · Universitatea Valahia din Târgoviște.<br><a href="privacy.html" style="color:var(--blue);" data-i18n="ftPrivacy">Politica de confidențialitate</a>
+                    Dezvoltat de Eduard-Emanuel Badea · Universitatea Valahia din Târgoviște.<br><a href="privacy.html" style="color:var(--blue);" data-i18n="ftPrivacy">Politica de confidențialitate</a><br><a href="weather-credits.html" style="color:var(--blue);" data-i18n="weatherCredits">Credite foto și video</a>
                 </div>
             </div>
         </div>
@@ -6240,7 +6240,7 @@ var I18N = {
         notifTitlu: 'Vremea la tine',
         notifSub: 'Rezumatul zilei, plus alerte la schimbări importante ale vremii',
         notifANM: 'Dacă orașul ales e din România, primești automat și avertizările oficiale ANM.',
-        despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume',
+        despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume', weatherCredits: 'Credite foto și video',
         notifActiv: '✅ Activat pentru {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Abundente', legModerate: 'Moderate', legSlabe: 'Slabe',
         locatiaTa: 'Locația ta',
@@ -6360,7 +6360,7 @@ var I18N = {
         notifTitlu: 'Your weather',
         notifSub: 'A daily brief plus alerts when the weather changes in a meaningful way',
         notifANM: 'If your city is in Romania, you also get the official ANM warnings automatically.',
-        despre: 'About', despreSub: 'Real-time weather, anywhere in the world',
+        despre: 'About', despreSub: 'Real-time weather, anywhere in the world', weatherCredits: 'Photo and video credits',
         notifActiv: '✅ Enabled for {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Heavy', legModerate: 'Moderate', legSlabe: 'Light',
         locatiaTa: 'Your location',
@@ -8423,7 +8423,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=9">
+<link rel="stylesheet" href="weather-glass.css?v=10">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -8513,9 +8513,10 @@ input, textarea, select, [contenteditable="true"] {
 </div>
 
 <script src="weather-geography.js?v=1"></script>
-<script src="weather-library.js?v=1"></script>
-<script src="weather-motion.js?v=4"></script>
-<script src="weather-atmosphere.js?v=5"></script>
+<script src="weather-library.js?v=2"></script>
+<script src="weather-romania.js?v=1"></script>
+<script src="weather-motion.js?v=5"></script>
+<script src="weather-atmosphere.js?v=6"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
    INTERFAȚA DE TELEFON — logica

@@ -29,6 +29,10 @@
     add('rain','hd','hd'); add('storm','hd','hd'); add('snow','hd','hd');
     add('fog','2k','hd'); add('twilight','hd','hd');
     add('new-york','2k','2k'); add('miami','2k','hd');
+    function register(movie,records) {
+        if (!records || !records.length || pools[movie]) return;
+        pools[movie]=records.map(function(clip) { clips[clip.id]=clip; return clip.id; });
+    }
     function pick(movie,night,loc) {
         var pool=pools[movie];
         if (!pool) return null;
@@ -48,5 +52,5 @@
         // Cached atmosphere can only refer to an asset in this fixed catalogue.
         return pools[movie]&&pools[movie].indexOf(id)>=0?clips[id]:null;
     }
-    root.MeteoWeatherLibrary={pick:pick,restore:restore};
+    root.MeteoWeatherLibrary={pick:pick,restore:restore,register:register,has:function(movie){return !!pools[movie];}};
 })(window);

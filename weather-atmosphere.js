@@ -56,6 +56,8 @@
             scene = 'twilight'; night = false;
         }
         var place = context(data,loc), movie = scene;
+        var library = root.MeteoWeatherLibrary;
+        if (night && /^(partly-cloudy|overcast)$/.test(scene) && library && library.has(scene+'-night')) movie = scene+'-night';
         // Landscape can enrich fair weather, but never override clouds, rain or night.
         if (!night && (scene === 'clear-day' || (scene === 'partly-cloudy' && code === 1))) {
             if (place.area === 'new-york') movie = 'new-york';
@@ -65,6 +67,8 @@
             else if (place.area === 'highland') movie = 'highland';
         }
         if (scene === 'partly-cloudy' && code === 2 && !night && /^(coast|miami|tropical-coast)$/.test(place.area)) movie = 'coast-cloudy';
+        var cityMovie = root.MeteoRomania && root.MeteoRomania.movie(scene,night,loc || {lat:data.latitude,lon:data.longitude},place.temperature);
+        if (cityMovie && library && library.has(cityMovie)) movie = cityMovie;
         var clip = root.MeteoWeatherLibrary && root.MeteoWeatherLibrary.pick(movie,night,loc || {lat:data.latitude,lon:data.longitude});
         var poster = clip ? clip.poster : movie !== scene ? 'assets/weather-video/v2/' + movie + '.webp' : ASSETS + scene + '.webp';
         return {scene:scene, night:night, area:place.area, thermal:place.thermal, movie:movie,
@@ -93,6 +97,7 @@
         el.setAttribute('data-movie', chosen.movie || chosen.scene);
         el.setAttribute('data-clip', chosen.clip ? chosen.clip.id : chosen.movie || chosen.scene);
         el.setAttribute('data-footage', chosen.clip && chosen.clip.native ? 'native' : 'legacy');
+        el.setAttribute('data-media', chosen.clip && chosen.clip.still ? 'photo' : 'video');
         document.documentElement.setAttribute('data-weather-night', chosen.night ? '1' : '0');
         document.documentElement.setAttribute('data-weather-scene', chosen.scene);
         if (root.MeteoWeatherMotion) root.MeteoWeatherMotion.update(chosen);
@@ -160,7 +165,9 @@
             Math.abs(cached.lat - loc.lat) < .01 && Math.abs(cached.lon - loc.lon) < .01 &&
             /^(clear-day|clear-night|partly-cloudy|overcast|rain|storm|snow|fog|twilight)$/.test(cached.selection.scene)) {
             var movie = cached.selection.movie;
-            if (!/^(new-york|miami|tropical-coast|coast|coast-cloudy|highland)$/.test(movie)) movie = cached.selection.scene;
+            var library = root.MeteoWeatherLibrary;
+            if (!(library && library.has(movie)) && !/^(new-york|miami|tropical-coast|coast|coast-cloudy|highland)$/.test(movie)) movie = cached.selection.scene;
+            if (cached.selection.night && movie === cached.selection.scene && /^(partly-cloudy|overcast)$/.test(movie) && library && library.has(movie+'-night')) movie += '-night';
             cached.selection.movie = movie;
             // Pick the visit's variant before the forecast arrives, so reopening
             // does not load yesterday's film and immediately replace it again.

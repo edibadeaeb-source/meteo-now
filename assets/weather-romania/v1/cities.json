@@ -1,0 +1,338 @@
+[
+  {
+    "slug": "bucharest",
+    "name": "București",
+    "lat": 44.4268,
+    "lon": 26.1025,
+    "query": "Bucharest Palace Parliament"
+  },
+  {
+    "slug": "cluj",
+    "name": "Cluj-Napoca",
+    "lat": 46.7712,
+    "lon": 23.6236,
+    "query": "Cluj-Napoca city"
+  },
+  {
+    "slug": "timisoara",
+    "name": "Timișoara",
+    "lat": 45.7489,
+    "lon": 21.2087,
+    "query": "Timișoara Unirii"
+  },
+  {
+    "slug": "iasi",
+    "name": "Iași",
+    "lat": 47.1585,
+    "lon": 27.6014,
+    "query": "Iași Palace Culture"
+  },
+  {
+    "slug": "constanta",
+    "name": "Constanța",
+    "lat": 44.1598,
+    "lon": 28.6348,
+    "query": "Constanța Casino"
+  },
+  {
+    "slug": "craiova",
+    "name": "Craiova",
+    "lat": 44.3302,
+    "lon": 23.7949,
+    "query": "Craiova center"
+  },
+  {
+    "slug": "brasov",
+    "name": "Brașov",
+    "lat": 45.6579,
+    "lon": 25.6012,
+    "query": "Brașov city square"
+  },
+  {
+    "slug": "galati",
+    "name": "Galați",
+    "lat": 45.4353,
+    "lon": 28.008,
+    "query": "Galați Danube"
+  },
+  {
+    "slug": "ploiesti",
+    "name": "Ploiești",
+    "lat": 44.94,
+    "lon": 26.02,
+    "query": "Ploiești Palace Culture"
+  },
+  {
+    "slug": "oradea",
+    "name": "Oradea",
+    "lat": 47.0465,
+    "lon": 21.9189,
+    "query": "Oradea Unirii"
+  },
+  {
+    "slug": "braila",
+    "name": "Brăila",
+    "lat": 45.2692,
+    "lon": 27.9575,
+    "query": "Brăila Traian"
+  },
+  {
+    "slug": "arad",
+    "name": "Arad",
+    "lat": 46.1866,
+    "lon": 21.3123,
+    "query": "Arad Romania city hall"
+  },
+  {
+    "slug": "pitesti",
+    "name": "Pitești",
+    "lat": 44.8565,
+    "lon": 24.8692,
+    "query": "Pitești center"
+  },
+  {
+    "slug": "sibiu",
+    "name": "Sibiu",
+    "lat": 45.7983,
+    "lon": 24.1256,
+    "query": "Sibiu Piata Mare"
+  },
+  {
+    "slug": "bacau",
+    "name": "Bacău",
+    "lat": 46.567,
+    "lon": 26.9146,
+    "query": "Bacău city"
+  },
+  {
+    "slug": "targu-mures",
+    "name": "Târgu Mureș",
+    "lat": 46.5425,
+    "lon": 24.5575,
+    "query": "Târgu Mureș Culture Palace"
+  },
+  {
+    "slug": "baia-mare",
+    "name": "Baia Mare",
+    "lat": 47.658,
+    "lon": 23.585,
+    "query": "Baia Mare square"
+  },
+  {
+    "slug": "buzau",
+    "name": "Buzău",
+    "lat": 45.15,
+    "lon": 26.823,
+    "query": "Buzău Communal Palace"
+  },
+  {
+    "slug": "botosani",
+    "name": "Botoșani",
+    "lat": 47.747,
+    "lon": 26.667,
+    "query": "Botoșani center"
+  },
+  {
+    "slug": "satu-mare",
+    "name": "Satu Mare",
+    "lat": 47.792,
+    "lon": 22.885,
+    "query": "Satu Mare city square"
+  },
+  {
+    "slug": "ramnicu-valcea",
+    "name": "Râmnicu Vâlcea",
+    "lat": 45.0997,
+    "lon": 24.3693,
+    "query": "Râmnicu Vâlcea center"
+  },
+  {
+    "slug": "drobeta",
+    "name": "Drobeta-Turnu Severin",
+    "lat": 44.6369,
+    "lon": 22.6597,
+    "query": "Drobeta Turnu Severin water tower"
+  },
+  {
+    "slug": "suceava",
+    "name": "Suceava",
+    "lat": 47.6514,
+    "lon": 26.2556,
+    "query": "Suceava city"
+  },
+  {
+    "slug": "piatra-neamt",
+    "name": "Piatra Neamț",
+    "lat": 46.9277,
+    "lon": 26.3705,
+    "query": "Piatra Neamț Stephen tower"
+  },
+  {
+    "slug": "targu-jiu",
+    "name": "Târgu Jiu",
+    "lat": 45.034,
+    "lon": 23.2745,
+    "query": "Târgu Jiu Endless Column"
+  },
+  {
+    "slug": "targoviste",
+    "name": "Târgoviște",
+    "lat": 44.9266,
+    "lon": 25.4566,
+    "query": "Târgoviște Chindia Tower"
+  },
+  {
+    "slug": "focsani",
+    "name": "Focșani",
+    "lat": 45.696,
+    "lon": 27.185,
+    "query": "Focșani Unirii square"
+  },
+  {
+    "slug": "tulcea",
+    "name": "Tulcea",
+    "lat": 45.1788,
+    "lon": 28.805,
+    "query": "Tulcea Danube"
+  },
+  {
+    "slug": "deva",
+    "name": "Deva",
+    "lat": 45.878,
+    "lon": 22.907,
+    "query": "Deva Romania fortress"
+  },
+  {
+    "slug": "resita",
+    "name": "Reșița",
+    "lat": 45.3,
+    "lon": 21.88,
+    "query": "Reșița city"
+  },
+  {
+    "slug": "alba-iulia",
+    "name": "Alba Iulia",
+    "lat": 46.067,
+    "lon": 23.58,
+    "query": "Alba Iulia citadel"
+  },
+  {
+    "slug": "bistrita",
+    "name": "Bistrița",
+    "lat": 47.133,
+    "lon": 24.5,
+    "query": "Bistrița city center"
+  },
+  {
+    "slug": "slatina",
+    "name": "Slatina",
+    "lat": 44.43,
+    "lon": 24.36,
+    "query": "Slatina Romania city"
+  },
+  {
+    "slug": "zalau",
+    "name": "Zalău",
+    "lat": 47.18,
+    "lon": 23.05,
+    "query": "Zalău center"
+  },
+  {
+    "slug": "sfantu-gheorghe",
+    "name": "Sfântu Gheorghe",
+    "lat": 45.866,
+    "lon": 25.788,
+    "query": "Sfântu Gheorghe Covasna city"
+  },
+  {
+    "slug": "vaslui",
+    "name": "Vaslui",
+    "lat": 46.641,
+    "lon": 27.727,
+    "query": "Vaslui center"
+  },
+  {
+    "slug": "giurgiu",
+    "name": "Giurgiu",
+    "lat": 43.9,
+    "lon": 25.97,
+    "query": "Giurgiu clock tower"
+  },
+  {
+    "slug": "slobozia",
+    "name": "Slobozia",
+    "lat": 44.564,
+    "lon": 27.363,
+    "query": "Slobozia city Romania"
+  },
+  {
+    "slug": "calarasi",
+    "name": "Călărași",
+    "lat": 44.2,
+    "lon": 27.33,
+    "query": "Călărași Romania city"
+  },
+  {
+    "slug": "alexandria",
+    "name": "Alexandria",
+    "lat": 43.97,
+    "lon": 25.333,
+    "query": "Alexandria Romania city"
+  },
+  {
+    "slug": "miercurea-ciuc",
+    "name": "Miercurea Ciuc",
+    "lat": 46.36,
+    "lon": 25.8,
+    "query": "Miercurea Ciuc Miko castle"
+  },
+  {
+    "slug": "moreni",
+    "name": "Moreni",
+    "lat": 44.983,
+    "lon": 25.644,
+    "query": "Moreni Romania city"
+  },
+  {
+    "slug": "sinaia",
+    "name": "Sinaia",
+    "lat": 45.35,
+    "lon": 25.55,
+    "query": "Sinaia Peles castle"
+  },
+  {
+    "slug": "sighisoara",
+    "name": "Sighișoara",
+    "lat": 46.219,
+    "lon": 24.793,
+    "query": "Sighișoara clock tower"
+  },
+  {
+    "slug": "hunedoara",
+    "name": "Hunedoara",
+    "lat": 45.75,
+    "lon": 22.9,
+    "query": "Hunedoara Corvin castle"
+  },
+  {
+    "slug": "turda",
+    "name": "Turda",
+    "lat": 46.571,
+    "lon": 23.785,
+    "query": "Turda city center"
+  },
+  {
+    "slug": "mangalia",
+    "name": "Mangalia",
+    "lat": 43.817,
+    "lon": 28.578,
+    "query": "Mangalia harbor"
+  },
+  {
+    "slug": "medias",
+    "name": "Mediaș",
+    "lat": 46.167,
+    "lon": 24.349,
+    "query": "Mediaș city center"
+  }
+]

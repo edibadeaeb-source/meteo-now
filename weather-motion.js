@@ -7,7 +7,7 @@
     var reduced = root.matchMedia('(prefers-reduced-motion: reduce)');
     var control = document.getElementById('setAnimations');
     var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
-    var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
+    var width = 0, height = 0, pixelRatio = 1, scrollTimer = 0, resizeTimer = 0, scrolling = false;
     var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
     var videoReady = false, playPending = false, rejectedHigh = Object.create(null), filmedPrecipitation = false;
     var movies = {'clear-day':'clear-day','clear-night':'clear-night','partly-cloudy':'partly-cloudy',
@@ -16,6 +16,7 @@
 
     function movieURL(chosen) {
         var clip = chosen.clip;
+        if (clip && clip.still) return '';
         var movie = clip ? clip.base : movies[chosen.movie || chosen.scene];
         if (!movie) return '';
         var connection = root.navigator && root.navigator.connection;
@@ -53,7 +54,7 @@
         if (!canvas || !ctx) return;
         width = el.clientWidth; height = el.clientHeight;
         // CSS pixels keep trajectories consistent across screen sizes; cap bitmap cost.
-        var ratio = Math.min(root.devicePixelRatio || 1, 1.25);
+        var ratio = pixelRatio = Math.min(root.devicePixelRatio || 1, 1.25);
         canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
         ctx.setTransform(ratio,0,0,ratio,0,0);
         seed();
@@ -68,23 +69,31 @@
                 depth:depth, phase:Math.random() * Math.PI * 2, length:10 + depth * 18});
         }
     }
+    function clearPrecipitation() {
+        // The capped fractional DPR can round the bitmap past its CSS bounds.
+        // Clear physical pixels too, so the final row cannot retain rain/snow.
+        ctx.clearRect(0,0,Math.ceil(canvas.width/pixelRatio),Math.ceil(canvas.height/pixelRatio));
+    }
     function stop(clear) {
         if (frame) root.cancelAnimationFrame(frame);
         frame = 0; last = 0;
-        if (clear && ctx) ctx.clearRect(0,0,width,height);
+        if (clear && ctx) clearPrecipitation();
     }
     function sync() {
         var on = enabled() && !!scene;
         el.setAttribute('data-motion', on ? 'on' : 'off');
         syncVideo(on);
-        if (!on || scrolling || !precipitation() || !ctx || (scene === 'snow' && el.getAttribute('data-video') === 'playing')) { stop(!scrolling); return; }
+        var overlay = precipitation() && !(scene === 'snow' && el.getAttribute('data-video') === 'playing');
+        // Scrolling may freeze an active overlay, but must not preserve it when
+        // native footage starts or movement is disabled during that scroll.
+        if (!on || scrolling || !overlay || !ctx) { stop(!scrolling || !on || !overlay); return; }
         if (!frame) frame = root.requestAnimationFrame(draw);
     }
     function draw(time) {
         frame = 0;
         if (!enabled() || scrolling || !precipitation() || !ctx || (scene === 'snow' && el.getAttribute('data-video') === 'playing')) { sync(); return; }
         var dt = last ? Math.min((time - last) / 1000, .04) : 0;
-        last = time; ctx.clearRect(0,0,width,height);
+        last = time; clearPrecipitation();
         var snow = scene === 'snow';
         if (!snow) { ctx.lineWidth = .75; ctx.lineCap = 'round'; }
         for (var i = 0; i < particles.length; i++) {
@@ -111,7 +120,11 @@
         if (!chosen) return;
         var next = chosen.scene;
         filmedPrecipitation = !!(chosen.clip && chosen.clip.precipitation);
-        desiredVideo = movieURL(chosen);
+        var nextVideo = movieURL(chosen);
+        if (desiredVideo && !nextVideo) {
+            ++videoSerial; videoPending = ''; videoReady = false; playPending = false;
+        }
+        desiredVideo = nextVideo;
         if (next !== scene) {
             stop(true); scene = next;
             // No bitmap allocation on a desktop or when the user has disabled movement.
@@ -170,7 +183,7 @@
         });
     }
     function syncVideo(on) {
-        if (!on) { hideVideo(); return; }
+        if (!on || !desiredVideo) { hideVideo(); return; }
         if (videoUrl !== desiredVideo || !videoReady) { loadVideo(); return; }
         var v = videos[videoActive];
         if (!v) return;

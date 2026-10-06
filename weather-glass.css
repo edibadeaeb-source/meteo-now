@@ -74,6 +74,8 @@ body.mob-orase-deschise #chatFab { display: none !important; }
     #mobCer[data-scene="storm"] .weather-video.is-visible { opacity: .62; }
     #mobCer[data-night="1"] .weather-video { filter: brightness(.42) saturate(.65); }
     #mobCer[data-scene="clear-night"] .weather-video { filter: none; }
+    #mobCer[data-movie="partly-cloudy-night"] .weather-video,
+    #mobCer[data-movie="overcast-night"] .weather-video { filter: none; }
     /* Subtle photographic grading only; temperature never creates rain or snow. */
     #mobCer[data-thermal="cool"][data-night="0"][data-scene="clear-day"] .weather-video { filter: saturate(.91); }
     #mobCer[data-thermal="warm"][data-night="0"][data-scene="clear-day"] .weather-video,
@@ -85,6 +87,9 @@ body.mob-orase-deschise #chatFab { display: none !important; }
     #mobCer[data-movie="coast-cloudy"]::after,
     #mobCer[data-movie="highland"]::after {
         background: linear-gradient(180deg, rgba(5,20,37,.32), rgba(5,20,37,.12) 28%, rgba(5,20,37,.34) 56%, rgba(5,20,37,.55));
+    }
+    #mobCer[data-movie^="ro-"]::after {
+        background: linear-gradient(180deg, rgba(5,20,37,.42), rgba(5,20,37,.44) 34%, rgba(5,20,37,.34) 56%, rgba(5,20,37,.55));
     }
     #mobCer[data-scene="storm"][data-night="0"] .weather-video { filter: brightness(.68) saturate(.75); }
     #mobCer[data-scene="fog"] .weather-video.is-visible { opacity: .3; filter: grayscale(1); }
@@ -105,6 +110,10 @@ body.mob-orase-deschise #chatFab { display: none !important; }
     }
     #mobCer .weather-photo[data-night="1"] { filter: brightness(.46) saturate(.64); }
     #mobCer .weather-photo[data-scene="clear-night"][data-night="1"] { filter: none; }
+    /* These posters are already genuine night photographs or explicitly graded night films. */
+    #mobCer[data-media="photo"] .weather-photo,
+    #mobCer[data-movie="partly-cloudy-night"] .weather-photo,
+    #mobCer[data-movie="overcast-night"] .weather-photo { filter: none; }
     #mobCer::after {
         content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
         background: linear-gradient(180deg, rgba(6, 20, 36, .19) 0%, rgba(6, 20, 36, .06) 24%, rgba(6, 20, 36, .18) 51%, rgba(6, 20, 36, .37) 100%);
