@@ -3,7 +3,8 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v21';
+const CACHE = 'meteo-now-net-v22';
+const WEATHER_ASSETS = 'meteo-weather-assets-v1';
 
 self.addEventListener('install', function() {
   self.skipWaiting();
@@ -14,7 +15,7 @@ self.addEventListener('activate', function(e) {
     caches.keys()
       .then(function(keys) {
         // șterge cache-urile vechi (inclusiv cele din versiunile anterioare)
-        return Promise.all(keys.filter(function(k) { return k !== CACHE; })
+        return Promise.all(keys.filter(function(k) { return k !== CACHE && k !== WEATHER_ASSETS; })
                               .map(function(k) { return caches.delete(k); }));
       })
       .then(function() { return self.clients.claim(); })
@@ -25,6 +26,19 @@ self.addEventListener('activate', function(e) {
 self.addEventListener('fetch', function(e) {
   var req = e.request;
   if (req.method !== 'GET') return;
+  var url = new URL(req.url);
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/weather/v1/')) {
+    e.respondWith(caches.open(WEATHER_ASSETS).then(function(cache) {
+      return cache.match(req).then(function(cached) {
+        if (cached) return cached;
+        return fetch(req).then(function(response) {
+          if (response.ok) { e.waitUntil(cache.put(req, response.clone()).catch(function() {})); }
+          return response;
+        });
+      });
+    }));
+    return;
+  }
 
   // Doar navigarea (documentul HTML) primește rezervă offline
   if (req.mode === 'navigate') {

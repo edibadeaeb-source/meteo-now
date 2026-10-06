@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.09.22.1">
+    <meta name="application-version" content="2026.10.06.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -8393,8 +8393,9 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
+<link rel="stylesheet" href="weather-glass.css?v=1">
 <div id="mobApp">
-    <div id="mobCer"></div>
+    <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
 
     <div id="mobBara">
@@ -8481,6 +8482,7 @@ input, textarea, select, [contenteditable="true"] {
     </div>
 </div>
 
+<script src="weather-atmosphere.js?v=1"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
    INTERFAȚA DE TELEFON — logica
@@ -8791,6 +8793,10 @@ function mobIncarca() {
 /* ── fundalul-cer, după oră și vreme ── */
 function mobCer() {
     var el = document.getElementById('mobCer');
+    if (window.MeteoAtmosphere && MOBD) {
+        window.MeteoAtmosphere.render(MOBD, mobAcumLocal(), LOC);
+        return;
+    }
     if (!el || !MOBD) return;
     var c = MOBD.current || {}, zi = MOBD.daily || {};
     var cod = c.weather_code, ziLumina = c.is_day === 1;
@@ -8824,6 +8830,7 @@ var _mobilScrollPana = 0;
 function mobStele(pornit) { /* păstrată — cerul viu preia rolul */ }
 
 function porneșteCerViu(tip) {
+    if (window.MeteoAtmosphere) return;
     var cv2 = document.getElementById('mobStele');
     if (!cv2 || !esteMobil()) return;
     var marime = innerWidth + 'x' + innerHeight;
@@ -9108,7 +9115,7 @@ function mobCardANM() {
         if (f && fen.indexOf(f) < 0) fen.push(f);
     });
     var titlu = lv > 0 ? NUME[lv].toUpperCase() : T('avertActive');
-    return '<div class="mb-card apasabil" style="background:' + CULORI[lv] + '" data-foaie="anm">' +
+    return '<div class="mb-card apasabil" style="--glass-alert:' + CULORI[lv] + ';background:' + CULORI[lv] + '" data-foaie="anm">' +
         '<div class="mb-cap"><span class="mbc-ico">⚠️</span><span>' + T('avertMeteo') + '</span>' +
         '<span class="mbc-dr">' + nrTotal + ' ' + T('emise') + ' ›</span></div>' +
         '<div style="font-size:1.15rem;font-weight:700;">' + titlu + '</div>' +

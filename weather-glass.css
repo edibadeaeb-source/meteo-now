@@ -1,0 +1,104 @@
+/* Weather photograph + restrained liquid glass. No animated blur during scrolling. */
+@media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
+    :root {
+        --weather-glass-tint: rgba(9, 29, 50, .29);
+        --weather-glass-edge: rgba(255, 255, 255, .32);
+        --weather-glass-sheen: rgba(255, 255, 255, .18);
+        --weather-sheet-tint: rgba(15, 34, 53, .64);
+    }
+    html[data-weather-night="1"] {
+        --weather-glass-tint: rgba(12, 23, 42, .36);
+        --weather-glass-sheen: rgba(255, 255, 255, .12);
+        --weather-glass-edge: rgba(231, 240, 255, .26);
+        --weather-sheet-tint: rgba(14, 25, 44, .69);
+    }
+    #mobCer.weather-atmosphere {
+        overflow: hidden; pointer-events: none; isolation: isolate;
+        background: linear-gradient(180deg, #266e9e, #77a7c4);
+        transition: none;
+    }
+    #mobCer[data-scene="rain"], #mobCer[data-scene="storm"] { background: linear-gradient(180deg, #182c40, #576c80); }
+    #mobCer[data-scene="overcast"], #mobCer[data-scene="fog"], #mobCer[data-scene="snow"] { background: linear-gradient(180deg, #657c91, #a3b1c0); }
+    #mobCer[data-scene="twilight"] { background: linear-gradient(180deg, #35475f, #a96f64); }
+    #mobCer[data-night="1"] { background: linear-gradient(180deg, #091221, #1e304c); }
+    #mobCer .weather-photo {
+        position: absolute; inset: 0; width: 100%; height: 100%; max-width: none;
+        object-fit: cover; object-position: center; opacity: 0;
+        transition: opacity .8s ease; pointer-events: none;
+    }
+    #mobCer .weather-photo.is-visible { opacity: 1; }
+    #mobCer .weather-photo[data-night="1"] { filter: brightness(.46) saturate(.64); }
+    #mobCer .weather-photo[data-scene="clear-night"][data-night="1"] { filter: none; }
+    #mobCer::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none;
+        background: linear-gradient(180deg, rgba(6, 20, 36, .19) 0%, rgba(6, 20, 36, .06) 24%, rgba(6, 20, 36, .18) 51%, rgba(6, 20, 36, .37) 100%);
+    }
+    #mobCer[data-night="1"]::after { background: linear-gradient(180deg, rgba(3, 10, 21, .08), rgba(3, 10, 21, .18) 50%, rgba(3, 10, 21, .38)); }
+    #mobStele { display: none; }
+    #mobApp { text-shadow: 0 1px 5px rgba(0, 15, 30, .22); }
+    .mb-hero { padding-bottom: 25px; text-shadow: 0 2px 20px rgba(6, 20, 34, .35); }
+    .mb-oras { font-weight: 500; }
+    .mb-temp { font-weight: 300; }
+    .mb-acasa, .mb-stare, .mb-mm { color: rgba(255,255,255,.97); }
+    .mb-card {
+        border-radius: 23px;
+        background: linear-gradient(135deg, var(--weather-glass-sheen), rgba(255,255,255,.025) 44%, rgba(255,255,255,.08)),
+                    linear-gradient(var(--glass-alert, transparent), var(--glass-alert, transparent)), var(--weather-glass-tint) !important;
+        border: 1px solid var(--weather-glass-edge);
+        border-top-color: rgba(255,255,255,.46);
+        -webkit-backdrop-filter: blur(10px) saturate(145%); backdrop-filter: blur(10px) saturate(145%);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(255,255,255,.07), 0 8px 24px rgba(7,22,39,.11);
+    }
+    .mb-card.apasabil:active { border-color: rgba(255,255,255,.6); }
+    .mb-cap, .mb-nota, .mb-zi .z-min, .mv-rand b, .ml-data { color: rgba(255,255,255,.87); }
+    .mb-cap { font-weight: 700; }
+    .mb-linie, .mb-zi + .mb-zi, .mv-rand + .mv-rand { border-color: rgba(255,255,255,.2); }
+    .mj-rot, .mj-pilula, .mr-btn, .mo-localizeaza, .mo-oras, .mo-sterge, .mb-avchip,
+    .sheet-close, .chat-close, .push-test-button {
+        background: linear-gradient(145deg, rgba(255,255,255,.25), rgba(255,255,255,.05) 55%, rgba(255,255,255,.10)), var(--weather-glass-tint) !important;
+        border: 1px solid var(--weather-glass-edge) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 -1px 0 rgba(255,255,255,.08), 0 5px 18px rgba(7,22,39,.15) !important;
+        color: #fff;
+    }
+    .mj-rot, .mj-pilula, .mr-btn, .mo-localizeaza {
+        -webkit-backdrop-filter: blur(14px) saturate(145%); backdrop-filter: blur(14px) saturate(145%);
+    }
+    #mobBara {
+        background: linear-gradient(180deg, rgba(255,255,255,.10), transparent), rgba(13,30,48,.38);
+        -webkit-backdrop-filter: blur(16px) saturate(145%); backdrop-filter: blur(16px) saturate(145%);
+    }
+    #mobFoaie, .sheet-backdrop {
+        background: rgba(4, 15, 29, .22);
+        -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+    }
+    .mf-corp, #settingsSheet .sheet, .loc-panel, .nt-card, .chat-window {
+        background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.025) 48%), var(--weather-sheet-tint) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(145%); backdrop-filter: blur(18px) saturate(145%);
+        border: 1px solid rgba(255,255,255,.3);
+        border-top-color: rgba(255,255,255,.48);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 -8px 28px rgba(3,14,28,.22) !important;
+        color: #fff;
+    }
+    /* Nested groups share the sheet's blur, keeping scrolling inexpensive. */
+    .mf-corp .mb-card, .set-group {
+        -webkit-backdrop-filter: none; backdrop-filter: none;
+        background: linear-gradient(135deg, rgba(255,255,255,.14), rgba(255,255,255,.04)) !important;
+        border: 1px solid rgba(255,255,255,.21);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+    }
+    .set-label, .set-row small, .set-note, .mo-sub, .mo-loc-stare { color: rgba(255,255,255,.85); }
+    .seg, .mb-seg { background: rgba(5,20,37,.16); border: 1px solid rgba(255,255,255,.14); }
+    .seg button.active, .mb-seg button.activ { background: linear-gradient(135deg, rgba(255,255,255,.34), rgba(255,255,255,.17)); box-shadow: inset 0 1px 0 rgba(255,255,255,.32); }
+    .mb-avchip.activ { background: rgba(255,255,255,.3) !important; border-color: rgba(255,255,255,.65) !important; }
+    .chat-fab { background: linear-gradient(135deg, rgba(255,255,255,.3), rgba(255,255,255,.08)), var(--weather-glass-tint) !important; }
+    #mrLegenda { background: linear-gradient(135deg, rgba(255,255,255,.16), transparent), rgba(15,34,53,.64); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .mb-card, .mj-rot, .mj-pilula, .mr-btn { background: rgba(17,40,62,.83) !important; }
+        .mf-corp, #settingsSheet .sheet, .loc-panel, .nt-card, .chat-window { background: rgba(16,33,53,.94) !important; }
+    }
+    @media (prefers-reduced-transparency: reduce) {
+        .mb-card { background: rgba(17,40,62,.87) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+        .mf-corp, #settingsSheet .sheet { background: rgba(16,33,53,.96) !important; }
+    }
+    @media (prefers-reduced-motion: reduce) { #mobCer .weather-photo { transition: none; } }
+}
