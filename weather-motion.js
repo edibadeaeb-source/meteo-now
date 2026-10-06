@@ -9,28 +9,33 @@
     var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
     var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
     var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
-    var videoReady = false, playPending = false, rejectedHigh = Object.create(null);
+    var videoReady = false, playPending = false, rejectedHigh = Object.create(null), filmedPrecipitation = false;
     var movies = {'clear-day':'clear-day','clear-night':'clear-night','partly-cloudy':'partly-cloudy',
         overcast:'overcast',rain:'overcast',storm:'overcast',snow:'snow',fog:'overcast',twilight:'twilight',
         'new-york':'new-york',miami:'miami','tropical-coast':'tropical-coast',coast:'coast','coast-cloudy':'coast-cloudy',highland:'highland'};
 
     function movieURL(chosen) {
-        var movie = movies[chosen.movie || chosen.scene];
+        var clip = chosen.clip;
+        var movie = clip ? clip.base : movies[chosen.movie || chosen.scene];
         if (!movie) return '';
         var connection = root.navigator && root.navigator.connection;
         var light = connection && (connection.saveData || /^(slow-2g|2g|3g)$/.test(connection.effectiveType));
         light = light || (root.navigator && root.navigator.deviceMemory && root.navigator.deviceMemory <= 2);
         var high = !light && (root.devicePixelRatio || 1) >= 2 && !rejectedHigh[movie];
         // The film's manifest limits quality to the actual source detail, never fake 2K.
-        var hdOnly = /^(clear-day|twilight|tropical-coast)$/.test(movie);
-        return 'assets/weather-video/v2/' + movie + (high ? hdOnly ? '-hd' : '-2k' : '-lite') + '.mp4';
+        var hdOnly = clip ? clip.quality === 'hd' : /^(clear-day|twilight|tropical-coast)$/.test(movie);
+        return 'assets/weather-video/v' + (clip ? clip.version : 2) + '/' + movie + (high ? hdOnly ? '-hd' : '-2k' : '-lite') + '.mp4';
     }
 
     function enabled() {
         return mobile.matches && !reduced.matches && !document.hidden &&
             (!control || control.checked);
     }
-    function precipitation() { return scene === 'rain' || scene === 'storm' || scene === 'snow'; }
+    function wetScene() { return scene === 'rain' || scene === 'storm' || scene === 'snow'; }
+    function precipitation() {
+        return wetScene() &&
+            !(filmedPrecipitation && el.getAttribute('data-video') === 'playing');
+    }
     function ensureLayers() {
         if (canvas) return;
         var haze = document.createElement('div');
@@ -55,7 +60,7 @@
     }
     function seed() {
         particles = [];
-        if (!precipitation() || !width || !height) return;
+        if (!wetScene() || !width || !height) return;
         var count = Math.round(Math.min(1.5, width * height / 377000) * (scene === 'snow' ? 44 : scene === 'storm' ? 76 : 58));
         for (var i = 0; i < count; i++) {
             var depth = .35 + Math.random() * .65;
@@ -105,6 +110,7 @@
     function update(chosen) {
         if (!chosen) return;
         var next = chosen.scene;
+        filmedPrecipitation = !!(chosen.clip && chosen.clip.precipitation);
         desiredVideo = movieURL(chosen);
         if (next !== scene) {
             stop(true); scene = next;
@@ -142,6 +148,7 @@
         v.onplaying = function() {
             if (ticket !== videoSerial || url !== desiredVideo || !enabled()) { v.pause(); return; }
             v.classList.add('is-visible'); el.setAttribute('data-video','playing');
+            if (filmedPrecipitation) stop(true);
         };
         v.onerror = function() {
             if (ticket !== videoSerial) return;

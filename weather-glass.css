@@ -87,6 +87,9 @@
     #mobCer[data-scene="storm"][data-night="0"] .weather-video { filter: brightness(.68) saturate(.75); }
     #mobCer[data-scene="fog"] .weather-video.is-visible { opacity: .3; filter: grayscale(1); }
     #mobCer[data-scene="fog"][data-night="1"] .weather-video { filter: grayscale(1) brightness(.42); }
+    /* These films already contain the actual rain/fog/clouds. Keep their matching
+       poster underneath, without mixing an unrelated sky into the footage. */
+    #mobCer[data-footage="native"] .weather-video.is-visible { opacity: 1; }
     #mobCer[data-video="playing"] .weather-photo,
     #mobCer[data-scrolling="1"] .weather-photo,
     #mobCer[data-scrolling="1"] .weather-haze { animation-play-state: paused; }

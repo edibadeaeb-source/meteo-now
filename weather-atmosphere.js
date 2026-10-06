@@ -65,9 +65,10 @@
             else if (place.area === 'highland') movie = 'highland';
         }
         if (scene === 'partly-cloudy' && code === 2 && !night && /^(coast|miami|tropical-coast)$/.test(place.area)) movie = 'coast-cloudy';
-        var poster = movie !== scene ? 'assets/weather-video/v2/' + movie + '.webp' : ASSETS + scene + '.webp';
+        var clip = root.MeteoWeatherLibrary && root.MeteoWeatherLibrary.pick(movie,night,loc || {lat:data.latitude,lon:data.longitude});
+        var poster = clip ? clip.poster : movie !== scene ? 'assets/weather-video/v2/' + movie + '.webp' : ASSETS + scene + '.webp';
         return {scene:scene, night:night, area:place.area, thermal:place.thermal, movie:movie,
-            key:scene + (night ? ':night' : ':day') + ':' + movie + ':' + place.thermal, url:poster};
+            clip:clip || null, key:scene + (night ? ':night' : ':day') + ':' + movie + ':' + place.thermal + (clip ? ':'+clip.id : ''), url:poster};
     }
     function load(url) {
         if (!decoded[url]) {
@@ -90,6 +91,8 @@
         el.setAttribute('data-area', chosen.area || 'inland');
         el.setAttribute('data-thermal', chosen.thermal || 'mild');
         el.setAttribute('data-movie', chosen.movie || chosen.scene);
+        el.setAttribute('data-clip', chosen.clip ? chosen.clip.id : chosen.movie || chosen.scene);
+        el.setAttribute('data-footage', chosen.clip && chosen.clip.native ? 'native' : 'legacy');
         document.documentElement.setAttribute('data-weather-night', chosen.night ? '1' : '0');
         document.documentElement.setAttribute('data-weather-scene', chosen.scene);
         if (root.MeteoWeatherMotion) root.MeteoWeatherMotion.update(chosen);
@@ -159,7 +162,12 @@
             var movie = cached.selection.movie;
             if (!/^(new-york|miami|tropical-coast|coast|coast-cloudy|highland)$/.test(movie)) movie = cached.selection.scene;
             cached.selection.movie = movie;
-            cached.selection.url = movie !== cached.selection.scene ? 'assets/weather-video/v2/' + movie + '.webp' : ASSETS + cached.selection.scene + '.webp';
+            // Pick the visit's variant before the forecast arrives, so reopening
+            // does not load yesterday's film and immediately replace it again.
+            var clip = root.MeteoWeatherLibrary && root.MeteoWeatherLibrary.pick(movie,!!cached.selection.night,loc);
+            cached.selection.clip = clip || null;
+            cached.selection.url = clip ? clip.poster : movie !== cached.selection.scene ? 'assets/weather-video/v2/' + movie + '.webp' : ASSETS + cached.selection.scene + '.webp';
+            if (clip) cached.selection.key = cached.selection.scene + (cached.selection.night ? ':night' : ':day') + ':' + movie + ':' + (cached.selection.thermal || 'mild') + ':' + clip.id;
             show(document.getElementById('mobCer'), cached.selection);
         }
     } catch (e) {}

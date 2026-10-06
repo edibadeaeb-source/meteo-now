@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v29';
+const CACHE = 'meteo-now-net-v30';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
 const WEATHER_VIDEO = 'meteo-weather-video-v2';
 const videoLoads = new Map();
@@ -84,11 +84,11 @@ self.addEventListener('fetch', function(e) {
   var req = e.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
-  if (url.origin === self.location.origin && /^\/assets\/weather-video\/v[12]\//.test(url.pathname) && url.pathname.endsWith('.mp4')) {
+  if (url.origin === self.location.origin && /^\/assets\/weather-video\/v[123]\//.test(url.pathname) && url.pathname.endsWith('.mp4')) {
     e.respondWith(weatherVideoResponse(req));
     return;
   }
-  if (url.origin === self.location.origin && (url.pathname.startsWith('/assets/weather/v1/') || (url.pathname.startsWith('/assets/weather-video/v2/') && url.pathname.endsWith('.webp')))) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith('/assets/weather/v1/') || (/^\/assets\/weather-video\/v[23]\//.test(url.pathname) && url.pathname.endsWith('.webp')))) {
     e.respondWith(caches.open(WEATHER_ASSETS).then(function(cache) {
       return cache.match(req).then(function(cached) {
         if (cached) return cached;
