@@ -977,11 +977,11 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
                           f'The rain is likely to stop {moment}.', target)
         if current_kind == 'snow':
             return result('snow_now', 'Ninsoare', 'Snow',
-                          'Ninge acum și este probabil să continue în următoarele ore.',
-                          'It is snowing now and is likely to continue for the next few hours.')
+                          'Ninge acum în zona ta.',
+                          'It is snowing in your area now.')
         return result('rain_now', 'Ploaie', 'Rain',
-                      'Plouă acum și este probabil să continue în următoarele ore.',
-                      'It is raining now and is likely to continue for the next few hours.')
+                      'Plouă acum în zona ta.',
+                      'It is raining in your area now.')
 
     for i in future[:3]:
         kind = kind_at(i)
@@ -1097,8 +1097,11 @@ def _push_weather_intern():
             missing += len(entries)
             continue
         for key, sub in entries:
+            forecast_now = _event_dt((forecast.get('current') or {}).get('time'))
+            forecast_hours = [_event_dt(t) for t in (forecast.get('hourly') or {}).get('time') or []]
             if ((forecast.get('current') or {}).get('weather_code') is None
-                    or not (forecast.get('hourly') or {}).get('time')):
+                    or forecast_now is None
+                    or not any(t and forecast_now < t <= forecast_now + timedelta(hours=8) for t in forecast_hours)):
                 missing += 1
                 continue
             location_key = f"{str(sub.get('tara') or '').upper()}:{str(sub.get('nume') or '').casefold()}"
@@ -1108,6 +1111,9 @@ def _push_weather_intern():
             event = _compune_eveniment_meteo(
                 forecast, sub.get('limba', 'ro'), sub.get('unitate', 'C'), sub.get('nume'))
             if not event:
+                if not (forecast.get('hourly') or {}).get('weather_code'):
+                    missing += 1
+                    continue
                 quiet += 1
                 if old and not old.get('quietSince'):
                     _fb(f'push_weather_state/{key}', 'PUT', {**old, 'quietSince': int(now_ts)})

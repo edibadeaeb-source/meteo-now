@@ -42,6 +42,16 @@ class DeliveryTests(unittest.TestCase):
         p['hourly'].pop('weather_code')
         p['hourly'].pop('precipitation_probability')
         self.assertNotEqual(meteo._compune_eveniment_meteo(p)['kind'], 'rain_end')
+        self.assertNotIn('continue', meteo._compune_eveniment_meteo(p)['body'])
+
+    def test_missing_future_hours_do_not_rearm_a_weather_episode(self):
+        p = fixtures.NotificationCopyTests.event_forecast()
+        p['hourly']['time'] = ['2026-09-21T19:00']
+        self.storage['push_weather_state'] = {'a': {'lastSent': 1000, 'kind': 'rain_now'}}
+        with patch.object(meteo, '_fb', side_effect=self.fb), patch.object(meteo, '_prognoza_evenimente', return_value=p):
+            result = meteo._push_weather_intern()
+        self.assertEqual(result['faraDate'], 1)
+        self.assertNotIn('push_weather_state/a', self.storage)
 
     def test_new_end_forecast_is_not_blocked_for_six_hours(self):
         old = {'location': 'RO:moreni', 'kind': 'rain_end', 'fingerprint': 'rain_end:old', 'lastSent': 1000}
