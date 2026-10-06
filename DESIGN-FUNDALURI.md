@@ -2,6 +2,8 @@
 
 Actualizare: 6 octombrie 2026.
 
+Versiunea 2026.10.06.9 adaugă în cadranul UV o scară verde–galben–portocaliu–roșu–violet, cu marcaj alb pentru indicele curent al orașului și capete 0 / 11+. Categoriile respectă [scala internațională UV](https://www.icnirp.org/en/applications/uv-index/uv-index.html): 0–2 scăzut, 3–5 moderat, 6–7 ridicat, 8–10 foarte ridicat și 11+ extrem. Poziția este limitată la capătul barei pentru valori peste 12; cifra afișată nu este limitată. Datele lipsă nu sunt prezentate drept UV zero, iar mesajele sunt traduse RO/EN. Protecția solară este recomandată de la UV 3, conform [OMS](https://www.who.int/news-room/fact-sheets/detail/ultraviolet-radiation). Bara este decorativă, fără animații sau gesturi proprii; valoarea și categoria rămân disponibile cititoarelor de ecran.
+
 Cele nouă imagini au fost generate cu instrumentul integrat image_gen, apoi codificate WebP pentru livrare. Nu sunt fotografii făcute în localitățile afișate. Fișierele finale sunt în `assets/weather/v1/`, iar originalele sunt păstrate separat în arhiva locală de design.
 
 Scena este aleasă după codul WMO al vremii curente, zi/noapte și orele locale de răsărit/apus. Furtuna, precipitațiile, ceața și ninsoarea au prioritate față de cerul de apus. Fotografiile trec între două straturi; un răspuns vechi nu poate suprascrie o selecție nouă. Aceeași scenă este reutilizată, iar fișierele versiunii sunt păstrate separat în cache-ul local. Nu rulează vechea animație de cer pe canvas.

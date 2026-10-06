@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.06.8">
+    <meta name="application-version" content="2026.10.06.9">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -6218,7 +6218,7 @@ var I18N = {
         statiiText: 'Aici măsurăm noi: senzori BME680 conectați prin Wi-Fi și LoRaWAN, montați în oraș.',
         indiceUV: 'Indice UV', uvScazut: 'Scăzut', uvModerat: 'Moderat', uvRidicat: 'Ridicat',
         uvFoarteRidicat: 'Foarte ridicat', uvExtrem: 'Extrem',
-        uvSfat: 'Folosește protecție solară între 10:00 și 18:00.', uvOk: 'Nu ai nevoie de protecție specială.',
+        uvSfat: 'Protejează-te de soare: umbră, cremă și pălărie.', uvOk: 'Nu ai nevoie de protecție specială.', uvIndisponibil: 'Date indisponibile',
         resimtitScurt: 'Temp. resimțită', pareMaiCald: 'Pare mai cald decât temperatura reală.',
         pareMaiRece: 'Pare mai rece decât temperatura reală.', caTemperaturaReala: 'La fel ca temperatura reală.',
         valoriMedii: 'Valori medii', fataDeMedia: 'față de media maximelor', medie: 'medie', astazi: 'Astăzi',
@@ -6338,7 +6338,7 @@ var I18N = {
         statiiText: 'We measure this ourselves: BME680 sensors over Wi-Fi and LoRaWAN, installed around the city.',
         indiceUV: 'UV index', uvScazut: 'Low', uvModerat: 'Moderate', uvRidicat: 'High',
         uvFoarteRidicat: 'Very high', uvExtrem: 'Extreme',
-        uvSfat: 'Use sun protection between 10:00 and 18:00.', uvOk: 'No special protection needed.',
+        uvSfat: 'Use sun protection: shade, sunscreen and a hat.', uvOk: 'No special protection needed.', uvIndisponibil: 'Data unavailable',
         resimtitScurt: 'Feels like', pareMaiCald: 'Feels warmer than the actual temperature.',
         pareMaiRece: 'Feels colder than the actual temperature.', caTemperaturaReala: 'Same as the actual temperature.',
         valoriMedii: 'Averages', fataDeMedia: 'from the average high', medie: 'average', astazi: 'Today',
@@ -8423,7 +8423,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=6">
+<link rel="stylesheet" href="weather-glass.css?v=7">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -9771,10 +9771,23 @@ function mobCardStatii() {
 }
 
 /* ══ GRILA DE DETALII ══ */
+function mobCardUV() {
+    // Use the current city's current UV, never today's forecast maximum.
+    var valoare = MOBD.current.uv_index;
+    var disponibil = typeof valoare === 'number' && isFinite(valoare) && valoare >= 0;
+    var uv = disponibil ? Math.round(valoare) : null;
+    var eticheta = !disponibil ? T('uvIndisponibil') :
+        uv <= 2 ? T('uvScazut') : uv <= 5 ? T('uvModerat') : uv <= 7 ? T('uvRidicat') : uv <= 10 ? T('uvFoarteRidicat') : T('uvExtrem');
+    var pozitie = disponibil ? Math.min(100, uv / 12 * 100).toFixed(2) : '';
+    return '<div class="mb-card mb-uv-card"><div class="mb-cap"><span class="mbc-ico">☀️</span><span>' + T('indiceUV') + '</span></div>' +
+        '<div class="mb-val">' + (disponibil ? uv : '—') + '</div><div class="mb-sub">' + eticheta + '</div>' +
+        '<div class="mb-uv-scale" aria-hidden="true"><div class="mb-uv-track">' +
+        (disponibil ? '<span class="mb-uv-marker" style="--uv-position:' + pozitie + '%"></span>' : '') +
+        '</div><div class="mb-uv-limits"><span>0</span><span>11+</span></div></div>' +
+        (disponibil ? '<div class="mb-nota">' + (uv >= 3 ? T('uvSfat') : T('uvOk')) + '</div>' : '') + '</div>';
+}
 function mobGrila() {
     var c = MOBD.current, zi = MOBD.daily, o = MOBD.hourly;
-    var uv = Math.round(c.uv_index || 0);
-    var uvEt = uv <= 2 ? T('uvScazut') : uv <= 5 ? T('uvModerat') : uv <= 7 ? T('uvRidicat') : uv <= 10 ? T('uvFoarteRidicat') : T('uvExtrem');
     var viz = null;
     try { viz = o.visibility[Math.max(0, ora_curenta_index())] / 1000; } catch (e) {}
     var rez = (typeof _ccDate !== 'undefined' && _ccDate && _ccUltimaLoc === LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2)) ? _ccDate : null;
@@ -9788,7 +9801,7 @@ function mobGrila() {
 
     var h = '<div class="mb-grid">';
     h += mic('🌅', T('rasarit'), mobOra(zi.sunrise[0]), '', T('apus') + ': ' + mobOra(zi.sunset[0]));
-    h += mic('☀️', T('indiceUV'), uv, uvEt, uv >= 6 ? T('uvSfat') : T('uvOk'));
+    h += mobCardUV();
     h += mic('🌡️', T('resimtitScurt'), Math.round(cv(c.apparent_temperature)) + '°', '',
              c.apparent_temperature > c.temperature_2m + 0.5 ? T('pareMaiCald') :
              c.apparent_temperature < c.temperature_2m - 0.5 ? T('pareMaiRece') : T('caTemperaturaReala'));
