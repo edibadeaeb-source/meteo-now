@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.06.7">
+    <meta name="application-version" content="2026.10.06.8">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -8694,7 +8694,10 @@ function mobMuta(dx, opac, lin) {
         el.style.opacity = (opac === undefined) ? '' : opac;
         if (!dx && (opac === undefined || opac === 1)) {
             setTimeout(function() {
-                if (!el.style.transform) el.classList.remove('gliseaza');
+                if (!el.style.transform && (!el.style.opacity || el.style.opacity === '1')) {
+                    el.classList.remove('gliseaza', 'lin');
+                    el.style.opacity = '';
+                }
             }, lin ? 340 : 20);
         }
     });
@@ -10730,12 +10733,12 @@ function mobHartaAnm(id) {
        Conținutul urmează degetul în timp real. La ridicare, dacă ai tras
        destul, alunecă până afară și intră orașul următor; dacă nu, revine
        la loc. Merge și pe pilula de jos. */
-    var x0 = null, y0 = null, orizontal = null, mutat = 0, slideCadru = null;
+    var x0 = null, y0 = null, orizontal = null, mutat = 0, slideCadru = null, slidePornit = false;
     var slideOpac = 1, inTranzitie = false, poateInapoi = false, poateInainte = false;
     var zoneSlide = [document.getElementById('mobApp'), document.getElementById('mobJos')];
     function reseteazaSlide() {
         if (slideCadru) cancelAnimationFrame(slideCadru);
-        slideCadru = null; x0 = y0 = null; orizontal = null; mutat = 0;
+        slideCadru = null; x0 = y0 = null; orizontal = null; mutat = 0; slidePornit = false;
     }
     zoneSlide.forEach(function(zona) {
         if (!zona) return;
@@ -10752,7 +10755,12 @@ function mobHartaAnm(id) {
         }, { passive: true });
         zona.addEventListener('touchmove', function(e) {
             if (x0 === null) return;
-            if (e.touches.length !== 1) { reseteazaSlide(); mobMuta(0, undefined, true); return; }
+            if (e.touches.length !== 1) {
+                var revenire = slidePornit;
+                reseteazaSlide();
+                if (revenire) mobMuta(0, undefined, true);
+                return;
+            }
             var dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
             if (orizontal === null) {
                 if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
@@ -10760,16 +10768,18 @@ function mobHartaAnm(id) {
                 if (!orizontal) { reseteazaSlide(); return; }
             }
             var permis = dx < 0 ? poateInainte : poateInapoi;
+            if (!permis && !slidePornit) return;
             mutat = permis ? dx * 0.85 : 0;
             slideOpac = permis ? Math.max(0.35, 1 - Math.abs(dx) / (window.innerWidth * 0.9)) : 1;
             if (!slideCadru) slideCadru = requestAnimationFrame(function() {
-                slideCadru = null; mobMuta(mutat, slideOpac, false);
+                slideCadru = null; slidePornit = true; mobMuta(mutat, slideOpac, false);
             });
         }, { passive: true });
         zona.addEventListener('touchend', function(e) {
             if (x0 === null) return;
             var dx = e.changedTouches[0].clientX - x0;
             var permis = orizontal === true && (dx < 0 ? poateInainte : poateInapoi);
+            var revenire = slidePornit;
             reseteazaSlide();
             var latime = window.innerWidth;
             if (permis && (Math.abs(dx) >= latime * 0.22 || Math.abs(dx) >= 90)) {
@@ -10782,13 +10792,15 @@ function mobHartaAnm(id) {
                     requestAnimationFrame(function() { mobMuta(0, 1, true); });
                     setTimeout(function() { inTranzitie = false; }, 350);
                 }, 190);
-            } else {
+            } else if (revenire) {
                 mobMuta(0, 1, true);
             }
         }, { passive: true });
         zona.addEventListener('touchcancel', function() {
             if (x0 === null) return;
-            reseteazaSlide(); mobMuta(0, undefined, true);
+            var revenire = slidePornit;
+            reseteazaSlide();
+            if (revenire) mobMuta(0, undefined, true);
         }, { passive: true });
     });
 

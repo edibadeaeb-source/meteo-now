@@ -64,6 +64,43 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  await page.waitForFunction(()=>window.MOBD&&window.MeteoAtmosphere&&document.querySelector('#mbCardOre'),{timeout:30000});
  await page.waitForFunction(()=>document.querySelector('#mobCer[data-photo-ready="1"]'),{timeout:15000});
  await page.evaluate(()=>{localStorage.setItem('meteo-locatie-automata','0');inchideToast();});
+ // A tap used to add will-change/opacity to the whole forecast for 340 ms,
+ // causing a visible compositing flicker even when no city swipe occurred.
+ await page.waitForTimeout(500);
+ await page.evaluate(()=>{
+   window.tapChanges=[];
+   window.tapObserver=new MutationObserver(rs=>rs.forEach(r=>tapChanges.push({id:r.target.id,attr:r.attributeName,value:r.target.getAttribute(r.attributeName)})));
+   mobPartiSlide().forEach(el=>tapObserver.observe(el,{attributes:true,attributeFilter:['class','style']}));
+ });
+ const touch=async(type,x=210,y=120)=>cdpCity.send('Input.dispatchTouchEvent',{type,touchPoints:/End|Cancel/.test(type)?[]:[{x,y}]});
+ const quietTap=async()=>{
+   await page.evaluate(()=>tapChanges.length=0);
+   await page.touchscreen.tap(210,120);await page.waitForTimeout(400);
+   assert.deepEqual(await page.evaluate(()=>tapChanges),[],'plain tap must not composite/animate the forecast');
+ };
+ await quietTap();
+ await touch('touchStart');await touch('touchMove',215,122);await touch('touchEnd');await page.waitForTimeout(400);
+ assert.deepEqual(await page.evaluate(()=>tapChanges),[],'tiny finger movement is still a tap');
+ await touch('touchStart');await touch('touchCancel');await page.waitForTimeout(400);
+ assert.deepEqual(await page.evaluate(()=>tapChanges),[],'cancel before movement must leave the page untouched');
+ // At the first city, dragging toward the unavailable previous city stays idle.
+ await touch('touchStart');await touch('touchMove',260,120);await touch('touchEnd');await page.waitForTimeout(400);
+ assert.deepEqual(await page.evaluate(()=>tapChanges),[],'unavailable city must not start a transition');
+ await touch('touchStart');await touch('touchMove',170,120);await page.waitForTimeout(60);
+ assert.equal(await page.locator('#mbContinut').evaluate(el=>el.classList.contains('gliseaza')),true);
+ await touch('touchEnd');await page.waitForTimeout(400);
+ assert.equal(await page.evaluate(()=>LOC.nume),loc.nume,'short swipe must return to the same city');
+ const neutral=()=>page.evaluate(()=>mobPartiSlide().every(el=>!el.classList.contains('gliseaza')&&!el.classList.contains('lin')&&!el.style.transform&&!el.style.opacity));
+ assert.equal(await neutral(),true);await quietTap();
+ for(const [endX,city]of [[30,second.nume],[390,loc.nume]]){
+   await touch('touchStart');await touch('touchMove',endX,120);await page.waitForTimeout(60);await touch('touchEnd');
+   await page.waitForFunction(city=>LOC.nume===city,city,{timeout:10000});await page.waitForTimeout(800);
+   assert.equal(await neutral(),true);await quietTap();
+ }
+ // Even a single saved city should remain visually idle on touch.
+ await page.evaluate(({loc})=>localStorage.setItem('meteo-orase',JSON.stringify([loc])),{loc});await quietTap();
+ await page.evaluate(({loc,second})=>{localStorage.setItem('meteo-orase',JSON.stringify([loc,second]));tapObserver.disconnect();},{loc,second});
+ console.log('PASS: taps, jitter, cancellation and city boundaries leave forecast untouched; real swipes still change cities and clear temporary layers');
  const scenes=[['clear-day',0,12,1],['partly-cloudy',2,12,1],['overcast',3,12,1],['rain',63,12,1],['storm',95,12,1],['snow',85,12,1],['fog',45,12,1],['clear-night',0,23,0],['twilight',1,19,1]]
    .filter(s=>!process.env.METEO_WEATHER_SCENE||s[0]===process.env.METEO_WEATHER_SCENE);
  const canvasDigest=()=>page.locator('.weather-precipitation').evaluate(el=>{

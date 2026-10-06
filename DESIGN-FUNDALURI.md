@@ -10,6 +10,8 @@ Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărțilo
 
 ## Filmări și redare mobilă — versiunea 2026.10.06.6
 
+În versiunea 2026.10.06.8, o atingere simplă nu mai activează straturile și tranzițiile glisării între orașe. Acestea pornesc doar după deplasarea laterală efectivă, iar la revenirea la poziția normală se elimină și opacitatea/tranziția temporară. Gesturile anulate și glisarea spre o margine fără alt oraș nu modifică pagina dacă nu a început deplasarea. Transparența cardurilor rămâne cea din versiunea 2026.10.06.7.
+
 Biblioteca actuală este `assets/weather-video/v2/`: 12 filmări, fiecare cu o variantă mică și una mare. Materialele UHD sunt codificate la 1440×2560, iar sursele disponibile numai HD sunt păstrate la 1080×1920. Variantele mici sunt 720×1280. Toate sunt H.264 Main, 30 cadre/s, fără audio, cu bucle îmbinate printr-o tranziție de o secundă. Nu se măresc sursele HD la o rezoluție etichetată 2K. Originalele rămân în arhiva locală `design-fundaluri-20261006/filmari-originale/`; helperul actual este `tests/prepare-context-weather-video.cjs`.
 
 Filmarea originală de noapte conținea un flash luminos, confirmat printr-un salt al luminanței medii de aproximativ 53 între două cadre. Noua versiune folosește numai fragmentul stabil dinaintea flashului, încetinit și îmbinat. Testul parcurge toate cele 240 de cadre ale fiecărei variante și compară inclusiv ultimul cadru cu primul: saltul maxim este sub 1, fără flash. URL-ul și cache-ul v2 împiedică reutilizarea fragmentului vechi.
