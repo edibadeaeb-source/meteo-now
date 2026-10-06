@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+keys.py
+*.keystore
+keystore.properties
+local.properties

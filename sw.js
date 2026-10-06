@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v20';
+const CACHE = 'meteo-now-net-v21';
 
 self.addEventListener('install', function() {
   self.skipWaiting();
@@ -57,6 +57,7 @@ self.addEventListener('push', function (e) {
   try { d = e.data ? e.data.json() : {}; }
   catch (err) { d = { title: 'METEO NOW', body: (e.data && e.data.text()) || '' }; }
 
+  if (!d || typeof d !== 'object') d = {};
   var titlu = d.title || 'METEO NOW';
   var optiuni = {
     body: d.body || 'Avertizare meteorologică în zona ta.',

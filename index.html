@@ -1184,6 +1184,12 @@
         .switch input:checked + span { background: var(--navy); }
         .switch input:checked + span::before { transform: translateX(20px); }
         .set-note { font-size: 0.72rem; color: var(--muted); line-height: 1.5; margin-top: 12px; }
+        .push-test-button { display: block; width: 100%; margin-top: 10px; padding: 11px 14px;
+            border: 1px solid rgba(160,180,215,.3); border-radius: 14px; color: inherit;
+            background: linear-gradient(140deg,rgba(155,180,210,.22),rgba(155,180,210,.09));
+            font: inherit; font-size: .82rem; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+        .push-test-button:disabled { opacity: .5; cursor: wait; }
+        .push-test-button[hidden] { display: none; }
         #pushNote.push-asking {
             padding: 11px 12px;
             border: 1px solid rgba(65, 147, 255, 0.32);
@@ -1523,6 +1529,12 @@
                 </div>
                 <div class="set-note" id="pushNote"></div>
                 <div class="set-note" id="pushANM" data-i18n="notifANM"></div>
+                <div class="set-row">
+                    <div><span data-i18n="autoLocationTitle">Urmărește locația mea</span><small data-i18n="autoLocationHint">La deschidere și revenire. Notificările folosesc ultima locație detectată.</small></div>
+                    <label class="switch"><input type="checkbox" id="setAutoLocation"><span></span></label>
+                </div>
+                <button type="button" class="push-test-button" id="pushTest" data-i18n="pushTestTitle">Trimite o notificare de test</button>
+                <button type="button" class="push-test-button" id="pushPermissionCheck" data-i18n="pushCheckTitle" hidden>Verifică permisiunea Android</button>
             </div>
 
             <div class="set-group">
@@ -5619,6 +5631,10 @@ var PUSH_ANDROID = (function() {
     var sursa = params.get('source') === 'android-app';
     var stare = params.get('androidNotifications');
     var actiune = params.get('nativeAction') || '';
+    if (params.get('nativeNotificationsBridge') === '1') {
+        try { localStorage.setItem('meteo-native-notification-bridge', '1'); } catch (e) {}
+    }
+    params.delete('nativeNotificationsBridge');
 
     if (sursa) {
         try { sessionStorage.setItem('meteo-android-app', '1'); } catch (e) {}
@@ -5651,14 +5667,40 @@ function stareNotificariAndroid() {
     catch (e) { return ''; }
 }
 function cereStareNotificariAndroid(actiune) {
+    var nonce = '';
+    try {
+        var bytes = new Uint8Array(16); crypto.getRandomValues(bytes);
+        nonce = Array.prototype.map.call(bytes, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+        sessionStorage.setItem('meteo-native-request-id', nonce);
+    } catch (e) {}
     try {
         sessionStorage.setItem('meteo-native-inflight', actiune || 'status');
 
     } catch (e) {}
     // Intent explicit către propriul pachet: trebuie lansat sincron din
     // apăsarea utilizatorului, înainte să se piardă user activation.
-    location.href = 'intent://notifications/' + (actiune || 'status') +
+    location.href = 'intent://notifications/' + (actiune || 'status') + '?requestId=' + nonce +
         '#Intent;scheme=meteonow;package=com.onrender.meteo_targoviste.twa;end';
+}
+
+async function rezultatPermisiuneAndroid() {
+    var nonce = sessionStorage.getItem('meteo-native-request-id') || '';
+    if (localStorage.getItem('meteo-native-notification-bridge') !== '1' || !nonce || !_widgetSyncToken) return null;
+    var digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('METEO-NOW-notification-status:' + _widgetSyncToken));
+    var id = Array.prototype.map.call(new Uint8Array(digest), function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    for (var attempt = 0; attempt < 3; attempt++) {
+        var r = await pushFetch('api/push/android-status?id=' + id, { cache: 'no-store' });
+        if (!r.ok) throw new Error('permission status');
+        var data = await r.json(), state = data.state;
+        if (state && state.requestId === nonce && (state.status === 'granted' || state.status === 'denied')) {
+            PUSH_ANDROID.rezultat = state.status;
+            sessionStorage.setItem('meteo-android-notifications', state.status);
+            sessionStorage.removeItem('meteo-native-request-id');
+            return state.status;
+        }
+        await new Promise(function(resolve) { setTimeout(resolve, 500); });
+    }
+    throw new Error('permission result not confirmed');
 }
 
 async function pushSubscribe(confirmareNativa) {
@@ -5682,16 +5724,17 @@ async function pushSubscribe(confirmareNativa) {
         return false;
     }
 
+    localStorage.removeItem('meteo-push-disabled');
     var reg = await navigator.serviceWorker.ready;
-    var r = await fetch('api/push/key');
+    var r = await pushFetch('api/push/key');
     if (!r.ok) { pushNote('Serverul nu are notificările configurate.', 'var(--red)'); return false; }
     var key = (await r.json()).publicKey;
     var sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await creeazaAbonamentPush(reg, key);
     await trimiteAbonament(sub);
     pushNote(LANG === 'en'
-        ? '✅ On. You will receive weather updates and alerts for ' + (LOC.nume || 'your location') + '.'
-        : '✅ Activat. Primești rezumatul și alertele meteo pentru ' + (LOC.nume || 'locația ta') + '.', 'var(--green)');
+        ? '✅ On. You will receive weather updates and alerts for ' + (locatiePentruNotificari().nume || 'your location') + '.'
+        : '✅ Activat. Primești rezumatul și alertele meteo pentru ' + (locatiePentruNotificari().nume || 'locația ta') + '.', 'var(--green)');
     return true;
 }
 
@@ -5744,14 +5787,36 @@ function abonamentPushJSON(sub) {
     }
     return corp;
 }
+var _pushSaveChain = Promise.resolve();
+var _pushSaveVersion = 0;
+function pushFetch(url, options) {
+    var controller = new AbortController();
+    var timer = setTimeout(function() { controller.abort(); }, 10000);
+    return fetch(url, Object.assign({}, options || {}, { signal: controller.signal }))
+        .finally(function() { clearTimeout(timer); });
+}
+function locatiePentruNotificari() {
+    try {
+        if (localStorage.getItem('meteo-locatie-automata') === '1') {
+            var gps = JSON.parse(localStorage.getItem('meteo-gps-location') || 'null');
+            if (gps && isFinite(gps.lat) && isFinite(gps.lon)) return gps;
+        }
+    } catch (e) {}
+    return LOC;
+}
 async function trimiteAbonament(sub) {
+    if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
     var corp = abonamentPushJSON(sub);
-    corp.lat = LOC.lat; corp.lon = LOC.lon;
-    corp.nume = LOC.nume || ''; corp.tara = LOC.tara || '';
-    corp.judet = (typeof judetulLocatiei === 'function' ? judetulLocatiei() : null) || '';
+    var loc = locatiePentruNotificari();
+    corp.lat = loc.lat; corp.lon = loc.lon;
+    corp.nume = loc.nume || ''; corp.tara = loc.tara || ''; corp.admin = loc.admin || '';
+    corp.judet = (loc === LOC && typeof judetulLocatiei === 'function' ? judetulLocatiei() : null) || '';
     corp.limba = LANG; corp.unitate = UNIT;
-    corp.fus = (LOC.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-    var r = await fetch('api/push/subscribe', {
+    corp.fus = (loc.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+    var version = ++_pushSaveVersion;
+    var saving = _pushSaveChain.catch(function() {}).then(async function() {
+    if (version !== _pushSaveVersion) return;
+    var r = await pushFetch('api/push/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(corp)
     });
@@ -5759,33 +5824,45 @@ async function trimiteAbonament(sub) {
     if (!r.ok || !rezultat || rezultat.ok !== true) {
         throw new Error(LANG === 'en' ? 'The server could not save notifications. Try again shortly.' : 'Serverul nu a putut salva notificările. Încearcă din nou în câteva momente.');
     }
+    });
+    _pushSaveChain = saving;
+    return saving;
 }
 
 /* Când utilizatorul schimbă orașul, actualizăm și abonamentul,
    ca notificările să vină pentru locul nou. */
 async function actualizeazaLocatiaPush() {
     try {
-        if (!('serviceWorker' in navigator)) return;
+        if (!('serviceWorker' in navigator) || !_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
         if (esteAplicatiaAndroid()) {
             if (stareNotificariAndroid() !== 'granted') return;
         } else if (Notification.permission !== 'granted') return;
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
         if (sub) await trimiteAbonament(sub);
-    } catch (e) {}
+    } catch (e) {
+        pushNote(LANG === 'en' ? 'Location update pending. We will retry when you return.' : 'Locația notificărilor nu s-a sincronizat încă. Reîncercăm la revenire.', 'var(--amber)');
+    }
 }
 async function pushUnsubscribe() {
+    localStorage.setItem('meteo-push-disabled', '1');
+    ++_pushSaveVersion;
+    await _pushSaveChain.catch(function() {});
     try {
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
         if (sub) {
-            await fetch('api/push/unsubscribe', {
+            var r = await pushFetch('api/push/unsubscribe', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ endpoint: sub.endpoint })
             });
-            await sub.unsubscribe();
+            if (!r.ok) throw new Error('unsubscribe failed');
+            if (await sub.unsubscribe() !== true) throw new Error('local unsubscribe failed');
         }
-    } catch (e) {}
+    } catch (e) {
+        localStorage.removeItem('meteo-push-disabled');
+        throw new Error(LANG === 'en' ? 'Could not turn notifications off. Retry when online.' : 'Nu s-au putut opri notificările pe server. Reîncearcă atunci când ai internet.');
+    }
     pushNote('Notificările sunt dezactivate.');
 }
 // ── ALERTE LOCALE (rezervă când browserul nu acceptă push în fundal) ──
@@ -5853,6 +5930,7 @@ function stopLocalAlerts() {
 async function sincronizeazaPush(discret, stareFortata) {
     var el = document.getElementById('setPush');
     if (!el || !pushSupported() || !window.Notification) return false;
+    if (localStorage.getItem('meteo-push-disabled') === '1') { el.checked = false; return false; }
 
     var esteAndroid = esteAplicatiaAndroid();
     var stareAndroid = stareFortata || stareNotificariAndroid();
@@ -5877,7 +5955,7 @@ async function sincronizeazaPush(discret, stareFortata) {
         }
         await trimiteAbonament(sub);
         el.checked = true;
-        pushNote(T('notifActiv').replace('{oras}', LOC.nume || ''), 'var(--green)');
+        pushNote(T('notifActiv').replace('{oras}', locatiePentruNotificari().nume || ''), 'var(--green)');
         return true;
     } catch (e) {
         el.checked = false;
@@ -5898,13 +5976,19 @@ async function revalideazaAbonamentAndroid(cereActivare) {
     try {
         var reg = await navigator.serviceWorker.ready;
         var existent = await reg.pushManager.getSubscription();
+        var status = await rezultatPermisiuneAndroid();
         if (!cereActivare && !existent) {
             el.checked = false;
-            el.disabled = false;
+            pushNote(status === 'granted'
+                ? (LANG === 'en' ? 'Android permission is enabled. Turn on notifications here to subscribe.' : 'Permisiunea Android este activă. Pornește notificările aici pentru abonare.')
+                : (LANG === 'en' ? 'Notifications are off in Android for METEO NOW.' : 'Notificările sunt oprite în Android pentru METEO NOW.'));
             return false;
         }
-
-        if (existent) await pushUnsubscribe();
+        if (status === 'denied') {
+            el.checked = false;
+            pushNote(LANG === 'en' ? 'Notifications are off in Android for METEO NOW.' : 'Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
+            return false;
+        }
         var ok = await pushSubscribe(true);
         el.checked = ok === true;
         if (ok === true) {
@@ -5914,16 +5998,17 @@ async function revalideazaAbonamentAndroid(cereActivare) {
         return ok === true;
     } catch (e) {
         var msg = String(e && (e.name + ' ' + e.message) || e);
-        el.checked = false;
-        if (/denied|permission|NotAllowedError/i.test(msg)) {
+        // Păstrăm abonamentul existent când doar verificarea a eșuat.
+        if (/denied|NotAllowedError/i.test(msg)) {
+            el.checked = false;
             try { sessionStorage.setItem('meteo-android-notifications', 'denied'); } catch (ignorat) {}
             pushNote('Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
         } else {
-            pushNote('Permisiunea a fost verificată, dar abonarea nu a reușit: ' +
-                     String(e && e.message || e), 'var(--red)');
+            pushNote(LANG === 'en' ? 'Could not confirm Android permission. Tap Check permission or try again.' : 'Nu am putut confirma permisiunea Android. Apasă Verifică permisiunea sau încearcă din nou.', 'var(--amber)');
         }
-        el.disabled = false;
         return false;
+    } finally {
+        el.disabled = false;
     }
 }
 
@@ -5943,7 +6028,7 @@ async function revalideazaAbonamentAndroid(cereActivare) {
         stopLocalAlerts();
         pushNote('Notificările sunt oprite în Android pentru METEO NOW.', 'var(--red)');
     } else {
-        sincronizeazaPush(true, rezultatNativ);
+        setTimeout(function() { sincronizeazaPush(true, rezultatNativ); }, 0);
     }
 
     el.addEventListener('change', async function() {
@@ -5956,6 +6041,7 @@ async function revalideazaAbonamentAndroid(cereActivare) {
             return;
         }
 
+        var pornesteNotificari = el.checked;
         el.disabled = true;
         try {
             if (el.checked) {
@@ -5976,7 +6062,7 @@ async function revalideazaAbonamentAndroid(cereActivare) {
                 pushNote('⚠️ Browserul nu acceptă notificări în fundal, dar alertele locale sunt active cât timp aplicația este deschisă.', 'var(--amber)');
             } else {
                 pushNote('Nu s-a putut activa: ' + msg, 'var(--red)');
-                el.checked = false;
+                el.checked = !pornesteNotificari;
             }
         }
         el.disabled = false;
@@ -5989,7 +6075,6 @@ async function revalideazaAbonamentAndroid(cereActivare) {
         if (!esteAplicatiaAndroid()) return;
         if (!document.getElementById('settingsSheet').classList.contains('open')) return;
         setariAscunse = true;
-        el.checked = false;
         pushNote('Se verifică permisiunea Android pentru METEO NOW…');
     }
 
@@ -6011,7 +6096,8 @@ async function revalideazaAbonamentAndroid(cereActivare) {
         revenireProgramata = setTimeout(function() {
             // Pentru request activăm după răspuns. Pentru o revenire obișnuită
             // păstrăm abonamentul numai dacă Android îl acceptă în continuare.
-            revalideazaAbonamentAndroid(inCurs === 'request');
+            if (inCurs) revalideazaAbonamentAndroid(inCurs === 'request');
+            else sincronizeazaPush(true);
         }, 280);
     }
 
@@ -6117,6 +6203,10 @@ var I18N = {
         seIncarca: 'Se încarcă datele meteo…',
         oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…',
         hartaAvertANM: 'Avertizări pe hartă', hartaAnmNota: 'Zonele colorate sunt sub avertizare. Sursa: meteoromania.ro',
+        autoLocationTitle: 'Urmărește locația mea',
+        autoLocationHint: 'La deschidere și revenire. Notificările folosesc ultima locație detectată.',
+        pushTestTitle: 'Trimite o notificare de test',
+        pushCheckTitle: 'Verifică permisiunea Android',
         notifTitlu: 'Vremea la tine',
         notifSub: 'Rezumatul zilei, plus alerte la schimbări importante ale vremii',
         notifANM: 'Dacă orașul ales e din România, primești automat și avertizările oficiale ANM.',
@@ -6233,6 +6323,10 @@ var I18N = {
         seIncarca: 'Loading weather data…',
         oraseleMele: 'My cities', adaugaOras: 'Search for a city…',
         hartaAvertANM: 'Warnings on the map', hartaAnmNota: 'Coloured areas are under warning. Source: meteoromania.ro',
+        autoLocationTitle: 'Follow my location',
+        autoLocationHint: 'On opening and returning. Alerts use the last detected location.',
+        pushTestTitle: 'Send a test notification',
+        pushCheckTitle: 'Check Android permission',
         notifTitlu: 'Your weather',
         notifSub: 'A daily brief plus alerts when the weather changes in a meaningful way',
         notifANM: 'If your city is in Romania, you also get the official ANM warnings automatically.',
@@ -6391,11 +6485,14 @@ var LOC = {
     nume: 'Târgoviște', tara: 'RO', admin: 'Dâmbovița',
     lat: 44.9266, lon: 25.4566
 };
-/* GPS rămâne activ numai după „Folosește locația mea”. O alegere manuală
-   de oraș oprește urmărirea, ca New York să nu fie înlocuit cu orașul curent. */
+/* GPS rămâne activ pentru alerte în timp ce consultăm alte orașe.
+   Revenirea în aplicație readuce locația actuală; opțiunea poate fi oprită din Setări. */
 var LOC_AUTO_KEY = 'meteo-locatie-automata';
 var _locAutoUltima = 0;
 var _locAutoInCurs = false;
+var _locAutoGeneration = 0;
+var _locatiePregatita = false;
+var _locManualPreview = false;
 var _widgetChooserId = '';
 var _widgetSyncToken = '';
 var _widgetSyncTimer = null;
@@ -6467,16 +6564,24 @@ function incarcaLoc() {
 
 function seteazaModLocatieAutomata(sursa) {
     try {
-        if (sursa === 'gps') localStorage.setItem(LOC_AUTO_KEY, '1');
-        if (sursa === 'manual') localStorage.setItem(LOC_AUTO_KEY, '0');
+        if (sursa === 'gps') {
+            localStorage.setItem(LOC_AUTO_KEY, '1');
+            _locManualPreview = false;
+        }
+        if (sursa === 'manual') {
+            _locAutoGeneration++;
+            _locManualPreview = true;
+            if (localStorage.getItem(LOC_AUTO_KEY) !== '1') localStorage.setItem(LOC_AUTO_KEY, '0');
+        }
+        var checkbox = document.getElementById('setAutoLocation');
+        if (checkbox) checkbox.checked = localStorage.getItem(LOC_AUTO_KEY) === '1';
     } catch (e) {}
 }
 async function urmarimLocatiaAutomat() {
     try {
         var ales = localStorage.getItem(LOC_AUTO_KEY);
         if (ales === '0') return false;
-        if (ales === '1') return true;
-        if (!navigator.permissions || !navigator.permissions.query) return false;
+        if (!navigator.permissions || !navigator.permissions.query) return ales === '1';
         var perm = await navigator.permissions.query({ name: 'geolocation' });
         return perm && perm.state === 'granted';
     } catch (e) { return false; }
@@ -6489,32 +6594,36 @@ function distantaLocatiiKm(aLat, aLon, bLat, bLon) {
 }
 function numeLocatieDinPozitie(pos) {
     var lat = pos.coords.latitude, lon = pos.coords.longitude;
-    return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat +
+    return pushFetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat +
         '&longitude=' + lon + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
         .then(function(r) { if (!r.ok) throw new Error('geocodare'); return r.json(); })
         .then(function(g) {
+            if (!(g.city || g.locality) || !g.countryCode) throw new Error('geocodare incompletă');
             return { nume: g.city || g.locality || g.principalSubdivision || T('locatiaMea'),
                      tara: g.countryCode || '', admin: g.principalSubdivision || '', lat: lat, lon: lon };
-        }).catch(function() {
-            return { nume: T('locatiaMea'), tara: '', admin: '', lat: lat, lon: lon };
         });
 }
 async function actualizeazaLocatieAutomat(fortat) {
-    if (_locAutoInCurs || !navigator.geolocation || document.hidden) return;
-    if (!fortat && Date.now() - _locAutoUltima < 5 * 60000) return;
-    if (!(await urmarimLocatiaAutomat())) return;
+    if (_locAutoInCurs || !_locatiePregatita || !navigator.geolocation || document.hidden) return;
+    if (Date.now() - _locAutoUltima < (fortat ? 15000 : 120000)) return;
     _locAutoInCurs = true;
-    _locAutoUltima = Date.now();
+    var generation = _locAutoGeneration;
     try {
-        var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 });
+        if (!(await urmarimLocatiaAutomat())) return;
+        _locAutoUltima = Date.now();
+        var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 30000 });
+        if (generation !== _locAutoGeneration || document.hidden) return;
         var lat = pos.coords.latitude, lon = pos.coords.longitude;
-        if (distantaLocatiiKm(LOC.lat, LOC.lon, lat, lon) < 2.5) {
-            LOC.lat = lat; LOC.lon = lon; salveazaLoc();
-            try { actualizeazaLocatiaPush(); } catch (e) {}
-            return;
-        }
         var loc = await numeLocatieDinPozitie(pos);
-        seteazaLocatie(loc, true, 'gps');
+        if (generation !== _locAutoGeneration || document.hidden) return;
+        localStorage.setItem(LOC_AUTO_KEY, '1');
+        localStorage.setItem('meteo-gps-location', JSON.stringify(loc));
+        if (fortat || !_locManualPreview) {
+            if (loc.nume !== LOC.nume || loc.tara !== LOC.tara || distantaLocatiiKm(LOC.lat, LOC.lon, lat, lon) >= 0.5) {
+                seteazaLocatie(loc, true, 'gps');
+            }
+        }
+        await actualizeazaLocatiaPush();
     } catch (e) {
         // Nu afișăm o eroare la revenirea în aplicație; butonul GPS o poate arăta explicit.
     } finally {
@@ -6527,6 +6636,8 @@ function seteazaLocatie(loc, reincarca, sursa) {
     seteazaModLocatieAutomata(sursa);
     var latNou = +(loc.lat != null ? loc.lat : loc.latitude);
     var lonNou = +(loc.lon != null ? loc.lon : loc.longitude);
+    if (!isFinite(latNou) || !isFinite(lonNou) || Math.abs(latNou) > 90 || Math.abs(lonNou) > 180) return;
+    _locatiePregatita = true;
     // păstrăm fusul orar dacă îl știm deja pentru aceste coordonate
     // (altfel, la reîncărcarea paginii ora ar sări înapoi pe fusul implicit)
     var tzVechi = (loc.tz) ? loc.tz
@@ -6542,6 +6653,9 @@ function seteazaLocatie(loc, reincarca, sursa) {
         tzAbrev: loc.tzAbrev || (LOC && LOC.tzAbrev) || ''
     };
     salveazaLoc();
+    if (sursa === 'gps') {
+        try { localStorage.setItem('meteo-gps-location', JSON.stringify(LOC)); } catch (e) {}
+    }
 
     // coordonatele folosite de restul aplicației
     TGV.lat = LOC.lat; TGV.lon = LOC.lon;
@@ -7335,13 +7449,66 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
     var welcomeVizibil = document.getElementById('welcome').classList.contains('show');
     if (!welcomeVizibil) {
         setTimeout(function() { sincronizeazaOraseWidget(oraseSalvate()); }, 250);
-        setTimeout(function() { actualizeazaLocatieAutomat(true); }, 800);
+        if (!dinWidget) setTimeout(function() { actualizeazaLocatieAutomat(true); }, 800);
     }
 })();
 document.addEventListener('visibilitychange', function() {
-    if (!document.hidden) actualizeazaLocatieAutomat(false);
+    if (!document.hidden) {
+        actualizeazaLocatieAutomat(true);
+        actualizeazaLocatiaPush();
+    }
 });
-window.addEventListener('focus', function() { actualizeazaLocatieAutomat(false); });
+window.addEventListener('focus', function() { actualizeazaLocatieAutomat(true); });
+setInterval(function() { actualizeazaLocatieAutomat(false); }, 120000);
+
+(function initNotificationTools() {
+    var auto = document.getElementById('setAutoLocation');
+    if (auto) {
+        auto.checked = localStorage.getItem(LOC_AUTO_KEY) === '1';
+        auto.addEventListener('change', async function() {
+            _locAutoGeneration++;
+            if (!auto.checked) {
+                localStorage.setItem(LOC_AUTO_KEY, '0');
+                await actualizeazaLocatiaPush();
+                return;
+            }
+            auto.disabled = true;
+            try {
+                var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 20000, maximumAge: 0 });
+                var loc = await numeLocatieDinPozitie(pos);
+                seteazaLocatie(loc, true, 'gps');
+                await actualizeazaLocatiaPush();
+                pushNote((LANG === 'en' ? 'Location tracking enabled for ' : 'Urmărirea locației este activă pentru ') + loc.nume + '.', 'var(--green)');
+            } catch (e) {
+                auto.checked = false;
+                localStorage.setItem(LOC_AUTO_KEY, '0');
+                pushNote(e && e.code === 1 ? T('locRefuzat') : T('locIndisponibila'), 'var(--amber)');
+            } finally { auto.disabled = false; }
+        });
+    }
+    var check = document.getElementById('pushPermissionCheck');
+    if (check) {
+        check.hidden = !esteAplicatiaAndroid();
+        check.addEventListener('click', function() { cereStareNotificariAndroid('status'); });
+    }
+    var test = document.getElementById('pushTest');
+    if (test) test.addEventListener('click', async function() {
+        test.disabled = true;
+        try {
+            var reg = await navigator.serviceWorker.ready;
+            var sub = await reg.pushManager.getSubscription();
+            if (!sub) throw new Error(LANG === 'en' ? 'Enable notifications first.' : 'Activează întâi notificările.');
+            await trimiteAbonament(sub);
+            var r = await pushFetch('api/push/test-device', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(abonamentPushJSON(sub))
+            });
+            var data = await r.json();
+            if (!r.ok || !data.ok) throw new Error(data.error || 'push failed');
+            pushNote(LANG === 'en' ? 'Test accepted for delivery. Check the notification panel.' : 'Testul a fost acceptat pentru livrare. Verifică panoul de notificări.', 'var(--green)');
+        } catch (e) { pushNote(e.message || T('locIndisponibila'), 'var(--amber)'); }
+        finally { test.disabled = false; }
+    });
+})();
 
 /* ══════════════════════════════════════════════════════════════
    NOUTĂȚI

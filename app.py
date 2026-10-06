@@ -9,6 +9,8 @@ import subprocess
 import threading
 import time
 import re
+import math
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import send_file
@@ -306,7 +308,7 @@ def _fb(path, method='GET', payload=None):
         else:
             r = requests.post(url, json=payload, timeout=15)
         r.raise_for_status()
-        return r.json()
+        return True if method == 'DELETE' else r.json()
     except Exception as e:
         print(f"⚠️  Firebase {method} {path}: {e}")
         return None
@@ -352,14 +354,15 @@ def push_subscribe():
         'keys': sub.get('keys', {}),
         'creat': now_ro().isoformat(timespec='seconds')
     }
-    # locația aleasă de utilizator — fără ea toți ar primi vremea din Târgoviște
+    # O locație lipsă/invalidă nu devine în mod implicit Târgoviște.
     try:
-        if sub.get('lat') is not None and sub.get('lon') is not None:
-            inreg['lat'] = round(float(sub['lat']), 3)
-            inreg['lon'] = round(float(sub['lon']), 3)
+        lat, lon = float(sub.get('lat')), float(sub.get('lon'))
+        if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError('coordinates')
+        inreg['lat'], inreg['lon'] = round(lat, 3), round(lon, 3)
     except (TypeError, ValueError):
-        pass
-    for camp in ('nume', 'tara', 'judet', 'limba', 'unitate', 'fus'):
+        return jsonify({'error': 'alege o localitate înainte de activarea notificărilor'}), 400
+    for camp in ('nume', 'tara', 'admin', 'judet', 'limba', 'unitate', 'fus'):
         if sub.get(camp):
             inreg[camp] = str(sub[camp])[:60]
     saved = _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', inreg)
@@ -368,14 +371,80 @@ def push_subscribe():
     return jsonify({'ok': True})
 
 
+@app.route('/api/push/android-status', methods=['GET', 'POST'])
+def push_android_status():
+    """Răspuns Android corelat cu cererea, fără relansarea paginii TWA.
+
+    Identificatorul opac derivă din cheia locală a instalării. Cheia widgeturilor
+    nu părăsește dispozitivul. Starea nu include locație sau abonamentul push.
+    """
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({'error': 'invalid_request'}), 400
+    sync_id = body.get('id') if request.method == 'POST' else request.args.get('id')
+    if not isinstance(sync_id, str) or not re.fullmatch(r'[a-f0-9]{64}', sync_id):
+        return jsonify({'error': 'invalid_id'}), 400
+    path = f'push_android_status/{sync_id}'
+    if request.method == 'POST':
+        nonce, status = body.get('requestId'), body.get('status')
+        if (not isinstance(nonce, str) or not re.fullmatch(r'[a-f0-9]{32}', nonce)
+                or status not in ('granted', 'denied')):
+            return jsonify({'error': 'invalid_status'}), 400
+        saved = _fb(path, 'PUT', {'requestId': nonce, 'status': status, 'at': int(time.time())})
+        response = jsonify({'ok': isinstance(saved, dict)})
+        if not isinstance(saved, dict):
+            response.status_code = 503
+    else:
+        state = _fb(path)
+        response = jsonify({'ok': True, 'state': state if isinstance(state, dict) else None})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/push/test-device', methods=['POST'])
+def push_test_device():
+    """Testează doar abonamentul deținut de telefonul care face cererea."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({'error': 'abonament invalid'}), 400
+    endpoint = body.get('endpoint')
+    if not isinstance(endpoint, str) or not isinstance(body.get('keys'), dict):
+        return jsonify({'error': 'abonament invalid'}), 400
+    key = _sub_key(endpoint)
+    sub = _fb(f'push_subs/{key}')
+    if not isinstance(sub, dict) or sub.get('endpoint') != endpoint or sub.get('keys') != body['keys']:
+        return jsonify({'error': 'abonament neconfirmat'}), 403
+    state = _fb(f'push_test_state/{key}') or {}
+    if isinstance(state, dict) and time.time() - float(state.get('at') or 0) < 60:
+        return jsonify({'error': 'Așteaptă un minut înainte de un nou test.'}), 429
+    en = sub.get('limba') == 'en'
+    ok, code = _send_push(sub, {
+        'title': f"{sub.get('nume') or 'METEO NOW'} | {'Test' if en else 'Test notificare'}",
+        'body': ('This is the METEO NOW test notification.' if en else
+                 'Aceasta este notificarea de test METEO NOW.'),
+        'url': '/', 'tag': 'meteo-test', 'ttl': 300, 'urgency': 'high',
+    })
+    if ok:
+        _fb(f'push_test_state/{key}', 'PUT', {'at': int(time.time())})
+        return jsonify({'ok': True, 'accepted': True})
+    if code in (404, 410):
+        _fb(f'push_subs/{key}', 'DELETE')
+    return jsonify({'ok': False, 'error': 'Serviciul push nu a acceptat notificarea.', 'code': code}), 502
+
+
 @app.route('/api/push/unsubscribe', methods=['POST'])
 def push_unsubscribe():
     sub = request.get_json(silent=True) or {}
+    if not isinstance(sub, dict):
+        return jsonify({'error': 'abonament invalid'}), 400
     endpoint = sub.get('endpoint')
-    if endpoint:
+    if isinstance(endpoint, str) and endpoint:
         key = _sub_key(endpoint)
-        _fb(f'push_subs/{key}', 'DELETE')
+        if _fb(f'push_subs/{key}', 'DELETE') is not True:
+            return jsonify({'error': 'abonamentul nu a putut fi șters'}), 503
         _fb(f'push_weather_state/{key}', 'DELETE')
+        _fb(f'push_anm_state/{key}', 'DELETE')
+        _fb(f'push_summary_state/{key}', 'DELETE')
     return jsonify({'ok': True})
 
 
@@ -391,11 +460,15 @@ def _send_push(subscription, payload):
             subscription_info={'endpoint': subscription['endpoint'], 'keys': subscription.get('keys', {})},
             data=json.dumps(payload, ensure_ascii=False),
             vapid_private_key=VAPID_PRIVATE_KEY,
-            vapid_claims={'sub': VAPID_CLAIM_EMAIL}
+            vapid_claims={'sub': VAPID_CLAIM_EMAIL},
+            ttl=int(payload.get('ttl', 3600)),
+            headers={'Urgency': payload.get('urgency') or ('high' if payload.get('nivel', 0) >= 2 else 'normal')},
+            timeout=10
         )
         return True, 200
     except WebPushException as e:
         code = getattr(getattr(e, 'response', None), 'status_code', 0)
+        print(f"⚠️  push respins: HTTP {code}", flush=True)
         return False, code
     except Exception as e:
         print(f"⚠️  push: {e}")
@@ -496,49 +569,56 @@ def _push_check_intern():
         return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
 
     warns = as_list(data.get('avertizare'))
-    active = []
-    for w in warns:
-        nivel = 0
-        # zonele precise (ex. DB_munte) au prioritate; altfel județul
-        for z in as_list(w.get('zona')) + as_list(w.get('judet')):
-            cod = str(z.get('cod', '')).upper()
-            if cod.startswith(JUDET_MONITORIZAT):
-                try:
-                    nivel = max(nivel, int(z.get('culoare') or 0))
-                except (TypeError, ValueError):
-                    pass
-        if nivel > 0:
-            active.append({
-                'nivel': nivel,
-                'tip': w.get('numeTipMesaj') or 'Avertizare meteorologică',
-                'fenomene': (w.get('fenomeneVizate') or '').strip(),
-                'interval': (w.get('intervalul') or '').strip(),
-                'mesaj': w.get('mesaj') or '',
-                'expira': w.get('dataExpirarii') or ''
-            })
-
-    # amprenta situației curente — ca să nu repetăm aceeași notificare
-    amprenta = "|".join(sorted(f"{a['nivel']}:{a['tip']}:{a['interval']}" for a in active)) or "fara"
-    stare = _fb('push_state') or {}
-    if isinstance(stare, dict) and stare.get('amprenta') == amprenta:
-        return jsonify({'schimbare': False, 'active': len(active)})
-
-    _fb('push_state', 'PUT', {'amprenta': amprenta,
-                              'actualizat': now_ro().isoformat(timespec='seconds')})
-
-    if not active:
-        return jsonify({'schimbare': True, 'active': 0, 'trimise': 0,
-                        'info': 'nu mai sunt avertizări active — fără notificare'})
-
-    top = max(active, key=lambda a: a['nivel'])
-    cod_txt = _COD_NUME.get(top['nivel'], 'avertizare')
-    titlu = f"Dâmbovița | {cod_txt.capitalize()}"
-    corp = _rezumat_scurt_avertizare(top)
-
-    t, s = broadcast_push({'title': titlu, 'body': corp, 'url': '/#warnings-section',
-                           'tag': 'anm-avertizare', 'nivel': top['nivel']})
-    return jsonify({'schimbare': True, 'active': len(active), 'trimise': t, 'sterse': s,
-                    'titlu': titlu, 'corp': corp})
+    subs, states = _fb('push_subs') or {}, _fb('push_anm_state') or {}
+    if not isinstance(subs, dict) or not isinstance(states, dict):
+        return jsonify({'ok': False, 'error': 'storage_unavailable'})
+    sent = duplicates = failed = 0
+    for key, sub in subs.items():
+        if not isinstance(sub, dict) or str(sub.get('tara') or '').upper() != 'RO':
+            continue
+        county = sub.get('judet') or _widget_county_code(sub.get('admin', ''), 'RO')
+        if not county:
+            continue
+        active = []
+        for w in warns:
+            level = 0
+            expiry = _event_dt(w.get('dataExpirarii'))
+            if expiry and expiry.replace(tzinfo=None) < now_ro().replace(tzinfo=None):
+                continue
+            for z in as_list(w.get('zona')) + as_list(w.get('judet')):
+                code = str(z.get('cod') or '').upper()
+                if code == county or code.startswith(county + '_'):
+                    try:
+                        level = max(level, int(z.get('culoare') or 0))
+                    except (TypeError, ValueError):
+                        pass
+            if level > 0:
+                active.append({'nivel': level, 'tip': w.get('numeTipMesaj') or 'Avertizare',
+                               'fenomene': w.get('fenomeneVizate') or '',
+                               'interval': w.get('intervalul') or '', 'mesaj': w.get('mesaj') or ''})
+        if not active:
+            continue
+        fingerprint = county + '|' + '|'.join(sorted(
+            f"{a['nivel']}:{a['tip']}:{a['interval']}:{_text_anm(a['fenomene'])}" for a in active))
+        old = states.get(key) or {}
+        if old.get('fingerprint') == fingerprint:
+            duplicates += 1
+            continue
+        top = max(active, key=lambda a: a['nivel'])
+        name = sub.get('admin') or county
+        ok, code = _send_push(sub, {
+            'title': f"{sub.get('nume') or name} | {_COD_NUME.get(top['nivel'], 'avertizare').capitalize()}",
+            'body': _rezumat_scurt_avertizare(top, name),
+            'url': '/#warnings-section', 'tag': 'anm-avertizare', 'nivel': top['nivel'], 'ttl': 3600, 'urgency': 'high',
+        })
+        if ok:
+            sent += 1
+            _fb(f'push_anm_state/{key}', 'PUT', {'fingerprint': fingerprint, 'at': int(time.time())})
+        elif code in (404, 410):
+            _fb(f'push_subs/{key}', 'DELETE')
+        else:
+            failed += 1
+    return jsonify({'ok': True, 'trimise': sent, 'duplicate': duplicates, 'eroriLivrare': failed})
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -776,7 +856,8 @@ def _event_dt(value):
 def _event_num(values, index, default=0.0):
     try:
         value = values[index]
-        return default if value is None else float(value)
+        number = float(value) if value is not None else None
+        return number if number is not None and math.isfinite(number) else default
     except (IndexError, TypeError, ValueError):
         return default
 
@@ -807,9 +888,11 @@ def _moment_eveniment(target, now, limba):
     if en:
         part = ('overnight' if hour < 5 or hour >= 23 else
                 'morning' if hour < 12 else 'afternoon' if hour < 18 else 'evening')
+        if part == 'overnight':
+            return 'tonight'
         return ('tomorrow ' if tomorrow else 'this ') + part
     if hour < 5 or hour >= 23:
-        return 'mâine-noapte' if tomorrow else 'în cursul nopții'
+        return 'în cursul nopții'
     if hour < 12:
         return 'mâine dimineață' if tomorrow else 'în această dimineață'
     if hour < 18:
@@ -823,7 +906,9 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
     times = [_event_dt(x) for x in hourly.get('time') or []]
     if not times:
         return None
-    now = _event_dt(current.get('time')) or times[0] or datetime.now()
+    now = _event_dt(current.get('time'))
+    if now is None or current.get('weather_code') is None:
+        return None
     future = [i for i, value in enumerate(times)
               if value and now < value <= now + timedelta(hours=8)]
     if not future:
@@ -840,7 +925,10 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         return _precip_kind(_event_code(codes, i), _event_num(precip, i),
                             _event_num(rain, i), _event_num(showers, i), _event_num(snow, i))
 
-    current_code = int(current.get('weather_code') or -1)
+    try:
+        current_code = int(current['weather_code'])
+    except (TypeError, ValueError):
+        return None
     current_kind = _precip_kind(
         current_code, current.get('precipitation') or 0, current.get('rain') or 0,
         current.get('showers') or 0, current.get('snowfall') or 0)
@@ -853,6 +941,7 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
             'title': f"{loc} | {en_title if en else ro_title}",
             'body': en_body if en else ro_body,
             'fingerprint': f"{kind}:{(target or now):%Y%m%d%H}",
+            'target': (target or now).isoformat(timespec='minutes'),
             'tag': 'meteo-' + kind.replace('_', '-'), 'nivel': level,
         }
 
@@ -871,8 +960,10 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         ending = None
         for pos, i in enumerate(future[:-1]):
             j = future[pos + 1]
-            if (not kind_at(i) and not kind_at(j)
-                    and _event_num(probs, i) < 35 and _event_num(probs, j) < 35):
+            if (times[j] - times[i] <= timedelta(minutes=65)
+                    and _event_code(codes, i) >= 0 and _event_code(codes, j) >= 0
+                    and not kind_at(i) and not kind_at(j)
+                    and _event_num(probs, i, 100) < 35 and _event_num(probs, j, 100) < 35):
                 ending = i
                 break
         if ending is not None:
@@ -894,7 +985,11 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
 
     for i in future[:3]:
         kind = kind_at(i)
-        if not kind or (_event_num(probs, i) < 50 and _event_num(precip, i) <= .05):
+        # Probabilitatea ridicată poate semnala averse și cu un cod orar încă
+        # noros; cantitatea foarte mică, singură, nu justifică o alertă.
+        if not kind and _event_num(probs, i) >= 60:
+            kind = 'rain'
+        if not kind or (_event_num(probs, i) < 50 and _event_num(precip, i) < .2):
             continue
         target, moment = times[i], _moment_eveniment(times[i], now, limba)
         if kind == 'snow':
@@ -944,6 +1039,27 @@ def push_weather():
         return jsonify({'ok': False, 'eroare': str(e)[:200]}), 200
 
 
+def _weather_should_send(event, old, location_key, now_ts):
+    if old.get('location') != location_key:
+        return True
+    quiet = float(old.get('quietSince') or 0)
+    if quiet and now_ts - quiet >= 5400:
+        return True
+    # Istoric pe tip de eveniment: alternarea ploaie/furtună nu repetă alertele.
+    history = old.get('events') or {}
+    previous = history.get(event['kind']) or {}
+    if not previous and old.get('kind') == event['kind']:
+        previous = old  # migrare din formatul 1.0.18
+    if not previous:
+        return True
+    if previous.get('fingerprint') == event['fingerprint']:
+        return False
+    # Vremea continuă nu se repetă în fiecare oră. Prognoza de început/sfârșit
+    # poate fi actualizată după o oră dacă ora estimată chiar s-a schimbat.
+    cooldown = 21600 if event['kind'].endswith('_now') else 3600
+    return now_ts - float(previous.get('lastSent') or 0) >= cooldown
+
+
 def _push_weather_intern():
     subs = _fb('push_subs') or {}
     if not isinstance(subs, dict):
@@ -951,46 +1067,66 @@ def _push_weather_intern():
     states = _fb('push_weather_state') or {}
     states = states if isinstance(states, dict) else {}
     groups = {}
+    invalid = 0
     for key, sub in subs.items():
         if not isinstance(sub, dict) or not sub.get('endpoint'):
             continue
         try:
             lat, lon = float(sub.get('lat')), float(sub.get('lon'))
+            if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                raise ValueError('coordinates')
         except (TypeError, ValueError):
+            invalid += 1
             continue
         groups.setdefault((round(lat, 2), round(lon, 2)), []).append((key, sub))
 
-    sent = deleted = missing = quiet = duplicates = 0
+    sent = deleted = missing = quiet = duplicates = failed = 0
     now_ts = time.time()
-    for (lat, lon), entries in groups.items():
+    # Cererile independente de prognoză nu stau în coadă după un oraș lent.
+    def fetch_group(coords):
         try:
-            forecast = _prognoza_evenimente(lat, lon)
+            return _prognoza_evenimente(*coords)
         except Exception as e:
-            print(f"⚠️  evenimente meteo {lat},{lon}: {e}", flush=True)
+            print(f"⚠️  sursă evenimente meteo: {type(e).__name__}", flush=True)
+            return None
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        forecasts = dict(zip(groups, pool.map(fetch_group, groups)))
+    for (lat, lon), entries in groups.items():
+        forecast = forecasts[(lat, lon)]
+        if forecast is None:
             missing += len(entries)
             continue
         for key, sub in entries:
+            if ((forecast.get('current') or {}).get('weather_code') is None
+                    or not (forecast.get('hourly') or {}).get('time')):
+                missing += 1
+                continue
+            location_key = f"{str(sub.get('tara') or '').upper()}:{str(sub.get('nume') or '').casefold()}"
+            if not sub.get('nume'):
+                location_key = f"{lat:.2f},{lon:.2f}"
+            old = states.get(key) if isinstance(states.get(key), dict) else {}
             event = _compune_eveniment_meteo(
                 forecast, sub.get('limba', 'ro'), sub.get('unitate', 'C'), sub.get('nume'))
             if not event:
                 quiet += 1
+                if old and not old.get('quietSince'):
+                    _fb(f'push_weather_state/{key}', 'PUT', {**old, 'quietSince': int(now_ts)})
                 continue
-            location_key = f"{lat:.2f},{lon:.2f}"
-            old = states.get(key) if isinstance(states.get(key), dict) else {}
-            last = float(old.get('lastSent') or 0)
-            duplicate = (old.get('location') == location_key and
-                         (old.get('fingerprint') == event['fingerprint']
-                          or (old.get('kind') == event['kind'] and now_ts - last < 21600)))
-            if duplicate:
+            if not _weather_should_send(event, old, location_key, now_ts):
                 duplicates += 1
+                if old.get('quietSince'):
+                    _fb(f'push_weather_state/{key}', 'PUT', {**old, 'quietSince': 0})
                 continue
             ok, code = _send_push(sub, {
                 'title': event['title'], 'body': event['body'], 'url': '/',
-                'tag': event['tag'], 'nivel': event['nivel']})
+                'tag': event['tag'], 'nivel': event['nivel'], 'ttl': 1800, 'urgency': 'high'})
             if ok:
                 sent += 1
+                history = dict(old.get('events') or {}) if old.get('location') == location_key else {}
+                history[event['kind']] = {'fingerprint': event['fingerprint'], 'lastSent': int(now_ts)}
                 state = {'location': location_key, 'kind': event['kind'],
                          'fingerprint': event['fingerprint'], 'lastSent': int(now_ts),
+                         'quietSince': 0, 'events': history,
                          'updated': now_ro().isoformat(timespec='seconds')}
                 _fb(f'push_weather_state/{key}', 'PUT', state)
                 states[key] = state
@@ -998,9 +1134,12 @@ def _push_weather_intern():
                 _fb(f'push_subs/{key}', 'DELETE')
                 _fb(f'push_weather_state/{key}', 'DELETE')
                 deleted += 1
+            else:
+                failed += 1
     return {'ok': True, 'abonati': sum(map(len, groups.values())),
             'grupuri': len(groups), 'trimise': sent, 'duplicate': duplicates,
-            'faraEveniment': quiet, 'faraDate': missing, 'sterse': deleted}
+            'faraEveniment': quiet, 'faraDate': missing, 'sterse': deleted,
+            'faraLocatie': invalid, 'eroriLivrare': failed}
 
 
 
@@ -1012,7 +1151,7 @@ def _text_anm(value):
     return re.sub(r'\s+', ' ', html.unescape(value).replace('\xa0', ' ')).strip(' ;,.')
 
 
-def _rezumat_scurt_avertizare(avertizare):
+def _rezumat_scurt_avertizare(avertizare, county_name='Dâmbovița'):
     """Compune o propoziție scurtă și completă din mesajul ANM.
 
     ANM folosește uneori „conform textelor” în câmpurile scurte. Nu trimitem
@@ -1052,12 +1191,12 @@ def _rezumat_scurt_avertizare(avertizare):
     # semantic fenomenele, nu tăiem o frază existentă la un număr de caractere.
     fenomene = fenomene[:3]
     if not fenomene:
-        return 'Este în vigoare o avertizare meteorologică pentru județul Dâmbovița.'
+        return f'Este în vigoare o avertizare meteorologică pentru {county_name}.'
     if len(fenomene) == 1:
         lista = fenomene[0]
     else:
         lista = ', '.join(fenomene[:-1]) + ' și ' + fenomene[-1]
-    return f"În județul Dâmbovița sunt prognozate {lista}."
+    return f"În județul {county_name} sunt prognozate {lista}."
 
 
 def _grade(c, unitate):
@@ -1183,10 +1322,13 @@ def _rezumat_intern(moment):
     for cheie, sub in subs.items():
         if not isinstance(sub, dict) or not sub.get('endpoint'):
             continue
-        # abonații vechi (dinainte de salvarea locației) rămân pe Târgoviște
-        lat = sub.get('lat', 44.9266)
-        lon = sub.get('lon', 25.4566)
-        grupuri.setdefault((round(float(lat), 2), round(float(lon), 2)), []).append((cheie, sub))
+        try:
+            lat, lon = float(sub.get('lat')), float(sub.get('lon'))
+            if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                continue
+        except (TypeError, ValueError):
+            continue
+        grupuri.setdefault((round(lat, 2), round(lon, 2)), []).append((cheie, sub))
 
     trimise = sterse = fara_date = 0
     for (lat, lon), lista in grupuri.items():
@@ -1202,6 +1344,15 @@ def _rezumat_intern(moment):
             if not rez:
                 fara_date += 1
                 continue
+            day = str((p.get('current') or {}).get('time') or '')[:10]
+            if not day:
+                daily_times = (p.get('daily') or {}).get('time') or []
+                day = daily_times[1] if len(daily_times) > 1 else now_ro().date().isoformat()
+            summary_key = f'push_summary_state/{cheie}'
+            fingerprint = f'{day}:{moment}:{lat},{lon}'
+            previous = _fb(summary_key) or {}
+            if isinstance(previous, dict) and previous.get('fingerprint') == fingerprint:
+                continue
             titlu, corp = rez
             ok, cod = _send_push(sub, {
                 'title': titlu, 'body': corp, 'url': '/',
@@ -1209,6 +1360,7 @@ def _rezumat_intern(moment):
             })
             if ok:
                 trimise += 1
+                _fb(summary_key, 'PUT', {'fingerprint': fingerprint, 'at': int(time.time())})
             elif cod in (404, 410):
                 _fb(f'push_subs/{cheie}', 'DELETE')
                 sterse += 1
