@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v22';
+const CACHE = 'meteo-now-net-v23';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
 
 self.addEventListener('install', function() {

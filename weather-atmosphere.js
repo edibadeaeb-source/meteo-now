@@ -60,6 +60,7 @@
         el.setAttribute('data-scene', chosen.scene);
         el.setAttribute('data-night', chosen.night ? '1' : '0');
         document.documentElement.setAttribute('data-weather-night', chosen.night ? '1' : '0');
+        document.documentElement.setAttribute('data-weather-scene', chosen.scene);
     }
     function remember(chosen, loc) {
         if (!loc || !isFinite(loc.lat) || !isFinite(loc.lon)) return;

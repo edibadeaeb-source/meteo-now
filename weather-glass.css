@@ -12,6 +12,10 @@
         --weather-glass-edge: rgba(231, 240, 255, .26);
         --weather-sheet-tint: rgba(14, 25, 44, .69);
     }
+    html[data-weather-scene="fog"], html[data-weather-scene="snow"], html[data-weather-scene="overcast"] {
+        --weather-glass-tint: rgba(9, 29, 50, .40);
+        --weather-glass-sheen: rgba(255,255,255,.12);
+    }
     #mobCer.weather-atmosphere {
         overflow: hidden; pointer-events: none; isolation: isolate;
         background: linear-gradient(180deg, #266e9e, #77a7c4);
@@ -34,6 +38,11 @@
         background: linear-gradient(180deg, rgba(6, 20, 36, .19) 0%, rgba(6, 20, 36, .06) 24%, rgba(6, 20, 36, .18) 51%, rgba(6, 20, 36, .37) 100%);
     }
     #mobCer[data-night="1"]::after { background: linear-gradient(180deg, rgba(3, 10, 21, .08), rgba(3, 10, 21, .18) 50%, rgba(3, 10, 21, .38)); }
+    #mobCer[data-scene="fog"][data-night="0"]::after,
+    #mobCer[data-scene="snow"][data-night="0"]::after,
+    #mobCer[data-scene="overcast"][data-night="0"]::after {
+        background: linear-gradient(180deg, rgba(7,24,42,.42), rgba(7,24,42,.30) 28%, rgba(7,24,42,.22) 55%, rgba(7,24,42,.37));
+    }
     #mobStele { display: none; }
     #mobApp { text-shadow: 0 1px 5px rgba(0, 15, 30, .22); }
     .mb-hero { padding-bottom: 25px; text-shadow: 0 2px 20px rgba(6, 20, 34, .35); }
