@@ -35,11 +35,11 @@
        no animated layout, filters or backdrop blur. Both layers share the same path. */
     #mobCer .weather-photo {
         transform: scale(1.09);
-        animation: weather-sky-drift 48s ease-in-out infinite alternate;
+        animation: weather-sky-drift 24s linear -8s infinite alternate;
         animation-play-state: paused;
     }
-    #mobCer[data-scene="clear-night"] .weather-photo { animation-duration: 80s; }
-    #mobCer[data-scene="fog"] .weather-photo { animation-duration: 65s; }
+    #mobCer[data-scene="clear-night"] .weather-photo { animation-duration: 45s; }
+    #mobCer[data-scene="fog"] .weather-photo { animation-duration: 30s; }
     #mobCer[data-motion="on"] .weather-photo { animation-play-state: running; }
     #mobCer .weather-haze {
         position: absolute; inset: -15%; pointer-events: none; opacity: 0;
@@ -58,8 +58,26 @@
     }
     #mobCer[data-night="1"] .weather-haze { opacity: .12; }
     #mobCer .weather-precipitation {
-        position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+        position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2;
     }
+    #mobCer .weather-haze { z-index: 2; }
+    #mobCer .weather-video {
+        position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+        z-index: 1; opacity: 0; pointer-events: none; transition: opacity .7s ease;
+    }
+    #mobCer .weather-video.is-visible { opacity: 1; }
+    /* Keep the photographic cloud depth under the moving rain-cloud layer. */
+    #mobCer[data-scene="overcast"] .weather-video.is-visible { opacity: .82; }
+    #mobCer[data-scene="rain"] .weather-video.is-visible,
+    #mobCer[data-scene="storm"] .weather-video.is-visible { opacity: .62; }
+    #mobCer[data-night="1"] .weather-video { filter: brightness(.42) saturate(.65); }
+    #mobCer[data-scene="clear-night"] .weather-video { filter: none; }
+    #mobCer[data-scene="storm"][data-night="0"] .weather-video { filter: brightness(.68) saturate(.75); }
+    #mobCer[data-scene="fog"] .weather-video.is-visible { opacity: .3; filter: grayscale(1); }
+    #mobCer[data-scene="fog"][data-night="1"] .weather-video { filter: grayscale(1) brightness(.42); }
+    #mobCer[data-video="playing"] .weather-photo,
+    #mobCer[data-scrolling="1"] .weather-photo,
+    #mobCer[data-scrolling="1"] .weather-haze { animation-play-state: paused; }
     @keyframes weather-sky-drift {
         from { transform: scale(1.09) translate(-1.3%, -.7%); }
         to { transform: scale(1.13) translate(1.3%, .7%); }
@@ -71,7 +89,7 @@
     #mobCer .weather-photo[data-night="1"] { filter: brightness(.46) saturate(.64); }
     #mobCer .weather-photo[data-scene="clear-night"][data-night="1"] { filter: none; }
     #mobCer::after {
-        content: ''; position: absolute; inset: 0; pointer-events: none;
+        content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 3;
         background: linear-gradient(180deg, rgba(6, 20, 36, .19) 0%, rgba(6, 20, 36, .06) 24%, rgba(6, 20, 36, .18) 51%, rgba(6, 20, 36, .37) 100%);
     }
     #mobCer[data-night="1"]::after { background: linear-gradient(180deg, rgba(3, 10, 21, .08), rgba(3, 10, 21, .18) 50%, rgba(3, 10, 21, .38)); }
@@ -148,6 +166,6 @@
     }
     @media (prefers-reduced-motion: reduce) {
         #mobCer .weather-photo { transition: none; animation: none; transform: none; }
-        #mobCer .weather-haze, #mobCer .weather-precipitation { display: none; }
+        #mobCer .weather-haze, #mobCer .weather-precipitation, #mobCer .weather-video { display: none; }
     }
 }

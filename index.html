@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.06.4">
+    <meta name="application-version" content="2026.10.06.5">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -104,7 +104,7 @@
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
     <title>METEO NOW | Vremea în timp real, radar și avertizări</title>
     <meta name="description" content="METEO NOW — vremea în timp real pentru orice loc din lume: temperatură, radar de precipitații, prognoze pe 10 zile, avertizări oficiale ANM pentru România și stații meteo proprii la Târgoviște.">
@@ -3652,15 +3652,28 @@ setInterval(function() {
    Folosim același mecanism ca la celelalte panouri — varianta veche muta
    body-ul cu `position: fixed` și lăsa o bandă neagră sub fereastră. */
 function setChatLock(locked) {
-    var meta = document.querySelector('meta[name="viewport"]');
     if (locked) {
         if (typeof blocheazaFundal === 'function') blocheazaFundal();
-        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     } else {
         if (typeof deblocheazaFundal === 'function') deblocheazaFundal();
-        meta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover');
     }
 }
+
+// Lock page magnification consistently, including after opening/closing panels.
+// Leaflet keeps its own two-finger map zoom; a map gesture must not zoom the UI.
+(function () {
+    function preventPageZoom(e) {
+        if (!window.matchMedia('(max-width: 900px), (max-height: 560px) and (pointer: coarse)').matches) return;
+        var target = e.target && e.target.closest ? e.target : null;
+        if (target && target.closest('.leaflet-container')) return;
+        if (e.type !== 'touchmove' || (e.touches && e.touches.length > 1)) {
+            if (e.cancelable) e.preventDefault();
+        }
+    }
+    document.addEventListener('touchmove', preventPageZoom, {passive:false});
+    document.addEventListener('gesturestart', preventPageZoom, {passive:false});
+    document.addEventListener('gesturechange', preventPageZoom, {passive:false});
+})();
 
 // Hook chat open/close pentru blocare
 document.addEventListener('DOMContentLoaded', function() {
@@ -3685,9 +3698,26 @@ var USE_OWM_PROXY = location.protocol.indexOf('http') === 0;
 // TGV e definit deja în <head> (coordonatele locației curente)
 
 // ── cod meteo Open-Meteo → emoji + descriere ──
-function wmoIcon(c) {
+// is_day is calculated for each forecast hour at the requested coordinates.
+// Sunrise/sunset fallback compares city wall-clock strings, never device hours.
+function wmoNight(data, iso, isDay) {
+    if (isDay === 0 || isDay === '0' || isDay === false) return true;
+    if (isDay === 1 || isDay === '1' || isDay === true) return false;
+    var time = String(iso || '').slice(0,16), day = time.slice(0,10);
+    var daily = (data && data.daily) || {}, rises = daily.sunrise || [], sets = daily.sunset || [];
+    for (var i = 0; i < rises.length; i++) {
+        var rise = String(rises[i] || '').slice(0,16), set = String(sets[i] || '').slice(0,16);
+        if (rise.slice(0,10) === day && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(rise) &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(set)) return time < rise || time >= set;
+    }
+    var hour = +time.slice(11,13);
+    return time.length >= 16 && (hour < 6 || hour >= 20);
+}
+function wmoIcon(c, night) {
+    c = +c;
+    if (night && c >= 0 && c <= 2) return wmoSvg(c, true, 32);
     if (c === 0) return '☀️'; if (c <= 2) return '🌤️'; if (c === 3) return '☁️';
-    if (c <= 48) return '🌫️'; if (c <= 57) return '🌦️'; if (c <= 67) return '🌧️';
+    if (c <= 48) return '🌫️'; if (c <= 57) return night ? '🌧️' : '🌦️'; if (c <= 67) return '🌧️';
     if (c <= 77) return '🌨️'; if (c <= 82) return '🌧️'; if (c <= 86) return '🌨️';
     return '⛈️';
 }
@@ -4949,7 +4979,7 @@ function showPlaceForecast(p) {
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var html = '<h4>Prognoză — ' + p.name + (p.admin1 ? ' (' + p.admin1 + ')' : '') + '</h4>';
-            if (d.current_weather) html += '<p style="font-size:0.9rem;margin:6px 0;">Acum: <b>' + fT(d.current_weather.temperature, 1) + '</b> · ' + wmoText(d.current_weather.weathercode) + ' ' + wmoIcon(d.current_weather.weathercode) + '</p>';
+            if (d.current_weather) html += '<p style="font-size:0.9rem;margin:6px 0;">Acum: <b>' + fT(d.current_weather.temperature, 1) + '</b> · ' + wmoText(d.current_weather.weathercode) + ' ' + wmoIcon(d.current_weather.weathercode, wmoNight(d, d.current_weather.time, d.current_weather.is_day)) + '</p>';
             html += '<div class="day-cards">';
             d.daily.time.forEach(function(t, i) {
                 var dt = new Date(t + 'T12:00');
@@ -8393,7 +8423,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=3">
+<link rel="stylesheet" href="weather-glass.css?v=4">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -8482,7 +8512,7 @@ input, textarea, select, [contenteditable="true"] {
     </div>
 </div>
 
-<script src="weather-motion.js?v=1"></script>
+<script src="weather-motion.js?v=2"></script>
 <script src="weather-atmosphere.js?v=3"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
@@ -9057,7 +9087,8 @@ function mobCardOre() {
         else { val = Math.round(esteAcum ? MOBD.current.wind_speed_10m : o.wind_speed_10m[k]); sub = 'km/h'; }
         h += '<div class="mb-ora' + (k === start ? ' acum' : '') + '">' +
              '<div class="o-t">' + etOra + '</div>' +
-             '<div class="o-i">' + wmoIcon(esteAcum ? MOBD.current.weather_code : o.weather_code[k]) + '</div>' +
+             '<div class="o-i">' + wmoIcon(esteAcum ? MOBD.current.weather_code : o.weather_code[k],
+                 wmoNight(MOBD, esteAcum ? MOBD.current.time : o.time[k], esteAcum ? MOBD.current.is_day : (o.is_day || [])[k])) + '</div>' +
              '<div class="o-p">' + (_mobOraMod === 'temp' ? sub : '') + '</div>' +
              '<div class="o-v">' + val + (_mobOraMod === 'vant' ? '<div style="font-size:0.6rem;opacity:0.65;">km/h</div>' : '') + '</div>' +
              '</div>';
@@ -10523,7 +10554,7 @@ function mrMarcaje() {
     L.marker([LOC.lat, LOC.lon], { interactive: false, icon: L.divIcon({
         className: '', iconSize: [null, null], iconAnchor: [42, 74],
         html: '<div style="display:flex;flex-direction:column;align-items:center;width:84px;">' +
-              '<div class="mr-bula mare">' + t + '°<span class="b-ic">' + wmoIcon(MOBD.current.weather_code) + '</span></div>' +
+              '<div class="mr-bula mare">' + t + '°<span class="b-ic">' + wmoIcon(MOBD.current.weather_code, wmoNight(MOBD, MOBD.current.time, MOBD.current.is_day)) + '</span></div>' +
               '<div class="mr-punct" style="margin-top:5px;"></div>' +
               '<div class="mr-et">' + T('locatiaTa') + '</div></div>'
     }) }).addTo(_mrMarcajeLayer);

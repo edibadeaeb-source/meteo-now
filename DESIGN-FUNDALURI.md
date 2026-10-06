@@ -8,15 +8,36 @@ Scena este aleasă după codul WMO al vremii curente, zi/noapte și orele locale
 
 Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărților folosesc sticlă cu reflexii și transparență. Grupurile din interiorul Setărilor reutilizează blurul panoului părinte. Există rezervă pentru browsere fără backdrop-filter și pentru preferințe de transparență/motion redus.
 
-## Scene animate
+## Filmări și redare mobilă — versiunea 2026.10.06.5
 
-Fotografiile au o deplasare și o apropiere lentă (48–80 secunde), iar ceața și lumina apusului au un strat atmosferic care se deplasează separat. Sunt imagini animate procedural, nu fișiere video descărcate. Se reutilizează aceleași nouă WebP-uri; nu crește traficul de imagini.
+Mișcarea foarte lentă a fotografiilor este înlocuită cu filmări reale de cer și ninsoare. Cele șase MP4-uri sunt în `assets/weather-video/v1/`: H.264 Main, 720×1280, 30 cadre/s, fără audio, cu începutul/finalul îmbinate printr-o tranziție de o secundă. Filmele de cer sunt încetinite înainte de codificare, cu cadre intermediare amestecate. Originalele rămân în arhiva locală `design-fundaluri-20261006/filmari-originale/`; helperul de construire este `tests/prepare-weather-video.cjs`.
 
-La ploaie/furtună și ninsoare rulează un singur canvas transparent, cu particule la adâncimi și viteze diferite. Numărul este limitat în funcție de suprafața ecranului, iar rezoluția internă este plafonată la 1,25×. Mișcarea folosește timpul scurs, independent de frecvența ecranului. Toate straturile sunt decorative și nu interceptează atingerile. Nu există flash-uri de fulger sau blur animat.
+Cerul acoperit, ploaia și furtuna reutilizează filmarea de nori cenușii, cu tonuri potrivite scenei. Ploaia are suplimentar picături pe un canvas limitat ca rezoluție și număr. Ninsoarea folosește fulgii din filmarea reală; particulele de rezervă sunt oprite când filmul rulează. Ceața combină fotografia de ceață cu un strat discret de nori filmați și voal atmosferic. Nu există flash-uri de fulger sau blur animat.
 
-Mișcarea se oprește dacă aplicația este în fundal, dacă „Animații” este oprit sau dacă sistemul cere mișcare redusă. Pe desktop nu rulează efectele mobile. În timpul derulării, cadrele decorative sunt suspendate și se reiau după 180 ms de repaus, fără a acumula timpul petrecut în pauză. Schimbarea scenei șterge particulele vechi; ploaia nu rămâne peste un cer senin.
+Fotografia apare imediat și rămâne rezervă dacă redarea nu pornește. Două elemente video sunt reutilizate, numai unul rulează; aceeași filmare nu se reîncarcă la comutarea între orașe cu aceeași scenă. Video este muted/playsinline/loop, fără controale sau player pe tot ecranul. Redarea se reia la revenirea în aplicație și la atingere dacă browserul a respins pornirea automată. Setarea „Animații”, preferința de mișcare redusă și vizibilitatea paginii sunt respectate. Cadrele de particule sunt suspendate în timpul scrollului; filmul redat de browser continuă. Pe desktop efectele mobile sunt oprite.
 
-Testul în browser verifică schimbarea efectivă a transformării și a pixelilor ploii/ninsorii, oprirea/reluarea din setări, mișcare redusă și semnalul de vizibilitate. Înregistrarea verificării este în `03-Testare-si-capturi/tests/artifacts-liquid-glass/weather-motion-mobile.webm`. Fluiditatea fizică pe S24 Ultra rămâne de verificat pe telefon.
+Se descarcă numai filmarea necesară scenei. Cache-ul separat `meteo-weather-video-v1` păstrează fișierul întreg și răspunde corect cererilor Range ale playerului (inclusiv offline), evitând stocarea unor fragmente 206 ca fișiere complete. Filmările adaugă aproximativ 5,7 MiB în total dacă toate sunt folosite; o scenă folosește aproximativ 0,6–1,6 MiB.
+
+Testul în browser verifică avansarea cadrelor decodate și schimbarea pixelilor filmului pentru fiecare scenă, pornirea fără gest inițial, oprire/reluare, scroll și dimensiuni mobile. Fluiditatea fizică pe S24 Ultra rămâne de verificat pe telefon.
+
+### Proveniența filmărilor
+
+Fișierele sunt adaptări ale filmărilor publicate pe Pexels. [Licența Pexels](https://www.pexels.com/license/) permite folosirea și modificarea filmărilor în aplicații. Nu sunt filmări live ale localității selectate.
+
+| Fișier | Autor | Sursă |
+| --- | --- | --- |
+| clear-day.mp4 | Monsieur Sylvain | [Cirrus Clouds in Blue Sky](https://www.pexels.com/video/cirrus-clouds-in-blue-sky-5659664/) |
+| partly-cloudy.mp4 | Dmitry Marchenkov | [Time Lapse of Moving Clouds in Sky](https://www.pexels.com/video/time-lapse-of-moving-clouds-in-sky-13516810/) |
+| overcast.mp4 | Al d'Vilas | [Time Lapse of Clouds](https://www.pexels.com/video/time-lapse-of-clouds-5612724/) |
+| twilight.mp4 | Matthias Groeneveld | [Timelapse Footage of Cloudy Sky](https://www.pexels.com/video/timelapse-footage-of-cloudy-sky-15322657/) |
+| snow.mp4 | Diana ✨ | [Snowfall](https://www.pexels.com/video/snowfall-6861877/) |
+| clear-night.mp4 | Jorryn Morais | [Time Lapse of a Starry Night Sky](https://www.pexels.com/video/time-lapse-of-a-starry-night-sky-14922976/) |
+
+## Pictograme și gesturi
+
+Pictogramele pe ore folosesc `hourly.is_day[k]`, calculat pentru coordonatele cerute. „Acum” folosește `current.is_day`. Dacă marcajul lipsește, se compară ora și răsăritul/apusul din aceeași dată locală a orașului, fără fusul telefonului. Senin/parțial noros au lună pe timp de noapte; burnița nocturnă nu are soare. Rezumatul zilnic rămâne o sinteză de zi. Sunt verificate Moreni, New York, Tokyo, trecerea la ziua următoare și ziua/noaptea polară.
+
+Viewportul păstrează limita de zoom inclusiv după închiderea asistentului. Gesturile de mărire a paginii sunt prevenite pe mobil în afara hărților; Leaflet păstrează propriul zoom. Derularea normală și interacțiunile cu panourile rămân disponibile.
 
 Verificări: toate scenele, ora locală, codurile WMO 85/86, schimbări concurente, încărcare nereușită, sintaxă și regresii mobile; test în browser pe lățimi 320/360/393/412/430/820 px, derulare, izolarea fundalului în Setări și selectorul de orașe. Capturi în `03-Testare-si-capturi/tests/artifacts-liquid-glass/`. Performanța fizică la 120 Hz rămâne de verificat pe telefon.
 

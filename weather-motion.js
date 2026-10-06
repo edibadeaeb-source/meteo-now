@@ -1,4 +1,4 @@
-/* Living photographic skies: compositor motion and one bounded precipitation canvas. */
+/* Real, silent weather footage with a photographic fallback and bounded precipitation. */
 (function (root) {
     'use strict';
     var el = document.getElementById('mobCer');
@@ -8,9 +8,13 @@
     var control = document.getElementById('setAnimations');
     var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
     var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
+    var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
+    var videoReady = false, playPending = false;
+    var movies = {'clear-day':'clear-day','clear-night':'clear-night','partly-cloudy':'partly-cloudy',
+        overcast:'overcast',rain:'overcast',storm:'overcast',snow:'snow',fog:'overcast',twilight:'twilight'};
 
     function enabled() {
-        return mobile.matches && !reduced.matches && !document.hidden && !scrolling &&
+        return mobile.matches && !reduced.matches && !document.hidden &&
             (!control || control.checked);
     }
     function precipitation() { return scene === 'rain' || scene === 'storm' || scene === 'snow'; }
@@ -21,6 +25,7 @@
         canvas = document.createElement('canvas'); canvas.className = 'weather-precipitation';
         canvas.setAttribute('aria-hidden', 'true'); el.appendChild(canvas);
         ctx = canvas.getContext('2d', {alpha:true});
+        if (!ctx) return;
         sprite = document.createElement('canvas'); sprite.width = sprite.height = 24;
         var s = sprite.getContext('2d'), g = s.createRadialGradient(12,12,0,12,12,12);
         g.addColorStop(0,'rgba(244,250,255,1)'); g.addColorStop(.35,'rgba(244,250,255,.9)');
@@ -53,12 +58,13 @@
     function sync() {
         var on = enabled() && !!scene;
         el.setAttribute('data-motion', on ? 'on' : 'off');
-        if (!on || !precipitation() || !ctx) { stop(!scrolling); return; }
+        syncVideo(on);
+        if (!on || scrolling || !precipitation() || !ctx || (scene === 'snow' && el.getAttribute('data-video') === 'playing')) { stop(!scrolling); return; }
         if (!frame) frame = root.requestAnimationFrame(draw);
     }
     function draw(time) {
         frame = 0;
-        if (!enabled() || !precipitation() || !ctx) { sync(); return; }
+        if (!enabled() || scrolling || !precipitation() || !ctx || (scene === 'snow' && el.getAttribute('data-video') === 'playing')) { sync(); return; }
         var dt = last ? Math.min((time - last) / 1000, .04) : 0;
         last = time; ctx.clearRect(0,0,width,height);
         var snow = scene === 'snow';
@@ -86,6 +92,7 @@
     function update(chosen) {
         if (!chosen) return;
         var next = chosen.scene;
+        desiredVideo = movies[next] ? 'assets/weather-video/v1/' + movies[next] + '.mp4' : '';
         if (next !== scene) {
             stop(true); scene = next;
             // No bitmap allocation on a desktop or when the user has disabled movement.
@@ -93,6 +100,69 @@
             if (canvas) size();
         }
         sync();
+    }
+    function hideVideo() {
+        videos.forEach(function(v) { v.pause(); v.classList.remove('is-visible'); });
+        el.setAttribute('data-video', 'fallback');
+    }
+    function loadVideo() {
+        if (!desiredVideo || !enabled()) return;
+        if (videoPending === desiredVideo || (videoUrl === desiredVideo && videoReady)) return;
+        var url = desiredVideo, ticket = ++videoSerial;
+        videoReady = false; videoPending = url; playPending = false; hideVideo();
+        if (!videos.length) {
+            for (var i = 0; i < 2; i++) {
+                var layer = document.createElement('video'); layer.className = 'weather-video';
+                layer.muted = layer.defaultMuted = true; layer.loop = true; layer.playsInline = true;
+                layer.preload = 'none'; layer.disablePictureInPicture = true; layer.disableRemotePlayback = true;
+                layer.setAttribute('muted',''); layer.setAttribute('playsinline','');
+                layer.setAttribute('aria-hidden','true'); layer.setAttribute('tabindex','-1');
+                el.appendChild(layer); videos.push(layer);
+            }
+        }
+        var next = videoActive === 0 ? 1 : 0, v = videos[next];
+        v.onloadeddata = function() {
+            if (ticket !== videoSerial || url !== desiredVideo) return;
+            videoActive = next; videoUrl = url; videoPending = ''; videoReady = true;
+            sync();
+        };
+        v.onplaying = function() {
+            if (ticket !== videoSerial || url !== desiredVideo || !enabled()) { v.pause(); return; }
+            v.classList.add('is-visible'); el.setAttribute('data-video','playing');
+        };
+        v.onerror = function() {
+            if (ticket !== videoSerial) return;
+            videoPending = ''; videoUrl = ''; videoReady = false; playPending = false;
+            hideVideo(); // Keep the city photograph usable if video cannot be decoded.
+            if (enabled() && precipitation() && !scrolling && ctx && !frame) frame = root.requestAnimationFrame(draw);
+        };
+        v.src = url; v.preload = 'auto'; v.load();
+        // play() starts decoding even on Android builds that ignore video preload.
+        var start = v.play();
+        if (start && start.catch) start.catch(function() {
+            if (ticket === videoSerial) { v.classList.remove('is-visible'); el.setAttribute('data-video','fallback'); }
+        });
+    }
+    function syncVideo(on) {
+        if (!on) { hideVideo(); return; }
+        if (videoUrl !== desiredVideo || !videoReady) { loadVideo(); return; }
+        var v = videos[videoActive];
+        if (!v) return;
+        if (!v.paused) { v.classList.add('is-visible'); el.setAttribute('data-video','playing'); return; }
+        if (playPending) return;
+        playPending = true;
+        var ticket = videoSerial;
+        var play = v.play();
+        if (play && play.then) play.then(function() {
+            if (ticket !== videoSerial) return;
+            playPending = false;
+            if (!enabled()) v.pause();
+        }).catch(function() {
+            if (ticket !== videoSerial) return;
+            playPending = false; v.classList.remove('is-visible'); el.setAttribute('data-video','fallback');
+            // Retry on the next user touch or return to the app, without opening a player.
+        });
+        else playPending = false;
     }
     function refresh() {
         if (scene && mobile.matches && !reduced.matches && (!control || control.checked)) {
@@ -102,6 +172,8 @@
     }
     if (control) control.addEventListener('change', refresh);
     document.addEventListener('visibilitychange', refresh);
+    root.addEventListener('pageshow', refresh);
+    document.addEventListener('pointerup', refresh, {passive:true});
     [mobile,reduced].forEach(function (query) {
         if (query.addEventListener) query.addEventListener('change', refresh);
         else if (query.addListener) query.addListener(refresh);
@@ -112,9 +184,10 @@
     }, {passive:true});
     // Let gestures and glass-panel scrolling have priority over decorative frames.
     function scroll() {
-        if (!scrolling) { scrolling = true; sync(); }
+        if (!enabled()) return;
+        if (!scrolling) { scrolling = true; el.setAttribute('data-scrolling','1'); sync(); }
         root.clearTimeout(scrollTimer);
-        scrollTimer = root.setTimeout(function () { scrolling = false; sync(); }, 180);
+        scrollTimer = root.setTimeout(function () { scrolling = false; el.setAttribute('data-scrolling','0'); sync(); }, 180);
     }
     document.addEventListener('scroll', scroll, {passive:true,capture:true});
     root.MeteoWeatherMotion = {update:update};

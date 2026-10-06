@@ -3,8 +3,43 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v24';
+const CACHE = 'meteo-now-net-v25';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
+const WEATHER_VIDEO = 'meteo-weather-video-v1';
+const videoLoads = new Map();
+
+async function weatherVideoResponse(req) {
+  // Cache whole files; native players request byte ranges, including while offline.
+  const key = new URL(req.url); key.search = '';
+  const cache = await caches.open(WEATHER_VIDEO);
+  let response = await cache.match(key.href);
+  if (!response) {
+    if (!videoLoads.has(key.href)) {
+      const load = fetch(key.href).then(async function(r) {
+        if (r.status === 200) await cache.put(key.href, r.clone()).catch(function() {});
+        return r;
+      });
+      videoLoads.set(key.href, load);
+      load.finally(function() { videoLoads.delete(key.href); }).catch(function() {});
+    }
+    response = (await videoLoads.get(key.href)).clone();
+  }
+  const range = req.headers.get('Range');
+  if (!range || response.status !== 200) return response;
+  const bytes = await response.arrayBuffer(), total = bytes.byteLength;
+  const m = /^bytes=(\d*)-(\d*)$/.exec(range);
+  let start = m && m[1] ? +m[1] : 0, end = m && m[2] ? +m[2] : total - 1;
+  if (m && !m[1] && m[2]) { start = Math.max(0, total - +m[2]); end = total - 1; }
+  if (!m || (!m[1] && !m[2]) || start >= total || end < start) {
+    return new Response(null, {status:416, headers:{'Content-Range':'bytes */' + total}});
+  }
+  end = Math.min(end, total - 1);
+  const headers = new Headers(response.headers);
+  headers.set('Content-Type','video/mp4'); headers.set('Accept-Ranges','bytes');
+  headers.set('Content-Range','bytes ' + start + '-' + end + '/' + total);
+  headers.set('Content-Length',String(end - start + 1)); headers.delete('Content-Encoding');
+  return new Response(bytes.slice(start,end + 1), {status:206, headers:headers});
+}
 
 self.addEventListener('install', function() {
   self.skipWaiting();
@@ -15,7 +50,7 @@ self.addEventListener('activate', function(e) {
     caches.keys()
       .then(function(keys) {
         // șterge cache-urile vechi (inclusiv cele din versiunile anterioare)
-        return Promise.all(keys.filter(function(k) { return k !== CACHE && k !== WEATHER_ASSETS; })
+        return Promise.all(keys.filter(function(k) { return k !== CACHE && k !== WEATHER_ASSETS && k !== WEATHER_VIDEO; })
                               .map(function(k) { return caches.delete(k); }));
       })
       .then(function() { return self.clients.claim(); })
@@ -27,6 +62,10 @@ self.addEventListener('fetch', function(e) {
   var req = e.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/weather-video/v1/') && url.pathname.endsWith('.mp4')) {
+    e.respondWith(weatherVideoResponse(req));
+    return;
+  }
   if (url.origin === self.location.origin && url.pathname.startsWith('/assets/weather/v1/')) {
     e.respondWith(caches.open(WEATHER_ASSETS).then(function(cache) {
       return cache.match(req).then(function(cached) {
