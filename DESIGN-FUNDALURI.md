@@ -1,6 +1,12 @@
 # Fundaluri fotorealiste și liquid glass
 
-Actualizare: 6 octombrie 2026.
+Actualizare: 7 octombrie 2026.
+
+## Lista de orașe — versiunea 2026.10.07.1
+
+Butonul plutitor AI este ascuns pe durata deschiderii listei de orașe și revine la închidere, inclusiv prin selectarea orașului sau apăsarea fundalului. Starea temporară nu modifică preferința „Afișează asistentul”. Câmpul de căutare folosește un singur contur rotunjit liquid glass, fără gradientul dreptunghiular al containerului sticky care apărea în colțuri. Are lupă, contur de focus și ștergerea textului fără pierderea focusului. Fontul rămâne 16 px pentru evitarea zoomului automat pe iOS; etichetele sunt traduse RO/EN. Răspunsurile întârziate nu reafișează rezultate după ștergerea căutării.
+
+`tests/city-sheet-browser.cjs` verifică în aplicația completă ascunderea/revenirea AI, păstrarea preferinței, dimensiuni 320–820 px, căutarea/selectarea unui oraș, ștergerea și răspunsurile întârziate, etichetele RO/EN și deblocarea fundalului. Capturile sunt în `03-Testare-si-capturi/tests/artifacts-liquid-glass/city-search-*.png`.
 
 ## Filmări suplimentare — versiunea 2026.10.06.10
 

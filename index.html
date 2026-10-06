@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.06.10">
+    <meta name="application-version" content="2026.10.07.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -6231,7 +6231,7 @@ var I18N = {
         presiuneMica: 'Presiune scăzută — vremea se poate schimba.', presiuneNormala: 'Presiune normală.',
         surseMob: 'Surse: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
         seIncarca: 'Se încarcă datele meteo…',
-        oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…',
+        oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…', stergeCautarea: 'Șterge căutarea',
         hartaAvertANM: 'Avertizări pe hartă', hartaAnmNota: 'Zonele colorate sunt sub avertizare. Sursa: meteoromania.ro',
         autoLocationTitle: 'Urmărește locația mea',
         autoLocationHint: 'La deschidere și revenire. Notificările folosesc ultima locație detectată.',
@@ -6351,7 +6351,7 @@ var I18N = {
         presiuneMica: 'Low pressure — weather may change.', presiuneNormala: 'Normal pressure.',
         surseMob: 'Sources: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
         seIncarca: 'Loading weather data…',
-        oraseleMele: 'My cities', adaugaOras: 'Search for a city…',
+        oraseleMele: 'My cities', adaugaOras: 'Search for a city…', stergeCautarea: 'Clear search',
         hartaAvertANM: 'Warnings on the map', hartaAnmNota: 'Coloured areas are under warning. Source: meteoromania.ro',
         autoLocationTitle: 'Follow my location',
         autoLocationHint: 'On opening and returning. Alerts use the last detected location.',
@@ -8082,7 +8082,7 @@ input, textarea, select, [contenteditable="true"] {
 .mo-cauta {
     position: sticky; top: 0; z-index: 6; margin-bottom: 12px;
     padding-bottom: 8px;
-    background: linear-gradient(180deg, rgba(30,40,74,0.98) 72%, rgba(30,40,74,0));
+    background: transparent;
 }
 .mo-cauta input {
     width: 100%; padding: 13px 15px; border-radius: 15px; font-family: inherit;
@@ -8423,7 +8423,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=8">
+<link rel="stylesheet" href="weather-glass.css?v=9">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -10204,6 +10204,7 @@ function mobDeschideFoaie(care) {
     // foaia se deschide mereu de sus: câmpul de căutare e primul lucru vizibil
     try { document.getElementById('mfCorp').scrollTop = 0; } catch (e) {}
     f.setAttribute('data-tip', care);
+    document.body.classList.toggle('mob-orase-deschise', care === 'orase');
     f.classList.add('deschis');
     blocheazaFundal();
 }
@@ -10285,7 +10286,11 @@ function mobFoaieOrase() {
     document.getElementById('moLocalizeaza').addEventListener('click', mobLocalizeazaOras);
     var l = oraseSalvate(), curent = indexOrasCurent();
     var h = '<div class="mo-loc-stare" id="moLocStare" role="status" aria-live="polite"></div>' +
-            '<div class="mo-cauta"><input type="text" id="moCauta" placeholder="' + T('adaugaOras') + '" autocomplete="off">' +
+            '<div class="mo-cauta"><div class="mo-cauta-camp">' +
+            '<svg class="mo-cauta-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>' +
+            '<input type="text" id="moCauta" placeholder="' + T('adaugaOras') + '" aria-label="' + T('adaugaOras') + '" autocomplete="off" spellcheck="false" enterkeyhint="search">' +
+            '<button type="button" class="mo-cauta-sterge" id="moStergeCautare" aria-label="' + T('stergeCautarea') + '" hidden>' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>' +
             '<div class="mo-rez" id="moRez" style="display:none;"></div></div>';
     l.forEach(function(o, i) {
         h += '<div class="mo-oras' + (i === curent ? ' curent' : '') + '" data-i="' + i + '">' +
@@ -10333,6 +10338,12 @@ function mobFoaieOrase() {
 
     // căutarea unui oraș nou
     var inp = document.getElementById('moCauta'), rez = document.getElementById('moRez'), t = null;
+    var stergeCautare = document.getElementById('moStergeCautare'), cautareSerial = 0;
+    stergeCautare.addEventListener('click', function() {
+        inp.value = '';
+        inp.dispatchEvent(new Event('input'));
+        inp.focus();
+    });
 
     /* Tastatura acoperă jumătate de ecran. `visualViewport` ne spune exact
        cât spațiu a rămas, așa că ridicăm foaia cu atât — câmpul de căutare
@@ -10370,13 +10381,16 @@ function mobFoaieOrase() {
     })();
     inp.addEventListener('input', function() {
         clearTimeout(t);
+        var ticket = ++cautareSerial;
+        stergeCautare.hidden = !inp.value.length;
         var q = inp.value.trim();
-        if (q.length < 2) { rez.style.display = 'none'; return; }
+        if (q.length < 2) { rez.style.display = 'none'; rez.innerHTML = ''; return; }
         t = setTimeout(function() {
             fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) +
                   '&count=8&language=' + (LANG === 'en' ? 'en' : 'ro'))
                 .then(function(r) { return r.json(); })
                 .then(function(d) {
+                    if (ticket !== cautareSerial || !inp.isConnected) return;
                     var g = d.results || [];
                     if (!g.length) { rez.style.display = 'none'; return; }
                     rez.innerHTML = g.map(function(x, i) {
@@ -10404,6 +10418,7 @@ function mobInchideFoaie() {
     if (!f.classList.contains('deschis')) return;
     f.classList.remove('deschis');
     f.removeAttribute('data-tip');
+    document.body.classList.remove('mob-orase-deschise');
     try {
         if (_mobHarti.mfHartaAnm) {
             _mobHarti.mfHartaAnm.remove();
