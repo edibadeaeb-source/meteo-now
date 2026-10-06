@@ -6,7 +6,7 @@ Cele nouă imagini au fost generate cu instrumentul integrat image_gen, apoi cod
 
 Scena este aleasă după codul WMO al vremii curente, zi/noapte și orele locale de răsărit/apus. Furtuna, precipitațiile, ceața și ninsoarea au prioritate față de cerul de apus. Fotografiile trec între două straturi; un răspuns vechi nu poate suprascrie o selecție nouă. Aceeași scenă este reutilizată, iar fișierele versiunii sunt păstrate separat în cache-ul local. Nu rulează vechea animație de cer pe canvas.
 
-Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărților folosesc sticlă cu reflexii și transparență. Grupurile din interiorul Setărilor reutilizează blurul panoului părinte. Există rezervă pentru browsere fără backdrop-filter și pentru preferințe de transparență/motion redus.
+Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărților folosesc sticlă cu reflexii și transparență. Din versiunea 2026.10.06.7, cardurile prognozei păstrează fundalul clar prin sticlă, fără backdrop-filter, încă de la deschidere, conform capturii „Bug descoperit din greseaka.jpeg”. Nuanțele, contururile, reflexiile și răspunsul la apăsare rămân aceleași. Aspectul nu depinde de prima atingere sau de pornirea filmării. Setările și lista de orașe păstrează blurul și izolarea fundalului; grupurile din interiorul Setărilor reutilizează blurul panoului părinte. Preferința sistemului pentru transparență redusă păstrează cardurile opace pentru accesibilitate.
 
 ## Filmări și redare mobilă — versiunea 2026.10.06.6
 
