@@ -1,6 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('C:/Users/ediba/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const root=path.join(__dirname,'..'),out=path.resolve(__dirname,'../../../03-Testare-si-capturi/tests/artifacts-liquid-glass');fs.mkdirSync(out,{recursive:true});
+const record=process.env.METEO_WEATHER_VIDEO==='1'; // Optional: install Playwright ffmpeg for recordings.
 const server=http.createServer((req,res)=>{
  let name=decodeURIComponent(req.url.split('?')[0]);
  if(name==='/cache-test'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><title>Weather cache test</title><p>Weather cache test</p>');return;}
@@ -28,6 +29,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true,args:['--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  try{
  const context=await browser.newContext({viewport:{width:412,height:915},deviceScaleFactor:2,isMobile:true,hasTouch:true,locale:'ro-RO',serviceWorkers:'block',
+   ...(record?{recordVideo:{dir:path.join(out,'motion-preview'),size:{width:412,height:915}}}:{}),
    geolocation:{latitude:loc.lat,longitude:loc.lon},permissions:['geolocation']});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
  const cdpCity=await context.newCDPSession(page);
@@ -58,7 +60,12 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  await page.waitForFunction(()=>document.querySelector('#mobCer[data-photo-ready="1"]'),{timeout:15000});
  await page.evaluate(()=>{localStorage.setItem('meteo-locatie-automata','0');inchideToast();});
  const scenes=[['clear-day',0,12,1],['partly-cloudy',2,12,1],['overcast',3,12,1],['rain',63,12,1],['storm',95,12,1],['snow',85,12,1],['fog',45,12,1],['clear-night',0,23,0],['twilight',1,19,1]];
+ const canvasDigest=()=>page.locator('.weather-precipitation').evaluate(el=>{
+   const pixels=el.getContext('2d').getImageData(0,0,el.width,el.height).data;
+   let alpha=0,hash=0;for(let i=3;i<pixels.length;i+=4){alpha+=pixels[i];hash=(Math.imul(hash,31)+pixels[i])|0;}return {alpha,hash};
+ });
  for(const [scene,wmo,hour,day] of scenes){
+   console.log('Checking scene: '+scene);
    await page.evaluate(async({wmo,hour,day})=>{
      const date=MOBD.daily.time[0];
      MOBD.current.weather_code=wmo;MOBD.current.is_day=day;
@@ -66,7 +73,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
      MOBD.current.temperature_2m=wmo===85?-2:day?23:15;
      MOBD.daily.sunrise[0]=date+'T06:40';MOBD.daily.sunset[0]=date+'T19:30';
      const clock=mobDinIso(MOBD.current.time);
-     await MeteoAtmosphere.render(MOBD,clock,LOC);mobAntet();
+     await Promise.race([MeteoAtmosphere.render(MOBD,clock,LOC),new Promise((_,reject)=>setTimeout(()=>reject(Error('Scene loading timeout: '+wmo)),15000))]);mobAntet();
      window.scrollTo(0,0);
    },{wmo,hour,day});
    await page.waitForTimeout(850);
@@ -74,13 +81,50 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
    assert.equal(await page.locator('#mobCer .weather-photo.is-visible').count(),1);
    assert.equal(await page.locator('#mobStele').evaluate(el=>getComputedStyle(el).display),'none');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-   await page.screenshot({path:path.join(out,scene+'-412.png')});
+   assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'on');
+   const before=await page.locator('.weather-photo.is-visible').evaluate(el=>getComputedStyle(el).transform);
+   await page.waitForTimeout(250);
+   assert.notEqual(await page.locator('.weather-photo.is-visible').evaluate(el=>getComputedStyle(el).transform),before,'photograph moves in '+scene);
+   const precipitation=['rain','storm','snow'].includes(scene),first=await canvasDigest();
+   if(precipitation){
+     assert.ok(first.alpha>0,'visible precipitation in '+scene);
+     await page.waitForTimeout(250);
+     assert.notEqual((await canvasDigest()).hash,first.hash,'precipitation moves in '+scene);
+     if(record)await page.waitForTimeout(2000);
+   }else assert.equal(first.alpha,0,'no stale precipitation in '+scene);
+   await page.screenshot({path:path.join(out,scene+'-412.png'),animations:'disabled'});
  }
+ // The user's switch and accessibility preference stop both image and particles.
+ await page.evaluate(async()=>{MOBD.current.weather_code=63;await MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC);});
+ await page.waitForTimeout(300);
+ assert.ok((await canvasDigest()).alpha>0);
+ await page.evaluate(()=>{const c=document.getElementById('setAnimations');c.checked=false;c.dispatchEvent(new Event('change'));});
+ assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'off');
+ assert.equal((await canvasDigest()).alpha,0);
+ const paused=await page.locator('.weather-photo.is-visible').evaluate(el=>getComputedStyle(el).transform);
+ await page.waitForTimeout(250);
+ assert.equal(await page.locator('.weather-photo.is-visible').evaluate(el=>getComputedStyle(el).transform),paused);
+ await page.evaluate(()=>{const c=document.getElementById('setAnimations');c.checked=true;c.dispatchEvent(new Event('change'));});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'off');
+ assert.equal((await canvasDigest()).alpha,0);
+ await page.emulateMedia({reducedMotion:'no-preference'});
+ await page.waitForTimeout(250);assert.ok((await canvasDigest()).alpha>0);
+ // Simulate the visibility signal delivered when Android backgrounds the TWA.
+ await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));});
+ assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'off');
+ assert.equal((await canvasDigest()).alpha,0);
+ await page.waitForTimeout(250);assert.equal((await canvasDigest()).alpha,0);
+ await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
+ await page.waitForTimeout(250);assert.ok((await canvasDigest()).alpha>0);
+ await page.evaluate(async()=>{MOBD.current.weather_code=1;await MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC);});
  const heroHeight=await page.locator('#mbHero').evaluate(el=>el.getBoundingClientRect().height);
- await page.mouse.wheel(0,1200);await page.waitForTimeout(180);
- assert.ok(await page.evaluate(()=>scrollY>500));
+ await page.mouse.wheel(0,1200);
+ await page.waitForFunction(()=>scrollY>500,null,{timeout:5000});
  assert.equal(await page.locator('#mbHero').evaluate(el=>el.getBoundingClientRect().height),heroHeight);
  assert.equal(await page.evaluate(()=>_cerAnim),null);
+ await page.waitForTimeout(250);
+ assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'on');
  await page.evaluate(()=>{window.scrollTo(0,0);deschideSetari();});
  await page.waitForTimeout(300);
  assert.equal(await page.evaluate(()=>document.body.classList.contains('setari-deschise')),true);
@@ -108,6 +152,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  const severe=errors.filter(e=>!e.includes('getCurrentPosition'));
  fs.writeFileSync(path.join(out,'browser-errors.json'),JSON.stringify(severe,null,2));
  assert.equal(severe.length,0,'Unexpected browser errors: '+JSON.stringify(severe));
+ const video=page.video();await context.close();if(video)await video.saveAs(path.join(out,'weather-motion-mobile.webm'));
  const cacheContext=await browser.newContext({serviceWorkers:'allow'});
  const cachePage=await cacheContext.newPage();
  await cachePage.goto(base+'/cache-test');
@@ -120,7 +165,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  const offline=await cachePage.evaluate(async()=>{const r=await fetch('/assets/weather/v1/rain.webp');return {ok:r.ok,bytes:(await r.blob()).size};});
  assert.deepEqual(offline,warm);
  await cacheContext.close();
- console.log('PASS: 9 scenes; city time; photo reuse; no sky animation loop; stable scroll; settings isolation; city sheet; 320/360/393/412/430/820 px; zero JavaScript errors');
+ console.log('PASS: 9 moving scenes; rain/snow pixels move and clear; animation switch; reduced motion; background pause/resume; stable scroll; settings isolation; city sheet; 320/360/393/412/430/820 px; zero JavaScript errors');
  console.log('PASS: actual service worker returns the same weather photo offline');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});

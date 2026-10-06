@@ -61,6 +61,7 @@
         el.setAttribute('data-night', chosen.night ? '1' : '0');
         document.documentElement.setAttribute('data-weather-night', chosen.night ? '1' : '0');
         document.documentElement.setAttribute('data-weather-scene', chosen.scene);
+        if (root.MeteoWeatherMotion) root.MeteoWeatherMotion.update(chosen);
     }
     function remember(chosen, loc) {
         if (!loc || !isFinite(loc.lat) || !isFinite(loc.lon)) return;

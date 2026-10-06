@@ -8,6 +8,16 @@ Scena este aleasă după codul WMO al vremii curente, zi/noapte și orele locale
 
 Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărților folosesc sticlă cu reflexii și transparență. Grupurile din interiorul Setărilor reutilizează blurul panoului părinte. Există rezervă pentru browsere fără backdrop-filter și pentru preferințe de transparență/motion redus.
 
+## Scene animate
+
+Fotografiile au o deplasare și o apropiere lentă (48–80 secunde), iar ceața și lumina apusului au un strat atmosferic care se deplasează separat. Sunt imagini animate procedural, nu fișiere video descărcate. Se reutilizează aceleași nouă WebP-uri; nu crește traficul de imagini.
+
+La ploaie/furtună și ninsoare rulează un singur canvas transparent, cu particule la adâncimi și viteze diferite. Numărul este limitat în funcție de suprafața ecranului, iar rezoluția internă este plafonată la 1,25×. Mișcarea folosește timpul scurs, independent de frecvența ecranului. Toate straturile sunt decorative și nu interceptează atingerile. Nu există flash-uri de fulger sau blur animat.
+
+Mișcarea se oprește dacă aplicația este în fundal, dacă „Animații” este oprit sau dacă sistemul cere mișcare redusă. Pe desktop nu rulează efectele mobile. În timpul derulării, cadrele decorative sunt suspendate și se reiau după 180 ms de repaus, fără a acumula timpul petrecut în pauză. Schimbarea scenei șterge particulele vechi; ploaia nu rămâne peste un cer senin.
+
+Testul în browser verifică schimbarea efectivă a transformării și a pixelilor ploii/ninsorii, oprirea/reluarea din setări, mișcare redusă și semnalul de vizibilitate. Înregistrarea verificării este în `03-Testare-si-capturi/tests/artifacts-liquid-glass/weather-motion-mobile.webm`. Fluiditatea fizică pe S24 Ultra rămâne de verificat pe telefon.
+
 Verificări: toate scenele, ora locală, codurile WMO 85/86, schimbări concurente, încărcare nereușită, sintaxă și regresii mobile; test în browser pe lățimi 320/360/393/412/430/820 px, derulare, izolarea fundalului în Setări și selectorul de orașe. Capturi în `03-Testare-si-capturi/tests/artifacts-liquid-glass/`. Performanța fizică la 120 Hz rămâne de verificat pe telefon.
 
 ## Prompturile finale
