@@ -72,6 +72,18 @@
     #mobCer[data-scene="storm"] .weather-video.is-visible { opacity: .62; }
     #mobCer[data-night="1"] .weather-video { filter: brightness(.42) saturate(.65); }
     #mobCer[data-scene="clear-night"] .weather-video { filter: none; }
+    /* Subtle photographic grading only; temperature never creates rain or snow. */
+    #mobCer[data-thermal="cool"][data-night="0"][data-scene="clear-day"] .weather-video { filter: saturate(.91); }
+    #mobCer[data-thermal="warm"][data-night="0"][data-scene="clear-day"] .weather-video,
+    #mobCer[data-thermal="hot"][data-night="0"][data-scene="clear-day"] .weather-video { filter: saturate(1.08); }
+    #mobCer[data-movie="new-york"]::after,
+    #mobCer[data-movie="miami"]::after,
+    #mobCer[data-movie="tropical-coast"]::after,
+    #mobCer[data-movie="coast"]::after,
+    #mobCer[data-movie="coast-cloudy"]::after,
+    #mobCer[data-movie="highland"]::after {
+        background: linear-gradient(180deg, rgba(5,20,37,.32), rgba(5,20,37,.12) 28%, rgba(5,20,37,.34) 56%, rgba(5,20,37,.55));
+    }
     #mobCer[data-scene="storm"][data-night="0"] .weather-video { filter: brightness(.68) saturate(.75); }
     #mobCer[data-scene="fog"] .weather-video.is-visible { opacity: .3; filter: grayscale(1); }
     #mobCer[data-scene="fog"][data-night="1"] .weather-video { filter: grayscale(1) brightness(.42); }

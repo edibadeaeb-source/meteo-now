@@ -9,9 +9,22 @@
     var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
     var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
     var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
-    var videoReady = false, playPending = false;
+    var videoReady = false, playPending = false, rejectedHigh = Object.create(null);
     var movies = {'clear-day':'clear-day','clear-night':'clear-night','partly-cloudy':'partly-cloudy',
-        overcast:'overcast',rain:'overcast',storm:'overcast',snow:'snow',fog:'overcast',twilight:'twilight'};
+        overcast:'overcast',rain:'overcast',storm:'overcast',snow:'snow',fog:'overcast',twilight:'twilight',
+        'new-york':'new-york',miami:'miami','tropical-coast':'tropical-coast',coast:'coast','coast-cloudy':'coast-cloudy',highland:'highland'};
+
+    function movieURL(chosen) {
+        var movie = movies[chosen.movie || chosen.scene];
+        if (!movie) return '';
+        var connection = root.navigator && root.navigator.connection;
+        var light = connection && (connection.saveData || /^(slow-2g|2g|3g)$/.test(connection.effectiveType));
+        light = light || (root.navigator && root.navigator.deviceMemory && root.navigator.deviceMemory <= 2);
+        var high = !light && (root.devicePixelRatio || 1) >= 2 && !rejectedHigh[movie];
+        // The film's manifest limits quality to the actual source detail, never fake 2K.
+        var hdOnly = /^(clear-day|twilight|tropical-coast)$/.test(movie);
+        return 'assets/weather-video/v2/' + movie + (high ? hdOnly ? '-hd' : '-2k' : '-lite') + '.mp4';
+    }
 
     function enabled() {
         return mobile.matches && !reduced.matches && !document.hidden &&
@@ -92,7 +105,7 @@
     function update(chosen) {
         if (!chosen) return;
         var next = chosen.scene;
-        desiredVideo = movies[next] ? 'assets/weather-video/v1/' + movies[next] + '.mp4' : '';
+        desiredVideo = movieURL(chosen);
         if (next !== scene) {
             stop(true); scene = next;
             // No bitmap allocation on a desktop or when the user has disabled movement.
@@ -132,6 +145,12 @@
         };
         v.onerror = function() {
             if (ticket !== videoSerial) return;
+            if (/-(2k|hd)\.mp4$/.test(url)) {
+                var name = url.split('/').pop().replace(/-(2k|hd)\.mp4$/,'');
+                rejectedHigh[name] = true;
+                desiredVideo = url.replace(/-(2k|hd)\.mp4$/,'-lite.mp4');
+                videoPending = ''; videoReady = false; loadVideo(); return;
+            }
             videoPending = ''; videoUrl = ''; videoReady = false; playPending = false;
             hideVideo(); // Keep the city photograph usable if video cannot be decoded.
             if (enabled() && precipitation() && !scrolling && ctx && !frame) frame = root.requestAnimationFrame(draw);

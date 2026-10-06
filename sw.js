@@ -3,10 +3,32 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v25';
+const CACHE = 'meteo-now-net-v26';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
-const WEATHER_VIDEO = 'meteo-weather-video-v1';
+const WEATHER_VIDEO = 'meteo-weather-video-v2';
 const videoLoads = new Map();
+let videoCacheQueue = Promise.resolve();
+
+function storeWeatherVideo(cache,key,response) {
+  // Serialize mutations so simultaneous players cannot defeat the storage budget.
+  videoCacheQueue = videoCacheQueue.catch(function() {}).then(async function() {
+    await cache.delete(key);
+    await cache.put(key,response);
+    const keys = await cache.keys();
+    let total = 0;
+    const sizes = [];
+    for (const req of keys) {
+      const item = await cache.match(req);
+      let bytes = +(item.headers.get('Content-Length') || 0);
+      if (!bytes) bytes = (await item.clone().arrayBuffer()).byteLength;
+      sizes.push({req:req,bytes:bytes}); total += bytes;
+    }
+    while (total > 96 * 1024 * 1024 && sizes.length > 1) {
+      const oldest = sizes.shift(); await cache.delete(oldest.req); total -= oldest.bytes;
+    }
+  });
+  return videoCacheQueue;
+}
 
 async function weatherVideoResponse(req) {
   // Cache whole files; native players request byte ranges, including while offline.
@@ -16,7 +38,7 @@ async function weatherVideoResponse(req) {
   if (!response) {
     if (!videoLoads.has(key.href)) {
       const load = fetch(key.href).then(async function(r) {
-        if (r.status === 200) await cache.put(key.href, r.clone()).catch(function() {});
+        if (r.status === 200) await storeWeatherVideo(cache,key.href,r.clone()).catch(function() {});
         return r;
       });
       videoLoads.set(key.href, load);
@@ -62,11 +84,11 @@ self.addEventListener('fetch', function(e) {
   var req = e.request;
   if (req.method !== 'GET') return;
   var url = new URL(req.url);
-  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/weather-video/v1/') && url.pathname.endsWith('.mp4')) {
+  if (url.origin === self.location.origin && /^\/assets\/weather-video\/v[12]\//.test(url.pathname) && url.pathname.endsWith('.mp4')) {
     e.respondWith(weatherVideoResponse(req));
     return;
   }
-  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/weather/v1/')) {
+  if (url.origin === self.location.origin && (url.pathname.startsWith('/assets/weather/v1/') || (url.pathname.startsWith('/assets/weather-video/v2/') && url.pathname.endsWith('.webp')))) {
     e.respondWith(caches.open(WEATHER_ASSETS).then(function(cache) {
       return cache.match(req).then(function(cached) {
         if (cached) return cached;

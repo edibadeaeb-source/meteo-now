@@ -34,7 +34,11 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
    geolocation:{latitude:loc.lat,longitude:loc.lon},permissions:['geolocation']});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.stack||e.message));
  const cdpCity=await context.newCDPSession(page);
- await page.addInitScript(({loc,second})=>{localStorage.setItem('meteo-loc',JSON.stringify(loc));localStorage.setItem('meteo-orase',JSON.stringify([loc,second]));localStorage.setItem('meteo-lang','ro');localStorage.setItem('meteo-unit','C');localStorage.setItem('meteo-noutati','2026.08.13');},{loc,second});
+ await page.addInitScript(({loc,second})=>{
+   // Keep controlled weather fixtures stable during this long visual pass.
+   const interval=window.setInterval.bind(window);window.setInterval=(fn,ms,...args)=>ms>=300000?0:interval(fn,ms,...args);
+   localStorage.setItem('meteo-loc',JSON.stringify(loc));localStorage.setItem('meteo-orase',JSON.stringify([loc,second]));localStorage.setItem('meteo-lang','ro');localStorage.setItem('meteo-unit','C');localStorage.setItem('meteo-noutati','2026.08.13');
+ },{loc,second});
  await page.route('**/*',async route=>{
  const u=new URL(route.request().url()),s=u.href;
  const json=b=>route.fulfill({json:b});
@@ -110,6 +114,44 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
    await new Promise(r=>setTimeout(r,500));
    return {same:v===document.querySelector('.weather-video.is-visible'),advanced:v.getVideoPlaybackQuality().totalVideoFrames>before};
  });assert.deepEqual(reuse,{same:true,advanced:true});
+ // Same weather in a new place must change scenery; rain/night must win over place.
+ const cityContexts=[
+   {nume:'New York City',lat:40.7128,lon:-74.006,temp:15,code:0,expected:'new-york'},
+   {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:0,expected:'miami'},
+   {nume:'Moreni',lat:44.983,lon:25.644,temp:30,code:0,expected:'clear-day'},
+   {nume:'Constanța',lat:44.1598,lon:28.6348,temp:15,code:0,expected:'coast'},
+   {nume:'Phuket',lat:7.88,lon:98.39,temp:30,code:0,expected:'tropical-coast'},
+   {nume:'Constanța',lat:44.1598,lon:28.6348,temp:23,code:2,expected:'coast-cloudy'},
+   {nume:'Predeal',lat:45.5,lon:25.57,temp:10,code:0,elevation:1050,expected:'highland'},
+   {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:63,expected:'rain'},
+   {nume:'Miami',lat:25.7617,lon:-80.1918,temp:30,code:1,night:true,expected:'partly-cloudy'}
+ ].filter(item=>!process.env.METEO_WEATHER_CONTEXT||item.nume===process.env.METEO_WEATHER_CONTEXT);
+ for(const item of cityContexts){
+   console.log('Checking context: '+item.nume+' / '+item.expected);
+   await page.evaluate(async item=>{
+     MOBD.elevation=item.elevation||0;MOBD.current.temperature_2m=item.temp;MOBD.current.weather_code=item.code;
+     MOBD.current.is_day=item.night?0:1;MOBD.current.time=MOBD.daily.time[0]+'T'+(item.night?'23':'12')+':00';
+     Object.assign(LOC,{nume:item.nume,lat:item.lat,lon:item.lon});
+     await Promise.race([MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC),new Promise((_,reject)=>setTimeout(()=>reject(Error('Context photo timeout: '+item.nume)),10000))]);mobAntet();
+   },item);
+   await page.waitForFunction(movie=>document.querySelector('#mobCer').getAttribute('data-movie')===movie&&document.querySelector('#mobCer[data-video="playing"] .weather-video.is-visible'),item.expected,{timeout:20000});
+   const details=await page.locator('.weather-video.is-visible').evaluate(v=>({url:v.currentSrc,width:v.videoWidth,height:v.videoHeight,paused:v.paused}));
+   assert.match(details.url,/weather-video\/v2\//);assert.equal(details.paused,false);
+   if(['new-york','miami','coast','highland','coast-cloudy'].includes(item.expected)){assert.equal(details.width,1440);assert.equal(details.height,2560);}
+   await page.waitForTimeout(800);
+   await page.screenshot({path:path.join(out,'context-'+item.expected+(item.night?'-night':'')+'-412.png')});
+ }
+ // A constrained connection requests the small variant, not a second 2K movie.
+ await page.evaluate(async()=>{
+   Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true,effectiveType:'4g'}});
+   Object.assign(LOC,{nume:'Miami',lat:25.7617,lon:-80.1918});MOBD.current.temperature_2m=30;
+   MOBD.current.weather_code=0;MOBD.current.time=MOBD.daily.time[0]+'T12:00';MOBD.current.is_day=1;
+   await Promise.race([MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC),new Promise((_,reject)=>setTimeout(()=>reject(Error('Data-saver photo timeout')),10000))]);
+ });
+ try{await page.waitForFunction(()=>document.querySelector('.weather-video.is-visible')?.currentSrc.endsWith('miami-lite.mp4'),null,{timeout:15000});}
+ catch(e){console.log('Data-saver state: '+JSON.stringify(await page.evaluate(()=>({loc:LOC,current:MOBD.current,connection:{saveData:navigator.connection.saveData,effectiveType:navigator.connection.effectiveType},attrs:[...document.getElementById('mobCer').attributes].map(a=>[a.name,a.value]),videos:[...document.querySelectorAll('.weather-video')].map(v=>({src:v.currentSrc,paused:v.paused,error:v.error&&v.error.code,ready:v.readyState,visible:v.classList.contains('is-visible')}))}))));throw e;}
+ assert.equal(await page.locator('.weather-video.is-visible').evaluate(v=>v.videoWidth),720);
+ await page.evaluate(async()=>{delete navigator.connection;Object.assign(LOC,{nume:'Târgoviște',lat:44.9266,lon:25.4566});await MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC);});
  // Real touch magnification stays locked even after the assistant is closed.
  await page.evaluate(()=>{setChatLock(true);setChatLock(false);});
  assert.match(await page.locator('meta[name="viewport"]').getAttribute('content'),/user-scalable=no/);
@@ -205,25 +247,25 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  const warm=await cachePage.evaluate(async()=>{const r=await fetch('/assets/weather/v1/rain.webp');return {ok:r.ok,bytes:(await r.blob()).size};});
  assert.equal(warm.ok,true);assert.ok(warm.bytes>10000);
  await cachePage.waitForFunction(async()=>!!(await (await caches.open('meteo-weather-assets-v1')).match('/assets/weather/v1/rain.webp')),{timeout:10000});
- const movie=await cachePage.evaluate(async()=>{const r=await fetch('/assets/weather-video/v1/clear-day.mp4');return {ok:r.ok,size:(await r.arrayBuffer()).byteLength};});
+ const movie=await cachePage.evaluate(async()=>{const r=await fetch('/assets/weather-video/v2/clear-night-2k.mp4');return {ok:r.ok,size:(await r.arrayBuffer()).byteLength};});
  assert.ok(movie.ok&&movie.size>10000);
  await cacheContext.setOffline(true);
  const offline=await cachePage.evaluate(async()=>{const r=await fetch('/assets/weather/v1/rain.webp');return {ok:r.ok,bytes:(await r.blob()).size};});
  assert.deepEqual(offline,warm);
  const ranges=await cachePage.evaluate(async()=>{
-   const first=await fetch('/assets/weather-video/v1/clear-day.mp4',{headers:{Range:'bytes=0-127'}});
-   const suffix=await fetch('/assets/weather-video/v1/clear-day.mp4',{headers:{Range:'bytes=-128'}});
-   const invalid=await fetch('/assets/weather-video/v1/clear-day.mp4',{headers:{Range:'bytes=999999999-'}});
+   const first=await fetch('/assets/weather-video/v2/clear-night-2k.mp4',{headers:{Range:'bytes=0-127'}});
+   const suffix=await fetch('/assets/weather-video/v2/clear-night-2k.mp4',{headers:{Range:'bytes=-128'}});
+   const invalid=await fetch('/assets/weather-video/v2/clear-night-2k.mp4',{headers:{Range:'bytes=999999999-'}});
    return {first:first.status,bytes:(await first.arrayBuffer()).byteLength,range:first.headers.get('Content-Range'),suffix:suffix.status,suffixBytes:(await suffix.arrayBuffer()).byteLength,invalid:invalid.status};
  });assert.deepEqual(ranges,{first:206,bytes:128,range:'bytes 0-127/'+movie.size,suffix:206,suffixBytes:128,invalid:416});
  await cachePage.evaluate(async()=>{
    const v=document.createElement('video');v.id='offline-movie';v.muted=true;v.playsInline=true;v.loop=true;
-   v.src='/assets/weather-video/v1/clear-day.mp4';document.body.appendChild(v);await v.play();
+   v.src='/assets/weather-video/v2/clear-night-2k.mp4';document.body.appendChild(v);await v.play();
  });
  await cachePage.waitForFunction(()=>document.getElementById('offline-movie').currentTime>.3,null,{timeout:10000});
  assert.ok(await cachePage.evaluate(()=>document.getElementById('offline-movie').getVideoPlaybackQuality().totalVideoFrames>1));
  await cacheContext.close();
- console.log('PASS: '+scenes.length+' native video scenes with advancing decoded frames/pixels; midnight moon; pinch zoom blocked after chat; map gestures allowed; animation switch; reduced motion; background pause/resume; stable scroll; settings isolation; 320/360/393/412/430/820 px; zero JavaScript errors');
+ console.log('PASS: '+scenes.length+' weather scenes + '+cityContexts.length+' city/terrain cases, actual 2K decoding and data-saver variant; advancing video pixels; midnight moon; zoom guards; animation lifecycle; stable scroll; settings isolation; responsive panels; zero JavaScript errors');
  console.log('PASS: weather photo and native video byte ranges work offline, including suffix and invalid ranges');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});

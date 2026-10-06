@@ -8,17 +8,25 @@ Scena este aleasă după codul WMO al vremii curente, zi/noapte și orele locale
 
 Panourile mobile, lista de orașe, Setările, asistentul și comenzile hărților folosesc sticlă cu reflexii și transparență. Grupurile din interiorul Setărilor reutilizează blurul panoului părinte. Există rezervă pentru browsere fără backdrop-filter și pentru preferințe de transparență/motion redus.
 
-## Filmări și redare mobilă — versiunea 2026.10.06.5
+## Filmări și redare mobilă — versiunea 2026.10.06.6
 
-Mișcarea foarte lentă a fotografiilor este înlocuită cu filmări reale de cer și ninsoare. Cele șase MP4-uri sunt în `assets/weather-video/v1/`: H.264 Main, 720×1280, 30 cadre/s, fără audio, cu începutul/finalul îmbinate printr-o tranziție de o secundă. Filmele de cer sunt încetinite înainte de codificare, cu cadre intermediare amestecate. Originalele rămân în arhiva locală `design-fundaluri-20261006/filmari-originale/`; helperul de construire este `tests/prepare-weather-video.cjs`.
+Biblioteca actuală este `assets/weather-video/v2/`: 12 filmări, fiecare cu o variantă mică și una mare. Materialele UHD sunt codificate la 1440×2560, iar sursele disponibile numai HD sunt păstrate la 1080×1920. Variantele mici sunt 720×1280. Toate sunt H.264 Main, 30 cadre/s, fără audio, cu bucle îmbinate printr-o tranziție de o secundă. Nu se măresc sursele HD la o rezoluție etichetată 2K. Originalele rămân în arhiva locală `design-fundaluri-20261006/filmari-originale/`; helperul actual este `tests/prepare-context-weather-video.cjs`.
 
-Cerul acoperit, ploaia și furtuna reutilizează filmarea de nori cenușii, cu tonuri potrivite scenei. Ploaia are suplimentar picături pe un canvas limitat ca rezoluție și număr. Ninsoarea folosește fulgii din filmarea reală; particulele de rezervă sunt oprite când filmul rulează. Ceața combină fotografia de ceață cu un strat discret de nori filmați și voal atmosferic. Nu există flash-uri de fulger sau blur animat.
+Filmarea originală de noapte conținea un flash luminos, confirmat printr-un salt al luminanței medii de aproximativ 53 între două cadre. Noua versiune folosește numai fragmentul stabil dinaintea flashului, încetinit și îmbinat. Testul parcurge toate cele 240 de cadre ale fiecărei variante și compară inclusiv ultimul cadru cu primul: saltul maxim este sub 1, fără flash. URL-ul și cache-ul v2 împiedică reutilizarea fragmentului vechi.
+
+Selectarea peisajului folosește coordonatele orașului, altitudinea furnizată de prognoză și o coastă globală Natural Earth, simplificată și împachetată în aproximativ 174 KiB în `weather-geography.js`. Nu se face o cerere externă suplimentară pentru clasificare. Datele Natural Earth sunt [domeniu public](https://www.naturalearthdata.com/about/terms-of-use/), provenite din [coasta la scara 1:50m](https://www.naturalearthdata.com/downloads/50m-physical-vectors/50m-coastline/). Proximitatea de coastă este aproximativă (28 km), destinată decorului, nu navigației. Marea Caspică este exclusă din clasificarea de coastă oceanică.
+
+New York metropolitan primește filmarea reală din Manhattan pe cer senin sau aproape senin. Miami cald primește filmarea de Miami Beach; alte coaste tropicale calde primesc palmieri și mare. Coastele temperate au mare și cer însorit, iar coastele cu nori variabili au o filmare separată cu nori și valuri. Localitățile la altitudini de cel puțin 900 m primesc un peisaj reprezentativ de munte pe vreme bună. Celelalte localități păstrează cerul, gradat discret după temperatura curentă, în °C indiferent de unitatea afișată. 30°C într-un oraș continental nu declanșează plajă tropicală. Peisajele generice reprezintă tipul zonei, fără a pretinde că fiecare stâncă sau plajă este filmată în acel oraș. Nu sunt camere live.
+
+Vremea și ora au prioritate: ploaia, furtuna, ninsoarea, ceața și cerul acoperit folosesc scenele meteo respective, indiferent de oraș sau temperatură. Noaptea nu poate selecta un peisaj însorit, inclusiv pentru WMO 1 și 2. La coastă rece nu se afișează o scenă estivală. Fundalul și filmul sunt schimbate inclusiv între orașe cu același cod WMO; răspunsurile întârziate sunt ignorate.
+
+Cerul acoperit, ploaia și furtuna reutilizează noua filmare UHD de nori cenușii, cu tonuri potrivite scenei. Ploaia are suplimentar picături pe un canvas limitat ca rezoluție și număr. Ninsoarea folosește fulgii din filmarea reală; particulele de rezervă sunt oprite când filmul rulează. Ceața combină fotografia de ceață cu un strat discret de nori filmați și voal atmosferic. Nu există flash-uri de fulger generate sau blur animat.
 
 Fotografia apare imediat și rămâne rezervă dacă redarea nu pornește. Două elemente video sunt reutilizate, numai unul rulează; aceeași filmare nu se reîncarcă la comutarea între orașe cu aceeași scenă. Video este muted/playsinline/loop, fără controale sau player pe tot ecranul. Redarea se reia la revenirea în aplicație și la atingere dacă browserul a respins pornirea automată. Setarea „Animații”, preferința de mișcare redusă și vizibilitatea paginii sunt respectate. Cadrele de particule sunt suspendate în timpul scrollului; filmul redat de browser continuă. Pe desktop efectele mobile sunt oprite.
 
-Se descarcă numai filmarea necesară scenei. Cache-ul separat `meteo-weather-video-v1` păstrează fișierul întreg și răspunde corect cererilor Range ale playerului (inclusiv offline), evitând stocarea unor fragmente 206 ca fișiere complete. Filmările adaugă aproximativ 5,7 MiB în total dacă toate sunt folosite; o scenă folosește aproximativ 0,6–1,6 MiB.
+Se descarcă numai filmarea necesară scenei și numai calitatea selectată. Ecranele cu densitate de cel puțin 2 primesc varianta mare, dacă nu sunt activate economisirea datelor, conexiunea 2G/3G sau memoria redusă (cel mult 2 GiB). Decodarea nereușită a variantei mari trece la varianta mică. Două elemente video sunt reutilizate; aceeași scenă și aceeași calitate nu se reîncarcă la schimbarea orașului. Cache-ul separat `meteo-weather-video-v2` păstrează fișierul întreg, răspunde corect cererilor Range inclusiv offline și are un plafon de 96 MiB. Scrierile sunt serializate, iar cele mai vechi descărcări sunt eliminate la depășirea plafonului. Variantele mari au aproximativ 2,2–5,9 MiB fiecare, cele mici aproximativ 0,7–2,3 MiB. Vechile fișiere v1 rămân disponibile pentru clienții care încă nu au preluat actualizarea.
 
-Testul în browser verifică avansarea cadrelor decodate și schimbarea pixelilor filmului pentru fiecare scenă, pornirea fără gest inițial, oprire/reluare, scroll și dimensiuni mobile. Fluiditatea fizică pe S24 Ultra rămâne de verificat pe telefon.
+Testele verifică selectarea geografică pe mai multe continente, altitudine, unități de temperatură și prioritatea vremii/noaptei; dimensiunile tuturor celor 24 de MP4-uri și întreaga filmare nocturnă; cache-ul limitat inclusiv la scrieri concurente. Testul în browser verifică avansarea pixelilor, decodarea efectivă 1440×2560, nouă combinații de oraș/vreme, economisirea datelor, pornirea fără gest inițial, oprire/reluare, cache/Range offline, scroll și dimensiuni mobile. Fluiditatea fizică pe S24 Ultra rămâne de verificat pe telefon.
 
 ### Proveniența filmărilor
 
@@ -27,11 +35,16 @@ Fișierele sunt adaptări ale filmărilor publicate pe Pexels. [Licența Pexels]
 | Fișier | Autor | Sursă |
 | --- | --- | --- |
 | clear-day.mp4 | Monsieur Sylvain | [Cirrus Clouds in Blue Sky](https://www.pexels.com/video/cirrus-clouds-in-blue-sky-5659664/) |
-| partly-cloudy.mp4 | Dmitry Marchenkov | [Time Lapse of Moving Clouds in Sky](https://www.pexels.com/video/time-lapse-of-moving-clouds-in-sky-13516810/) |
-| overcast.mp4 | Al d'Vilas | [Time Lapse of Clouds](https://www.pexels.com/video/time-lapse-of-clouds-5612724/) |
+| partly-cloudy | 宇 梁 | [Serene Clouds in the Blue Sky Timelapse](https://www.pexels.com/video/serene-clouds-in-the-blue-sky-timelapse-33227529/) |
+| overcast | Ilya Klimenko | [A Timelapse Video of Moving Clouds](https://www.pexels.com/video/a-timelapse-video-of-moving-clouds-4340449/) |
 | twilight.mp4 | Matthias Groeneveld | [Timelapse Footage of Cloudy Sky](https://www.pexels.com/video/timelapse-footage-of-cloudy-sky-15322657/) |
 | snow.mp4 | Diana ✨ | [Snowfall](https://www.pexels.com/video/snowfall-6861877/) |
 | clear-night.mp4 | Jorryn Morais | [Time Lapse of a Starry Night Sky](https://www.pexels.com/video/time-lapse-of-a-starry-night-sky-14922976/) |
+| new-york | Laura Tancredi | [Low Angle Shot of a Blue Sky — NYC](https://www.pexels.com/video/low-angle-shot-of-a-blue-sky-7065833/) |
+| miami / coast | paashuu | [The Beach and City Skyline from an Aerial View — Miami Beach](https://www.pexels.com/video/the-beach-and-city-skyline-from-an-aerial-view-15820691/) |
+| tropical-coast | Peggy Anke | [Tropical Beach View](https://www.pexels.com/video/tropical-beach-view-5383483/) |
+| coast-cloudy | M'hamed Aboujid | [Blue Sky over Sea](https://www.pexels.com/video/blue-sky-over-sea-15210016/) |
+| highland | Esmerald Heqimaj | [Majestic Mountain Range Under Blue Skies](https://www.pexels.com/video/majestic-mountain-range-under-blue-skies-29371404/) |
 
 ## Pictograme și gesturi
 
