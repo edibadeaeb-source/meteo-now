@@ -4,7 +4,7 @@
     var entries = Object.create(null), pending = Object.create(null), db = null;
     var freshFor = 5 * 60000, visibleFor = 30 * 60000, limit = 16;
     function key(loc) { return (+loc.lat).toFixed(3) + ',' + (+loc.lon).toFixed(3); }
-    function valid(d) { return d && d.current && d.hourly && d.daily && Array.isArray(d.hourly.time) && Array.isArray(d.daily.time); }
+    function valid(d) { return d && d.current && d.hourly && d.daily && Array.isArray(d.hourly.time) && d.hourly.time.length && Array.isArray(d.daily.time) && d.daily.time.length && typeof d.current.temperature_2m==='number' && isFinite(d.current.temperature_2m); }
     function usable(x) { var age = x && Date.now() - x.t; return x && age >= 0 && age < visibleFor && valid(x.d); }
     function trim() {
         var keys = Object.keys(entries).sort(function(a,b) { return entries[b].t - entries[a].t; });
@@ -55,19 +55,27 @@
             else setTimeout(function() { persist(k); },32);
         }); return d;
     }
+    async function network(loc) {
+        for(var attempt=0;attempt<3;attempt++) {
+            var controller=typeof AbortController!=='undefined'?new AbortController():null;
+            var timer=setTimeout(function(){if(controller)controller.abort();},12000);
+            try {
+                var r=await fetch('/api/weather/forecast?latitude='+loc.lat+'&longitude='+loc.lon,
+                    controller?{signal:controller.signal}:{});
+                if(!r.ok) { var e=new Error('meteo: '+r.status);e.status=r.status;throw e; }
+                var d=await r.json();return put(loc,d);
+            } catch(e) {
+                if(attempt===2 || (e.status && e.status<500)) throw e;
+                if(root.navigator && root.navigator.onLine===false) throw e;
+            } finally {clearTimeout(timer);}
+            await new Promise(function(resolve){setTimeout(resolve,attempt?3000:1000);});
+        }
+    }
     function request(loc) {
-        var k = key(loc);
-        if (pending[k]) return pending[k];
-        pending[k] = ready.then(function() {
-            if (fresh(loc)) return peek(loc);
-            var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-            var timer = setTimeout(function() { if (controller) controller.abort(); },20000);
-            return fetch('/api/weather/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon,
-                controller ? {signal:controller.signal} : {}).then(function(r) {
-                    if (!r.ok) throw new Error('meteo: ' + r.status);
-                    return r.json();
-                }).then(function(d) { return put(loc,d); }).finally(function() { clearTimeout(timer); });
-        }).finally(function() { delete pending[k]; });
+        var k=key(loc);
+        if(pending[k])return pending[k];
+        pending[k]=ready.then(function(){return fresh(loc)?peek(loc):network(loc);})
+            .finally(function(){delete pending[k];});
         return pending[k];
     }
     root.MeteoForecastCache = {ready:ready,peek:peek,fresh:fresh,put:put,request:request,key:key,entry:function(loc) { return entries[key(loc)] || null; }};

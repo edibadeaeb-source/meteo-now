@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import math
+import logging
 import threading
 import time
 from collections import OrderedDict
@@ -93,6 +94,7 @@ class WeatherService:
         self.met_slots = [threading.Lock() for _ in range(32)]
         self.current_slots = [threading.Lock() for _ in range(32)]
         self.met_backoff = 0
+        self.base_backoff = 0
         self.met_request_lock = threading.Lock()
         self.met_next_request = 0
         self.cache_dir = Path(cache_dir) if cache_dir else None
@@ -114,9 +116,32 @@ class WeatherService:
                 cache.popitem(last=False)
 
     def _json(self, url, params):
-        response = (self.get or requests.get)(url, params=params, timeout=14, headers={'User-Agent': UA})
+        response = (self.get or requests.get)(url, params=params, timeout=8, headers={'User-Agent': UA})
         response.raise_for_status()
         return response.json()
+
+    def _base(self,lat,lon):
+        # Respect upstream throttling across both workers and all city coordinates.
+        if self.cache_dir:
+            try: self.base_backoff=max(self.base_backoff,float((self.cache_dir/'base-backoff').read_text()))
+            except (OSError,ValueError): pass
+        if self.clock()<self.base_backoff: return None
+        try:
+            return self._json('https://api.open-meteo.com/v1/forecast', {
+                'latitude':lat,'longitude':lon,'current':CURRENT,'hourly':HOURLY,
+                'daily':DAILY,'forecast_days':10,'past_days':1,'timezone':'auto'})
+        except requests.HTTPError as error:
+            if error.response is not None and error.response.status_code==429:
+                retry=error.response.headers.get('Retry-After','600')
+                try: until=self.clock()+max(60,float(retry))
+                except ValueError:
+                    try: until=max(self.clock()+60,parsedate_to_datetime(retry).timestamp())
+                    except (ValueError,TypeError): until=self.clock()+600
+                self.base_backoff=until
+                if self.cache_dir:
+                    try: (self.cache_dir/'base-backoff').write_text(str(until))
+                    except OSError: pass
+            raise
 
     def _owm(self, lat, lon):
         key = (lat, lon)
@@ -185,12 +210,14 @@ class WeatherService:
             return result
 
     @contextmanager
-    def _disk_lock(self, lat, lon):
+    def _disk_lock(self, lat, lon, namespace=''):
         if not self.cache_dir:
             yield None
             return
+        directory = self.cache_dir / namespace if namespace else self.cache_dir
+        directory.mkdir(parents=True, exist_ok=True)
         key = hashlib.sha256(f'{lat:.4f},{lon:.4f}'.encode()).hexdigest()
-        with (self.cache_dir/f'slot-{int(key[:4],16)%32}.lock').open('a+b') as lockfile:
+        with (directory/f'slot-{int(key[:4],16)%32}.lock').open('a+b') as lockfile:
             if os.name == 'nt':
                 import msvcrt
                 if not lockfile.tell():
@@ -200,7 +227,7 @@ class WeatherService:
                 import fcntl
                 fcntl.flock(lockfile, fcntl.LOCK_EX)
             try:
-                yield self.cache_dir/(key+'.json')
+                yield directory/(key+'.json')
             finally:
                 if os.name == 'nt':
                     lockfile.seek(0);msvcrt.locking(lockfile.fileno(), msvcrt.LK_UNLCK, 1)
@@ -229,7 +256,7 @@ class WeatherService:
                     time.sleep(delay)
                 self.met_next_request = time.monotonic() + .125
             r = (self.get or requests.get)('https://api.met.no/weatherapi/locationforecast/2.0/complete',
-                         params={'lat': f'{lat:.4f}', 'lon': f'{lon:.4f}'}, headers=headers, timeout=14)
+                         params={'lat': f'{lat:.4f}', 'lon': f'{lon:.4f}'}, headers=headers, timeout=8)
             if r.status_code == 429:
                 retry = r.headers.get('Retry-After', '600')
                 try:
@@ -261,44 +288,93 @@ class WeatherService:
         lat, lon = self.coordinates(lat, lon)
         key = (lat, lon)
         with self.slots[hash(key) % len(self.slots)]:
-            with self.lock:
+            with self._disk_lock(lat,lon,'forecasts') as file:
                 cached = self.cache.get(key)
-            if cached and self.clock() - cached[0] < 120:
-                data = deepcopy(cached[1])
-                data['weather_sources']['today'] = city_date(data, self.clock())
-                return data
-            jobs = {
-                'base': lambda: self._json('https://api.open-meteo.com/v1/forecast', {
-                    'latitude': lat, 'longitude': lon, 'current': CURRENT, 'hourly': HOURLY,
-                    'daily': DAILY, 'forecast_days': 10, 'past_days': 1, 'timezone': 'auto'}),
-                'met': lambda: self._met(lat, lon),
-            }
-            if self.key:
-                jobs['current'] = lambda: self._owm(lat, lon)
-            results = {}
-            with ThreadPoolExecutor(max_workers=3) as pool:
-                pending = {name: pool.submit(call) for name, call in jobs.items()}
-                for name, future in pending.items():
+                if file and file.exists():
                     try:
-                        results[name] = future.result()
-                    except Exception:
-                        results[name] = None
-            base = results.get('base')
-            if not base or not all(isinstance(base.get(k), dict) for k in ('current', 'hourly', 'daily')):
-                # Old data is only a bounded offline fallback, never another city's cache.
-                if cached and self.clock() - cached[0] < 1800:
+                        stored=json.loads(file.read_text(encoding='utf8'))
+                        if isinstance(stored.get('data',{}).get('weather_sources'),dict):
+                            cached=(stored['t'],stored['data'])
+                            self._store(self.cache,key,cached)
+                    except (OSError,ValueError,TypeError,KeyError):
+                        pass
+                if cached and self.clock() - cached[0] < 120:
                     data = deepcopy(cached[1])
-                    data['weather_sources']['stale'] = True
                     data['weather_sources']['today'] = city_date(data, self.clock())
                     return data
-                raise RuntimeError('Datele meteo nu sunt disponibile momentan')
-            data = normalise(base, results.get('met'), results.get('current'), self.clock())
-            self._store(self.cache, key, (self.clock(), data))
-            return deepcopy(data)
+                jobs = {
+                    'base': lambda: self._base(lat,lon),
+                    'met': lambda: self._met(lat, lon),
+                }
+                if self.key:
+                    jobs['current'] = lambda: self._owm(lat, lon)
+                results = {}
+                with ThreadPoolExecutor(max_workers=3) as pool:
+                    pending = {name: pool.submit(call) for name, call in jobs.items()}
+                    for name, future in pending.items():
+                        try:
+                            results[name] = future.result()
+                        except Exception as error:
+                            response = getattr(error,'response',None)
+                            logging.getLogger(__name__).warning('Weather source %s failed (%s, HTTP %s)',
+                                name,type(error).__name__,getattr(response,'status_code','n/a'))
+                            results[name] = None
+                base = results.get('base')
+                if not base or not all(isinstance(base.get(k), dict) for k in ('current', 'hourly', 'daily')) or not base.get('hourly',{}).get('time') or not base.get('daily',{}).get('time'):
+                    base = None
+                    if results.get('met'):
+                        try:
+                            from weather_fallback import met_baseline
+                            base = met_baseline(results['met'],results.get('current'),lat,lon,
+                                                self.clock(),met_code,number)
+                        except (RuntimeError,ValueError,TypeError,KeyError) as error:
+                            logging.getLogger(__name__).warning('MET forecast unusable (%s)',type(error).__name__)
+                            results['met'] = None
+                    if base is None and self.key:
+                        try:
+                            from weather_fallback import owm_baseline
+                            reserve = self._json('https://api.openweathermap.org/data/2.5/forecast',
+                                {'lat':lat,'lon':lon,'appid':self.key,'units':'metric'})
+                            base = owm_baseline(reserve,results.get('current'),lat,lon,
+                                                self.clock(),met_code,number,owm_code)
+                        except Exception as error:
+                            logging.getLogger(__name__).warning('Reserve forecast failed (%s)',type(error).__name__)
+                            if cached and self.clock()-cached[0]<1800:
+                                return self._stale(cached)
+                            raise RuntimeError('Datele meteo nu sunt disponibile momentan') from None
+                    elif base is None and cached and self.clock() - cached[0] < 1800:
+                        return self._stale(cached)
+                    elif base is None:
+                        raise RuntimeError('Datele meteo nu sunt disponibile momentan')
+                data = normalise(base, results.get('met'), results.get('current'), self.clock())
+                self._store(self.cache, key, (self.clock(), data))
+                if file:
+                    try:
+                        tmp=file.with_suffix('.tmp')
+                        tmp.write_text(json.dumps({'t':self.clock(),'data':data}),encoding='utf8')
+                        os.replace(tmp,file)
+                        # Bound full responses shared by both workers independently of raw MET.
+                        files=sorted(file.parent.glob('*.json'),key=lambda p:p.stat().st_mtime)
+                        for expired in files[:-256]:
+                            if expired!=file:
+                                try: expired.unlink()
+                                except OSError: pass
+                    except OSError:
+                        logging.getLogger(__name__).warning("Full weather cache write unavailable")
+                return deepcopy(data)
+
+    def _stale(self,cached):
+        data=deepcopy(cached[1])
+        data['weather_sources']['stale']=True
+        data['weather_sources']['today']=city_date(data,self.clock())
+        return data
+
 
 
 def normalise(base, met, current, now):
     data = deepcopy(base)
+    origin = data.pop('_baseline_source','Open-Meteo')
+    partial_days = data.pop('_partial_days',[])
     try:
         from zoneinfo import ZoneInfo
         tz = ZoneInfo(data['timezone'])
@@ -309,17 +385,20 @@ def normalise(base, met, current, now):
         return value.replace(tzinfo=tz).timestamp() if value.tzinfo is None else value.timestamp()
     def local(stamp):
         return datetime.fromtimestamp(stamp, tz).strftime('%Y-%m-%dT%H:%M')
-    sources = {'current': 'Open-Meteo', 'hourly': [], 'daily': [], 'ancillary': 'Open-Meteo',
+    sources = {'current': origin, 'hourly': [], 'daily': [], 'ancillary': 'Open-Meteo' if origin=='Open-Meteo' else 'Local solar calculation; other missing fields unavailable',
                'ancillary_fields': ['uv_index', 'uv_index_max', 'precipitation_probability',
                                     'precipitation_probability_max', 'visibility', 'sunrise', 'sunset', 'is_day'],
                'forecast_fields': ['temperature_2m', 'weather_code', 'precipitation'],
-               'wind_note': 'MET Norway where supplied; Open-Meteo otherwise',
-               'hourly_note': 'MET six-hour intervals are interpolated; precipitation is an hourly mean',
+               'wind_note': 'MET Norway where supplied; '+origin+' otherwise',
+               'hourly_note': ('OpenWeather three-hour intervals are interpolated; precipitation is an hourly mean'
+                   if origin == 'OpenWeather' else 'MET six-hour intervals are interpolated; precipitation is an hourly mean'),
                'retrieved_at': datetime.fromtimestamp(now, timezone.utc).isoformat(), 'stale': False}
     data['weather_sources'] = sources
     h, d = data['hourly'], data['daily']
-    sources['hourly'] = ['Open-Meteo'] * len(h.get('time', []))
-    sources['daily'] = ['Open-Meteo'] * len(d.get('time', []))
+    sources['fallback'] = origin != 'Open-Meteo'
+    sources['partial_days'] = partial_days
+    sources['hourly'] = [origin] * len(h.get('time', []))
+    sources['daily'] = [origin] * len(d.get('time', []))
     points = []
     for p in (met or {}).get('properties', {}).get('timeseries', []):
         try:
@@ -384,10 +463,12 @@ def normalise(base, met, current, now):
                              if (v := number(next6.get(k))) is not None)
         d['temperature_2m_min'][i], d['temperature_2m_max'][i] = round(min(temps), 1), round(max(temps), 1)
         d['weather_code'][i] = max(h['weather_code'][j] for j in indices)
-        d['precipitation_sum'][i] = round(sum(h['precipitation'][j] for j in indices), 1)
+        rains=[number(h['precipitation'][j]) for j in indices]
+        d['precipitation_sum'][i] = round(sum(rains),1) if all(v is not None for v in rains) else None
         for field in ('wind_speed_10m', 'wind_gusts_10m'):
             if field in h and field + '_max' in d:
-                d[field + '_max'][i] = max(h[field][j] for j in indices)
+                values=[v for j in indices if (v := number(h[field][j])) is not None]
+                d[field + '_max'][i] = max(values) if values else None
         sources['daily'][i] = 'MET Norway'
     try:
         stamp = number(current.get('dt'))

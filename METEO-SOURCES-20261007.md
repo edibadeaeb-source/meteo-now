@@ -1,4 +1,4 @@
-# METEO NOW — 2026.10.07.3
+# METEO NOW — 2026.10.07.6
 
 ## Surse gratuite și comparație
 
@@ -37,8 +37,8 @@ Surse oficiale:
 
 ## Comportamentul final
 
-- `/api/weather/forecast` păstrează formatul folosit deja de aplicație și zece
-  zile, cu data locală a orașului. Nu folosește maximul zilei drept temperatură curentă.
+- `/api/weather/forecast` păstrează formatul folosit deja de aplicație și până la
+  zece zile, cu data locală a orașului. Nu folosește maximul zilei drept temperatură curentă.
 - MET înlocuiește temperatura, fenomenul și cantitatea de precipitații pentru orele
   acoperite. Intervalele native de șase ore sunt interpolate pentru temperatură;
   cantitatea de apă este distribuită ca medie pe oră, fără multiplicarea totalului.
@@ -56,8 +56,10 @@ Surse oficiale:
 - Cache separat pe coordonate, 120 secunde pentru vreme curentă/date combinate,
   maximum 256 intrări. MET respectă Expires, Last-Modified și If-Modified-Since;
   cache comun celor doi workers în directorul temporar, în afara fișierelor publice.
-  La 429 există pauză comună și rezervă. La indisponibilitatea Open-Meteo se admite
-  numai o rezervă din același oraș, de cel mult 30 minute, marcată `stale`.
+  La 429 există pauză comună și rezervă. Răspunsul complet este acum memorat și
+  partajat între workers; cererile simultane pentru aceleași coordonate sunt comasate.
+  La indisponibilitatea tuturor surselor se admite o rezervă din același oraș,
+  de cel mult 30 minute, marcată `stale`.
 - Datele de prognoză din cache pot conține coordonate, dar niciun identificator de
   persoană/dispozitiv; politica de confidențialitate a fost actualizată în RO/EN.
 
@@ -100,3 +102,46 @@ permite 2K fără mărire artificială. Vechea filmare rămâne arhivată, nefol
 
 Nu s-a testat fizic pe telefonul utilizatorului. Acuratețea locală trebuie evaluată
 pe mai multe zile față de condițiile observate, nu declarată dintr-o singură comparație.
+
+## Recuperarea prognozei și pornirea cu GPS — versiunea 6
+
+Problema din screenshoturi a fost reprodusă pe server: prognoza Moreni și
+I. L. Caragiale răspundea 502, în timp ce temperatura curentă era disponibilă.
+Serviciul cerea obligatoriu răspunsul Open-Meteo pentru întregul ecran. Cauza
+exactă a refuzului furnizorului pe server nu a putut fi stabilită din exterior.
+Jurnalul nou include sursa, tipul erorii și codul HTTP, fără URL-uri cu chei.
+
+- Open-Meteo nu mai este obligatoriu. Dacă nu răspunde, prognoza se construiește
+  integral din MET Norway. Dacă și MET este indisponibil sau incomplet, se folosește
+  OpenWeather 5 day / 3 hour, accesat numai ca ultimă rezervă cu cheia existentă.
+- Sunt afișate numai zilele acoperite, fără completarea fictivă până la zece zile.
+  Astăzi, în rezerva MET/OWM, min/max acoperă orele disponibile și observația curentă;
+  interfața explică limita. Zilele viitoare incomplete sunt omise.
+- Fusul orar este identificat local cu tzfpy; orele respectă DST. Răsăritul și
+  apusul se calculează cu Astral, inclusiv absența lor în noaptea/ziua polară.
+  UV, vizibilitatea și probabilitățile necomunicate rămân indisponibile, afișate „—”.
+- La 429 de la Open-Meteo, pauza Retry-After este comună între workers și orașe.
+  Serverul are doi workers cu câte patru threads; prognozele și cache-ul MET sunt
+  comune pe disc și limitate separat la 256 intrări. O prognoză proaspătă se
+  reutilizează două minute, iar cache-ul local al aplicației până la cinci minute.
+- Aplicația reîncearcă de trei ori erorile de rețea/5xx, cu pauze de una și trei
+  secunde. Nu reîncearcă automat 4xx. La revenirea conexiunii reîncarcă imediat.
+  Datele existente rămân pe ecran în timpul actualizării; o cerere întârziată
+  pentru orașul vechi nu poate înlocui locația nouă.
+- Prima pornire fără prognoză memorată păstrează ecranul de început până la date
+  valide sau până la un mesaj cu reîncercare, în locul ecranului gol cu „--°”.
+
+Verificări suplimentare: 42 teste Python în total; pornire browser fără cache,
+schimbare GPS Moreni → I. L. Caragiale, două erori 502 urmate de recuperare,
+indisponibilitate completă și revenirea conexiunii. Rezerva MET a fost verificată
+și cu răspunsuri reale pentru Moreni, I. L. Caragiale și New York.
+
+Testul de concurență a trimis 200 cereri cu 32 threads către două instanțe locale
+ale serviciului, cu furnizori simulați. Pentru un oraș s-au făcut numai trei cereri
+către furnizori, iar pentru alt oraș alte trei; datele nu s-au amestecat.
+Acesta verifică partajarea cache-ului, nu certifică o capacitate de mii de utilizatori
+pe planul Render și pe limitele furnizorilor folosiți. Este necesar un test de
+capacitate separat înainte de a face o astfel de promisiune.
+
+Documentație suplimentară: https://openweathermap.org/forecast5,
+https://astral.readthedocs.io/en/latest/, https://github.com/ringsaturn/tzfpy.

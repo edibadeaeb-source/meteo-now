@@ -80,7 +80,7 @@ function between(a, b) {
 // Both cached and freshly fetched weather explicitly start climate analysis.
 {
   const load = between('function mobIncarca()', '/* ── fundalul-cer');
-  assert.strictEqual((load.match(/analizeazaZiua\(\)/g) || []).length, 2);
+  assert.strictEqual((load.match(/analizeazaZiua\(\)/g) || []).length, 3);
 }
 
 assert(html.includes("Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k]))"));
