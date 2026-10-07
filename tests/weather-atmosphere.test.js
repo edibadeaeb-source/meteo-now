@@ -2,10 +2,10 @@ const assert = require('assert'), vm = require('vm'), fs = require('fs'), path =
 const code = fs.readFileSync(path.join(__dirname,'..','weather-atmosphere.js'),'utf8');
 function storage(){const v={};return {getItem:k=>v[k]||null,setItem:(k,x)=>v[k]=x};}
 function classes(){const s=new Set();return {add:k=>s.add(k),remove:k=>s.delete(k),contains:k=>s.has(k)};}
-const root = {attrs:{},layers:[],setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},querySelectorAll(){return this.layers;},appendChild(x){this.layers.push(x);}};
+const root = {attrs:{},layers:[],setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},querySelectorAll(){return this.layers.filter(x=>x.className==='weather-photo');},querySelector(){return this.layers.find(x=>x.className==='weather-city-sky')||null;},appendChild(x){this.layers.push(x);}};
 const loads=[];
 class FakeImage {set src(v){this.url=v; loads.push(this);}decode(){return Promise.resolve();}}
-const document={documentElement:{setAttribute(){}},getElementById:id=>id==='mobCer'?root:null,createElement:()=>({classList:classes(),setAttribute(){}})};
+const document={documentElement:{setAttribute(){}},getElementById:id=>id==='mobCer'?root:null,createElement:()=>({style:{},classList:classes(),setAttribute(){},removeAttribute(){}})};
 const c=vm.createContext({window:{},document,Image:FakeImage,Date,Promise,isFinite,localStorage:storage()});
 vm.runInContext(code,c);
 const api=c.window.MeteoAtmosphere;

@@ -40,7 +40,7 @@ const checks=String.raw`
      });
      assert.equal(marks.count,0,'native precipitation must not be doubled: '+JSON.stringify(marks));
    }
-   if(['rain-a','snow-a','overcast-a','clear-night-b','new-york-a','miami-a'].includes(film.id))await page.screenshot({path:path.join(out,'new-film-'+film.id+'-412.png')});
+   if(['rain-a','snow-a','overcast-a','clear-night-a','clear-night-b','new-york-a','miami-a'].includes(film.id))await page.screenshot({path:path.join(out,'new-film-'+film.id+'-412.png')});
  }
  await page.evaluate(()=>Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true,effectiveType:'3g'}}));await setFilm('miami-a');
  await page.waitForFunction(()=>document.querySelector('.weather-video.is-visible')?.currentSrc.endsWith('miami-a-lite.mp4'),null,{timeout:15000});assert.equal(await page.locator('.weather-video.is-visible').evaluate(v=>v.videoWidth),720);
@@ -61,8 +61,8 @@ const checks=String.raw`
  assert.equal(errors.filter(e=>!e.includes('getCurrentPosition')).length,0);await context.close();
  const offlineContext=await browser.newContext({serviceWorkers:'allow'}),offline=await offlineContext.newPage();await offline.goto(base+'/cache-test');
  await offline.evaluate(async()=>{await navigator.serviceWorker.register('/sw.js');await navigator.serviceWorker.ready;});await offline.waitForFunction(()=>!!navigator.serviceWorker.controller);
- await offline.evaluate(async()=>{await fetch('/assets/weather-video/v3/clear-night-a.webp');await fetch('/assets/weather-video/v3/clear-night-a-hd.mp4');});await offlineContext.setOffline(true);
- const cached=await offline.evaluate(async()=>{const p=await fetch('/assets/weather-video/v3/clear-night-a.webp'),v=await fetch('/assets/weather-video/v3/clear-night-a-hd.mp4',{headers:{Range:'bytes=0-127'}});return {photo:p.ok,video:v.status,bytes:(await v.arrayBuffer()).byteLength};});assert.deepEqual(cached,{photo:true,video:206,bytes:128});
+ await offline.evaluate(async()=>{await fetch('/assets/weather-video/v5/clear-night-a.webp');await fetch('/assets/weather-video/v5/clear-night-a-2k.mp4');});await offlineContext.setOffline(true);
+ const cached=await offline.evaluate(async()=>{const p=await fetch('/assets/weather-video/v5/clear-night-a.webp'),v=await fetch('/assets/weather-video/v5/clear-night-a-2k.mp4',{headers:{Range:'bytes=0-127'}});return {photo:p.ok,video:v.status,bytes:(await v.arrayBuffer()).byteLength};});assert.deepEqual(cached,{photo:true,video:206,bytes:128});
  await offlineContext.close();console.log('PASS: '+checkedFilms.length+' films actually decode and play; matching posters; stable touch; two reusable layers; native rain/snow; data saver; HD failure fallback; animation toggle; complete bitmap cleanup during scroll; v3 photo/video ranges offline');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});`;

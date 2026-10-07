@@ -1,7 +1,7 @@
 const fs=require('node:fs'),Module=require('node:module'),path=require('node:path');
 const prefix=fs.readFileSync(path.join(__dirname,'weather-browser.cjs'),'utf8').split(' // A tap used to')[0];
 const checks=String.raw`
- const photos=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v1/sources.json'),'utf8'));
+ const photos=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v2/sources.json'),'utf8'));
  // Decode every produced image using the browser's WebP decoder.
  await page.evaluate(async urls=>{for(const url of urls){const im=new Image();im.src=url;await im.decode();if(!im.naturalWidth||!im.naturalHeight)throw Error('Invalid photo '+url);}},photos.map(p=>p.poster));
  await page.evaluate(()=>{window.realPick=MeteoWeatherLibrary.pick;window.selectedPhoto=null;MeteoWeatherLibrary.pick=(movie,night,loc)=>selectedPhoto?MeteoWeatherLibrary.restore(selectedPhoto,movie):realPick(movie,night,loc);});
@@ -16,6 +16,9 @@ const checks=String.raw`
   assert.equal(await page.locator('#mobCer').getAttribute('data-media'),'photo');assert.equal(await page.locator('.weather-video.is-visible').count(),0);assert.equal(await page.locator('.weather-video').evaluateAll(vs=>vs.every(v=>v.paused)),true);
   const image=page.locator('.weather-photo.is-visible');assert.equal(await image.count(),1);assert.ok((await image.getAttribute('src')).endsWith(p.id+'.webp'));assert.equal(await image.evaluate(v=>getComputedStyle(v).filter),'none');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  const geometry=await image.evaluate(v=>({height:parseFloat(getComputedStyle(v).height),screen:document.getElementById('mobCer').getBoundingClientRect().height}));
+  assert.ok(geometry.height/geometry.screen<=.41,'city stays beneath a dominant sky');
+  assert.equal(await page.locator('.weather-city-sky').evaluate(v=>v.complete&&v.naturalWidth>0),true,'matching sky decoded');
   const transform=await image.evaluate(v=>getComputedStyle(v).transform);await page.waitForTimeout(150);assert.notEqual(await image.evaluate(v=>getComputedStyle(v).transform),transform,'photo must move subtly');
   await page.touchscreen.tap(200,120);await page.waitForTimeout(300);assert.equal(await page.locator('#mobCer').getAttribute('data-clip'),p.id);
   await page.screenshot({path:path.join(out,p.id+'-412.png')});

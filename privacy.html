@@ -56,10 +56,10 @@
 
     <!-- ══════════════ ROMÂNĂ ══════════════ -->
     <div class="sec-ro">
-        <p><b>Ultima actualizare:</b> 6 octombrie 2026</p>
+        <p><b>Ultima actualizare:</b> 7 octombrie 2026</p>
 
         <div class="box">
-            <p><b>Pe scurt:</b> METEO NOW nu creează conturi și nu vinde informații nimănui. Locația este folosită pentru vremea locală și este păstrată pe server numai dacă activezi notificările, împreună cu abonamentul tehnic necesar alertelor.</p>
+            <p><b>Pe scurt:</b> METEO NOW nu creează conturi și nu vinde informații nimănui. Locația este folosită pentru vremea locală. Prognozele pe coordonate sunt păstrate într-un cache al serverului, fără identificator de persoană sau dispozitiv. Dacă activezi notificările, localitatea este păstrată și cu abonamentul tehnic necesar alertelor.</p>
         </div>
 
         <h2>1. Cine suntem</h2>
@@ -98,7 +98,8 @@
         <p>Pentru a-ți oferi datele meteo, aplicația trimite coordonatele localității alese către:</p>
         <ul>
             <li><b>BigDataCloud</b> — identificarea localității din coordonatele GPS, numai când ceri localizarea</li>
-            <li><b>Open-Meteo</b> — prognoze, arhivă climatică, date hidrologice</li>
+            <li><b>MET Norway</b> — prognoze orare și zilnice, prin serverul METEO NOW</li>
+            <li><b>Open-Meteo</b> — date UV, probabilități, răsărit/apus, rezervă meteo, arhivă climatică și date hidrologice</li>
             <li><b>OpenWeatherMap</b> — vremea curentă</li>
             <li><b>RainViewer</b> — imagini radar și satelitare</li>
             <li><b>NOAA SWPC</b> — date despre vremea spațială</li>
@@ -126,10 +127,10 @@
 
     <!-- ══════════════ ENGLISH ══════════════ -->
     <div class="sec-en">
-        <p><b>Last updated:</b> 6 October 2026</p>
+        <p><b>Last updated:</b> 7 October 2026</p>
 
         <div class="box">
-            <p><b>In short:</b> METEO NOW does not create accounts or sell information. Location is used for local weather and is stored on the server only if you enable notifications, together with the technical subscription required to deliver alerts.</p>
+            <p><b>In short:</b> METEO NOW does not create accounts or sell information. Location is used for local weather. Forecasts by coordinates are retained in a server cache, without a person or device identifier. If you enable notifications, the locality is also stored with the technical subscription required to deliver alerts.</p>
         </div>
 
         <h2>1. Who we are</h2>
@@ -138,7 +139,7 @@
 
         <h2>2. Data we use</h2>
         <ul>
-            <li><b>Approximate or precise location</b> — only with your consent. We use it to determine your locality and show its weather. When you use the location button, coordinates are sent to BigDataCloud to identify the locality and then to the weather services listed in section 5. During ordinary use we do not store them on our servers. If you enable notifications, the selected locality name and coordinates are stored with the technical push subscription so that relevant alerts can be delivered. You may decline permission and search for any city manually.</li>
+            <li><b>Approximate or precise location</b> — only with your consent. We use it to determine your locality and show its weather. When you use the location button, coordinates are sent to BigDataCloud to identify the locality and then to the weather services listed in section 5. Forecasts for the requested coordinates are retained in a server cache, without a person or device identifier. Requests to MET Norway go through the METEO NOW server, so that provider receives the server IP address. If you enable notifications, the selected locality name and coordinates are stored with the technical push subscription so that relevant alerts can be delivered. You may decline permission and search for any city manually.</li>
             <li><b>Your preferences</b> (selected city, theme, language and recent locations) are
             stored locally in the app. To make saved cities available in the native widget selector,
             the city list is synced through Firebase only as an end-to-end encrypted AES-GCM package;
@@ -167,7 +168,8 @@
         <p>To provide weather data, the app sends the coordinates of the selected location to:</p>
         <ul>
             <li><b>BigDataCloud</b> — identifying the locality from GPS coordinates, only when you request location</li>
-            <li><b>Open-Meteo</b> — forecasts, climate archive, hydrological data</li>
+            <li><b>MET Norway</b> — hourly and daily forecasts, through the METEO NOW server</li>
+            <li><b>Open-Meteo</b> — UV, probabilities, solar times, weather fallback, climate archive and hydrological data</li>
             <li><b>OpenWeatherMap</b> — current weather</li>
             <li><b>RainViewer</b> — radar and satellite imagery</li>
             <li><b>NOAA SWPC</b> — space weather data</li>

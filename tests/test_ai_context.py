@@ -58,8 +58,9 @@ class WeatherPromptTests(unittest.TestCase):
 
 
 class WidgetApiTests(unittest.TestCase):
+    @patch.object(meteo._weather_service, 'forecast')
     @patch.object(meteo.requests, "get")
-    def test_widget_returns_four_future_days(self, get):
+    def test_widget_returns_four_future_days(self, get, forecast):
         current = MagicMock()
         current.raise_for_status.return_value = None
         current.json.return_value = {
@@ -73,13 +74,14 @@ class WidgetApiTests(unittest.TestCase):
         daily.raise_for_status.return_value = None
         daily.json.return_value = {
             "daily": {
-                "time": ["2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26"],
-                "temperature_2m_max": [18, 19, 20, 21, 22],
-                "temperature_2m_min": [8, 9, 10, 11, 12],
-                "weathercode": [1, 2, 3, 61, 0],
+                "time": ["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26"],
+                "temperature_2m_max": [99, 18, 19, 20, 21, 22],
+                "temperature_2m_min": [99, 8, 9, 10, 11, 12],
+                "weather_code": [0, 1, 2, 3, 61, 0],
             }
         }
-        get.side_effect = [current, daily]
+        forecast.return_value = dict(daily.json.return_value, weather_sources={'today':'2026-09-22'})
+        get.return_value = current
         meteo._widget_cache.clear()
 
         response = meteo.app.test_client().get(
@@ -91,6 +93,38 @@ class WidgetApiTests(unittest.TestCase):
         self.assertEqual(len(data["zile"]), 4)
         self.assertEqual(data["zile"][0]["max"], 19)
         self.assertEqual(data["zile"][3]["min"], 12)
+        self.assertEqual(data['maxAzi'], 18, 'today must not show yesterday from the shared cache')
+        forecast.assert_called_once_with(40.7128, -74.006)
+
+
+class WeatherApiTests(unittest.TestCase):
+    @patch.object(meteo._weather_service, 'forecast')
+    def test_mobile_starts_with_today_and_keeps_all_ten_days(self, forecast):
+        import test_weather_service as fixtures
+        data = fixtures.normalise(*fixtures.fixtures(), fixtures.NOW)
+        forecast.return_value = data
+        response = meteo.app.test_client().get('/api/weather/forecast?latitude=40.7128&longitude=-74.006')
+        self.assertEqual(response.status_code,200)
+        public = response.get_json()
+        self.assertEqual(public['daily']['time'][0],'2026-10-07')
+        self.assertEqual(len(public['daily']['time']),10)
+        self.assertEqual(public['hourly']['time'][0],'2026-10-07T00:00')
+        self.assertEqual(len(public['hourly']['time']),len(public['weather_sources']['hourly']))
+        self.assertEqual(public['current']['temperature_2m'],23.7)
+        self.assertEqual(public['daily']['temperature_2m_max'][0],40)
+
+    @patch.object(meteo._weather_service, 'current_summary')
+    def test_batch_preserves_order_and_rejects_invalid_coordinates_before_fetch(self, current):
+        current.side_effect=lambda lat,lon:dict(current=dict(temperature_2m=lat))
+        client=meteo.app.test_client()
+        result=client.get('/api/weather/current?latitude=44,40&longitude=25,-74')
+        self.assertEqual([x['current']['temperature_2m'] for x in result.get_json()],[44,40])
+        current.reset_mock()
+        for url in ['/api/weather/current?latitude=91&longitude=25',
+                    '/api/weather/current?latitude=44,40&longitude=25',
+                    '/api/weather/current?latitude=nan&longitude=25']:
+            self.assertEqual(client.get(url).status_code,400)
+        current.assert_not_called()
 
 
 class WidgetCitySyncTests(unittest.TestCase):

@@ -32,6 +32,10 @@ def _load_key(env_name, keys_attr):
 
 ANTHROPIC_API_KEY   = _load_key("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
+from weather_service import WeatherService
+import tempfile as _weather_tempfile
+_weather_service = WeatherService(OPENWEATHER_API_KEY,
+    cache_dir=os.path.join(_weather_tempfile.gettempdir(), 'meteo-now-met-cache'))
 VAPID_PUBLIC_KEY    = _load_key("VAPID_PUBLIC_KEY", "VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY   = _load_key("VAPID_PRIVATE_KEY", "VAPID_PRIVATE_KEY")
 VAPID_CLAIM_EMAIL   = _load_key("VAPID_CLAIM_EMAIL", "VAPID_CLAIM_EMAIL") or "mailto:admin@example.com"
@@ -228,6 +232,41 @@ def judete_geojson():
 #  PROXY OpenWeatherMap — cheia rămâne pe server, nu în browser
 # ═══════════════════════════════════════════════════════════════
 _owm_cache = {}
+
+@app.route('/api/weather/forecast')
+def weather_forecast():
+    try:
+        data = _weather_service.forecast(request.args.get('latitude'), request.args.get('longitude'))
+        today = data['weather_sources']['today']
+        for section in ('hourly', 'daily'):
+            indices = [i for i, iso in enumerate(data[section]['time']) if iso[:10] >= today]
+            for field, values in list(data[section].items()):
+                if isinstance(values, list):
+                    data[section][field] = [values[i] for i in indices]
+            data['weather_sources'][section] = [data['weather_sources'][section][i] for i in indices]
+        return jsonify(data)
+    except ValueError:
+        return jsonify({'error': 'Coordonate invalide'}), 400
+    except Exception:
+        return jsonify({'error': 'Datele meteo nu sunt disponibile momentan'}), 502
+
+@app.route('/api/weather/current')
+def weather_current_batch():
+    try:
+        lats = request.args.get('latitude', '').split(',')
+        lons = request.args.get('longitude', '').split(',')
+        if len(lats) != len(lons) or not 1 <= len(lats) <= 16:
+            raise ValueError()
+        coords = [_weather_service.coordinates(a, b) for a, b in zip(lats, lons)]
+        def load(pair):
+            try:
+                return _weather_service.current_summary(*pair)
+            except Exception:
+                return {'current': None}
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            return jsonify(list(pool.map(load, coords)))
+    except ValueError:
+        return jsonify({'error': 'Coordonate invalide'}), 400
 
 @app.route('/api/owm/weather')
 def owm_weather():
@@ -797,21 +836,14 @@ def moon_texture(nume):
 
 def _prognoza_scurta(lat, lon):
     """Datele de care avem nevoie pentru un rezumat: azi, mâine, UV, vânt."""
-    url = ('https://api.open-meteo.com/v1/forecast'
-           f'?latitude={lat}&longitude={lon}'
-           '&current=temperature_2m,apparent_temperature,weather_code,wind_gusts_10m,uv_index'
-           '&daily=temperature_2m_max,temperature_2m_min,weather_code,'
-           'precipitation_probability_max,uv_index_max,wind_gusts_10m_max'
-           '&forecast_days=3&past_days=1&timezone=auto')
-    r = requests.get(url, timeout=20, headers={'User-Agent': 'MeteoNow/1.0'})
-    r.raise_for_status()
-    return r.json()
+    return _weather_service.forecast(lat, lon)
 
 
 _WMO_RO = {
     0: 'senin', 1: 'în mare parte senin', 2: 'parțial noros', 3: 'înnorat',
     45: 'ceață', 48: 'ceață cu chiciură', 51: 'burniță', 53: 'burniță', 55: 'burniță deasă',
     61: 'ploaie slabă', 63: 'ploaie', 65: 'ploaie puternică',
+    68: 'lapoviță', 69: 'lapoviță puternică', 85: 'averse de ninsoare', 86: 'averse puternice de ninsoare',
     71: 'ninsoare slabă', 73: 'ninsoare', 75: 'ninsoare puternică',
     80: 'averse', 81: 'averse', 82: 'averse puternice',
     95: 'furtună', 96: 'furtună cu grindină', 99: 'furtună cu grindină',
@@ -820,6 +852,7 @@ _WMO_EN = {
     0: 'clear', 1: 'mostly clear', 2: 'partly cloudy', 3: 'overcast',
     45: 'fog', 48: 'freezing fog', 51: 'drizzle', 53: 'drizzle', 55: 'heavy drizzle',
     61: 'light rain', 63: 'rain', 65: 'heavy rain',
+    68: 'sleet', 69: 'heavy sleet', 85: 'snow showers', 86: 'heavy snow showers',
     71: 'light snow', 73: 'snow', 75: 'heavy snow',
     80: 'showers', 81: 'showers', 82: 'heavy showers',
     95: 'thunderstorm', 96: 'thunderstorm with hail', 99: 'thunderstorm with hail',
@@ -827,7 +860,7 @@ _WMO_EN = {
 
 
 
-_PRECIP_WMO = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82}
+_PRECIP_WMO = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 80, 81, 82}
 _SNOW_WMO = {71, 73, 75, 77, 85, 86}
 _STORM_WMO = {95, 96, 99}
 _FOG_WMO = {45, 48}
@@ -835,15 +868,7 @@ _FOG_WMO = {45, 48}
 
 def _prognoza_evenimente(lat, lon):
     """Cele 12 ore folosite pentru alerte care pot apărea la orice oră."""
-    r = requests.get('https://api.open-meteo.com/v1/forecast', params={
-        'latitude': lat, 'longitude': lon,
-        'current': 'temperature_2m,weather_code,precipitation,rain,showers,snowfall,wind_gusts_10m',
-        'hourly': ('temperature_2m,precipitation_probability,precipitation,rain,'
-                   'showers,snowfall,weather_code,wind_gusts_10m,visibility'),
-        'forecast_hours': 12, 'timezone': 'auto',
-    }, timeout=20, headers={'User-Agent': 'MeteoNow/1.0'})
-    r.raise_for_status()
-    return r.json()
+    return _weather_service.forecast(lat, lon)
 
 
 def _event_dt(value):
@@ -1563,13 +1588,11 @@ def widget_data():
 
     # 1b) Prognoza pe 4 zile + max/min azi, în fusul local al orașului.
     try:
-        r = requests.get('https://api.open-meteo.com/v1/forecast', params={
-            'latitude': lat, 'longitude': lon,
-            'daily': 'temperature_2m_max,temperature_2m_min,weathercode',
-            'forecast_days': 5, 'timezone': 'auto'
-        }, timeout=12)
-        r.raise_for_status()
-        dz = r.json().get('daily', {})
+        forecast = _weather_service.forecast(lat, lon)
+        raw_daily = forecast['daily']
+        indices = [i for i, date in enumerate(raw_daily['time']) if date >= forecast['weather_sources']['today']]
+        dz = {k: [values[i] for i in indices] for k, values in raw_daily.items() if isinstance(values, list)}
+        out['weatherSources'] = forecast['weather_sources']
         zile_ro = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du']
 
         def icon_wmo(c):
@@ -1587,7 +1610,7 @@ def widget_data():
         times = dz.get('time') or []
         maxs = dz.get('temperature_2m_max') or []
         mins = dz.get('temperature_2m_min') or []
-        codes = dz.get('weathercode') or []
+        codes = dz.get('weather_code') or []
 
         if maxs and mins:
             out['maxAzi'] = round(maxs[0])

@@ -51,6 +51,8 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  if(s.includes('firebasejs'))return route.fulfill({contentType:'text/javascript',body:firebaseStub});
  if(s.includes('firebasedatabase')||s.includes('firebaseio'))throw Error('Unexpected live Firebase access');
  if(s.includes('open-meteo.com')&&!s.includes('geocoding'))return json(forecast);
+ if(s.includes('/api/weather/forecast'))return json(forecast);
+ if(s.includes('/api/weather/current'))return json(u.searchParams.get('latitude').split(',').map(()=>({current:forecast.current})));
  if(s.includes('geocoding-api'))return json({results:[]});
  if(s.includes('/api/owm/weather')||s.includes('api.openweathermap.org/data/2.5/weather'))return json({main:{temp:28,feels_like:29,humidity:45,pressure:1013},weather:[{id:801,icon:'02d',description:'cer parțial noros'}],wind:{speed:3,deg:100},sys:{sunrise:Date.now()/1000-20000,sunset:Date.now()/1000+20000},name:'Târgoviște',dt:Date.now()/1000});
  if(s.includes('/api/owm/find'))return json({list:[]});

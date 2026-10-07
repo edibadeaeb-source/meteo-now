@@ -46,7 +46,7 @@
         var scene = night ? 'clear-night' : 'clear-day';
         if (code >= 95 && code <= 99) scene = 'storm';
         else if ((code >= 71 && code <= 77) || code === 85 || code === 86) scene = 'snow';
-        else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) scene = 'rain';
+        else if ((code >= 51 && code <= 69) || (code >= 80 && code <= 82)) scene = 'rain';
         else if (code === 45 || code === 48) scene = 'fog';
         else if (code === 3) scene = 'overcast';
         else if (code === 1 || code === 2) scene = 'partly-cloudy';
@@ -87,6 +87,15 @@
             });
         }
         return decoded[url];
+    }
+    function skyFor(chosen) {
+        if (chosen.night) {
+            if (/^(partly-cloudy|overcast)$/.test(chosen.scene)) return 'assets/weather-video/v4/'+chosen.scene+'-night-a.webp';
+            return 'assets/weather-video/v3/clear-night-b.webp';
+        }
+        var id = {'clear-day':'clear-day-a','partly-cloudy':'partly-cloudy-a',
+            overcast:'overcast-a',rain:'overcast-a',twilight:'twilight-a'}[chosen.scene];
+        return id ? 'assets/weather-video/v3/'+id+'.webp' : ASSETS+chosen.scene+'.webp';
     }
     function attributes(el, chosen) {
         el.className = 'weather-atmosphere';
@@ -131,13 +140,24 @@
             }
             layers = el.querySelectorAll('.weather-photo');
         }
+        var city = chosen.clip && chosen.clip.still;
+        var sky = el.querySelector('.weather-city-sky');
+        if (!sky) {
+            sky = document.createElement('img'); sky.className = 'weather-city-sky';
+            sky.alt = ''; sky.setAttribute('aria-hidden','true'); el.appendChild(sky);
+        }
+        // Clear the old sky immediately; no previous city's weather during decoding.
+        sky.removeAttribute('src');
+        var skyUrl = city ? skyFor(chosen) : null;
         // Immediately stop the old city's video even while the new poster loads.
         attributes(el, chosen);
         if (active >= 0 && layers[active].src.indexOf(chosen.url) < 0) layers[active].classList.remove('is-visible');
-        pending = load(chosen.url).then(function () {
+        pending = Promise.all([load(chosen.url), skyUrl ? load(skyUrl).catch(function(){return null;}) : null]).then(function (ready) {
             if (ticket !== serial) return false;
             var next = active === 0 ? 1 : 0;
             layers[next].src = chosen.url;
+            layers[next].style.objectPosition = city ? ((chosen.clip.focus == null ? .5 : chosen.clip.focus)*100)+'% 55%' : '';
+            if (skyUrl && ready[1]) sky.src = skyUrl;
             layers[next].setAttribute('data-scene', chosen.scene);
             layers[next].setAttribute('data-night', chosen.night ? '1' : '0');
             attributes(el, chosen);

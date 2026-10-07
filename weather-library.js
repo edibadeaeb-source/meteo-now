@@ -25,6 +25,9 @@
         });
     }
     add('clear-day','hd','2k'); add('clear-night','hd','hd');
+    // Replaces a mislabeled source containing falling white particles.
+    clips['clear-night-a'].version = 5; clips['clear-night-a'].quality = '2k';
+    clips['clear-night-a'].poster = 'assets/weather-video/v5/clear-night-a.webp';
     add('partly-cloudy','2k','2k'); add('overcast','2k','2k');
     add('rain','hd','hd'); add('storm','hd','hd'); add('snow','hd','hd');
     add('fog','2k','hd'); add('twilight','hd','hd');

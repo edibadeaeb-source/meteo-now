@@ -7,10 +7,10 @@ for(const previous of ['clear-day','clear-day-a','clear-day-b']) {
   'meteo-loc':JSON.stringify(loc),
   'meteo-atmosphere-v1':JSON.stringify({at:Date.now(),...loc,selection:{scene:'clear-day',night:false,movie:'clear-day',thermal:'mild',key:'old-key',clip:{id:previous,version:99,base:'https://invalid.example/old.mp4'}}})
  };
- const layers=[],attrs={},el={setAttribute:(k,v)=>attrs[k]=v,removeAttribute:k=>delete attrs[k],querySelectorAll:()=>layers,appendChild:v=>layers.push(v)};
+ const layers=[],attrs={},el={setAttribute:(k,v)=>attrs[k]=v,removeAttribute:k=>delete attrs[k],querySelectorAll:()=>layers.filter(x=>x.className==='weather-photo'),querySelector:()=>layers.find(x=>x.className==='weather-city-sky')||null,appendChild:v=>layers.push(v)};
  class Photo { set src(v){loads.push(v);} }
  const c=vm.createContext({window:{MeteoWeatherMotion:{update:v=>seen.push(v)}},localStorage:{getItem:k=>values[k]||null,setItem:(k,v)=>values[k]=v},Image:Photo,Date,Math,Promise,isFinite,
-  document:{documentElement:{setAttribute(){}},getElementById:id=>id==='mobCer'?el:null,createElement:()=>({setAttribute(){},classList:{add(){},remove(){}}})}});
+  document:{documentElement:{setAttribute(){}},getElementById:id=>id==='mobCer'?el:null,createElement:()=>({style:{},setAttribute(){},removeAttribute(){},classList:{add(){},remove(){}}})}});
  for(const file of ['weather-library.js','weather-atmosphere.js'])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),c);
  const expected=previous==='clear-day'?'clear-day-a':previous==='clear-day-a'?'clear-day-b':'clear-day';
  assert.equal(attrs['data-clip'],expected,'startup immediately uses the current visit film');

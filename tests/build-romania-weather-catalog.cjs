@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const cities=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v1/cities.json'),'utf8'));
-const selections=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v1/sources.json'),'utf8'));
+const selections=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v2/sources.json'),'utf8'));
 const films=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-video/v4/sources.json'),'utf8'));
 const localFilms={
  'ro-bucharest-sunny-a':['bucharest',['clear-day']],
@@ -13,7 +13,7 @@ const localFilms={
  'ro-timisoara-sunny-a':['timisoara',['clear-day']]
 };
 const records=films.filter(f=>localFilms[f.id]).map(f=>({slug:localFilms[f.id][0],scenes:localFilms[f.id][1],night:false,clip:{id:f.id,base:f.id,quality:f.quality,version:4,native:true,poster:'assets/weather-video/v4/'+f.id+'.webp'}}));
-for(const p of selections)records.push({slug:p.slug,scenes:p.scenes,night:p.night,minTemperature:p.minTemperature??null,clip:{id:p.id,still:true,native:true,poster:'assets/weather-romania/v1/'+p.id+'.webp'}});
+for(const p of selections)records.push({slug:p.slug,scenes:p.scenes,night:p.night,minTemperature:p.minTemperature??null,clip:{id:p.id,still:true,native:true,focus:p.focus,poster:p.poster}});
 const source=`/* Fixed licensed Romanian city catalogue. No network lookups or location inference from temperature. */
 (function(root){
  'use strict';

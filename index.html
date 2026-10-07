@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.2">
+    <meta name="application-version" content="2026.10.07.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -3753,9 +3753,10 @@ function wmoSvg(c, night, size) {
     else if (c <= 48) inner = cloud(1, 0, 0.95, '#eef1f7') + fog;
     else if (c <= 57) inner = cloud(1, 2, 1) + drops(2);
     else if (c <= 67) inner = cloud(1, 2, 1) + drops(3);
+    else if (c === 68 || c === 69) inner = cloud(1, 2, 1) + drops(1) + flakes(2);
     else if (c <= 77) inner = cloud(1, 2, 1, '#eef1f7') + flakes(3);
     else if (c <= 82) inner = (night ? '' : '<g transform="translate(9,-1) scale(0.7)">' + sun + '</g>') + cloud(1, 3, 1) + drops(3);
-    else if (c <= 86) inner = cloud(1, 2, 1, '#eef1f7') + flakes(2) + drops(1);
+    else if (c <= 86) inner = cloud(1, 2, 1, '#eef1f7') + flakes(2);
     else inner = cloud(1, 1, 1, '#d5dbe8') + bolt + drops(2);
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 26 34" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
 }
@@ -3765,7 +3766,7 @@ function tempColor(t) {
 function wmoText(c) {
     if (c === 0) return 'senin'; if (c <= 2) return 'parțial noros'; if (c === 3) return 'noros';
     if (c <= 48) return 'ceață'; if (c <= 57) return 'burniță'; if (c <= 67) return 'ploaie';
-    if (c <= 77) return 'ninsoare'; if (c <= 82) return 'averse'; if (c <= 86) return 'lapoviță';
+    if (c === 68 || c === 69) return 'lapoviță'; if (c <= 77) return 'ninsoare'; if (c <= 82) return 'averse'; if (c <= 86) return 'averse de ninsoare';
     return 'furtună';
 }
 
@@ -6229,7 +6230,7 @@ var I18N = {
         rafale: 'Rafale', directie: 'Direcție',
         presiuneMare: 'Presiune ridicată — de obicei vreme stabilă.',
         presiuneMica: 'Presiune scăzută — vremea se poate schimba.', presiuneNormala: 'Presiune normală.',
-        surseMob: 'Surse: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
+        surseMob: 'Surse: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA',
         seIncarca: 'Se încarcă datele meteo…',
         oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…', stergeCautarea: 'Șterge căutarea',
         hartaAvertANM: 'Avertizări pe hartă', hartaAnmNota: 'Zonele colorate sunt sub avertizare. Sursa: meteoromania.ro',
@@ -6349,7 +6350,7 @@ var I18N = {
         rafale: 'Gusts', directie: 'Direction',
         presiuneMare: 'High pressure — usually settled weather.',
         presiuneMica: 'Low pressure — weather may change.', presiuneNormala: 'Normal pressure.',
-        surseMob: 'Sources: Open-Meteo · OpenWeatherMap · RainViewer · ANM · NOAA',
+        surseMob: 'Sources: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA',
         seIncarca: 'Loading weather data…',
         oraseleMele: 'My cities', adaugaOras: 'Search for a city…', stergeCautarea: 'Clear search',
         hartaAvertANM: 'Warnings on the map', hartaAnmNota: 'Coloured areas are under warning. Source: meteoromania.ro',
@@ -8423,7 +8424,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=10">
+<link rel="stylesheet" href="weather-glass.css?v=11">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -8513,18 +8514,18 @@ input, textarea, select, [contenteditable="true"] {
 </div>
 
 <script src="weather-geography.js?v=1"></script>
-<script src="weather-library.js?v=2"></script>
-<script src="weather-romania.js?v=1"></script>
+<script src="weather-library.js?v=3"></script>
+<script src="weather-romania.js?v=2"></script>
 <script src="weather-motion.js?v=5"></script>
-<script src="weather-atmosphere.js?v=6"></script>
+<script src="weather-atmosphere.js?v=7"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
    INTERFAȚA DE TELEFON — logica
-   Un singur apel la Open-Meteo aduce tot ce afișăm aici: acum, orele,
+   Un singur apel la server aduce date normalizate din sursele meteo: acum, orele,
    zilele. Restul (avertizări ANM, analiza climatică, stațiile proprii)
    se ia din ce încarcă deja aplicația.
    ══════════════════════════════════════════════════════════════════ */
-var MOBD = null;            // datele de la Open-Meteo
+var MOBD = null;            // vreme curentă OpenWeather; prognoză MET Norway, cu rezervă
 var _mobDateCheie = '';     // coordonatele cărora le aparțin datele din MOBD
 if (typeof _ccEsuatLa === 'undefined') { var _ccEsuatLa = 0; }
 var _mobOraMod = 'temp';    // temp | precip | vant
@@ -8723,14 +8724,18 @@ function mobCheieLoc(loc) {
     return (+loc.lat).toFixed(3) + ',' + (+loc.lon).toFixed(3);
 }
 function mobUrl(loc) {
-    return 'https://api.open-meteo.com/v1/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon +
-        '&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,precipitation,' +
-        'weather_code,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index' +
-        '&hourly=temperature_2m,weather_code,precipitation_probability,precipitation,' +
-        'wind_speed_10m,wind_gusts_10m,visibility,is_day' +
-        '&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,' +
-        'precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max' +
-        '&forecast_days=10&timezone=auto';
+    return '/api/weather/forecast?latitude=' + loc.lat + '&longitude=' + loc.lon;
+}
+function mobTemperaturi(lats, lons) {
+    var a = lats.split(','), b = lons.split(','), cereri = [];
+    for (var i = 0; i < a.length; i += 16) {
+        cereri.push(fetch('/api/weather/current?latitude=' + a.slice(i,i+16).join(',') +
+            '&longitude=' + b.slice(i,i+16).join(',')).then(function(r) {
+                if (!r.ok) throw new Error('temperaturi: ' + r.status);
+                return r.json();
+            }));
+    }
+    return Promise.all(cereri).then(function(grupuri) { return [].concat.apply([], grupuri); });
 }
 function mobDateDinCache(loc) {
     var x = _mobCache[mobCheieLoc(loc)];
@@ -10306,8 +10311,7 @@ function mobFoaieOrase() {
     // temperatura fiecărui oraș din listă, într-un singur apel
     if (l.length) {
         var lats = l.map(function(o) { return o.lat; }).join(','), lons = l.map(function(o) { return o.lon; }).join(',');
-        fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&current=temperature_2m')
-            .then(function(r) { return r.json(); })
+        mobTemperaturi(lats, lons)
             .then(function(d) {
                 var v = Array.isArray(d) ? d : [d];
                 v.forEach(function(x, i) {
@@ -10601,8 +10605,7 @@ function mrMarcaje() {
                   [LOC.lat - pas * 0.7, LOC.lon - pas * 0.7 / cosLat]];
     var lats = puncte.map(function(p) { return p[0].toFixed(3); }).join(',');
     var lons = puncte.map(function(p) { return p[1].toFixed(3); }).join(',');
-    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats + '&longitude=' + lons + '&current=temperature_2m')
-        .then(function(r) { return r.json(); })
+    mobTemperaturi(lats, lons)
         .then(function(d) {
             if (generatie !== _mrMarcajeGeneratie) return;
             var v = Array.isArray(d) ? d : [d];
@@ -10837,11 +10840,27 @@ function mobHartaAnm(id) {
     /* pilula deschide lista doar dacă a fost o atingere, nu o glisare */
     var jos = document.getElementById('mjLoc');
     if (jos) {
-        var px = null;
-        jos.addEventListener('pointerdown', function(e) { px = e.clientX; });
-        jos.addEventListener('pointerup', function(e) {
-            if (px !== null && Math.abs(e.clientX - px) < 12) mobDeschideFoaie('orase');
-            px = null;
+        var punct = null, glisat = false;
+        jos.setAttribute('role', 'button'); jos.setAttribute('tabindex', '0');
+        jos.setAttribute('aria-haspopup', 'dialog');
+        jos.addEventListener('pointerdown', function(e) {
+            punct = {x:e.clientX, y:e.clientY, id:e.pointerId}; glisat = false;
+        });
+        function miscare(e) {
+            if (punct && e.pointerId === punct.id && Math.hypot(e.clientX-punct.x,e.clientY-punct.y) >= 12) glisat = true;
+        }
+        jos.addEventListener('pointermove', miscare);
+        jos.addEventListener('pointerup', function(e) { miscare(e); punct = null; });
+        jos.addEventListener('pointercancel', function() { punct = null; glisat = true; });
+        // Open after the compatibility click has selected its target. Opening on
+        // pointerup allowed this same click to land on a newly inserted city row.
+        jos.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!glisat) mobDeschideFoaie('orase');
+            glisat = false;
+        });
+        jos.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mobDeschideFoaie('orase'); }
         });
     }
     var bH = document.getElementById('mjHarta');
