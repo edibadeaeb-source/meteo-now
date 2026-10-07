@@ -75,8 +75,9 @@
             cheia rămâne pe dispozitiv, iar serverul nu poate citi orașele sau coordonatele.</li>
             <li><b>Notificări</b> — dacă le activezi, dispozitivul generează o adresă tehnică de livrare și chei de abonament, pe care le păstrăm în Firebase împreună cu localitatea aleasă. Nu includ numele sau e-mailul tău. Dezactivarea notificărilor cere ștergerea abonamentului; după dezinstalare, acesta este eliminat când serviciul de livrare îl raportează ca expirat.</li>
             <li><b>Întrebările către asistentul AI</b> — sunt trimise pentru procesare către Anthropic
-            (Claude) împreună cu vremea afișată în acel moment. Nu le asociem cu identitatea ta și nu le
+            (Claude) împreună cu ultimele mesaje relevante ale discuției și vremea afișată în acel moment. Nu le asociem cu identitatea ta și nu le
             folosim pentru altceva.</li>
+            <li><b>Istoricul conversațiilor AI</b> — se salvează local pe acest dispozitiv, fără sincronizare în cloud. Poți șterge conversațiile din panoul AI; ștergerea datelor aplicației elimină și istoricul local.</li>
         </ul>
 
         <p>Dacă activezi „Urmărește locația mea”, localitatea este verificată la deschiderea și revenirea în aplicație, precum și periodic cât timp o folosești. Identificarea localității utilizează BigDataCloud. Cu notificările activate, ultima localitate GPS confirmată este sincronizată pentru alerte; consultarea altui oraș nu schimbă această alegere. Cu aplicația închisă, alertele folosesc ultima locație sincronizată, fără urmărire GPS în fundal.</p>
@@ -146,8 +147,9 @@
             the key stays on the device, so the server cannot read city names or coordinates.</li>
             <li><b>Notifications</b> — if enabled, your device creates a technical delivery endpoint and subscription keys. We store them in Firebase together with the selected locality. They do not contain your name or e-mail. Turning notifications off requests subscription deletion; after uninstalling, it is removed when the delivery service reports it as expired.</li>
             <li><b>Questions to the AI assistant</b> — sent for processing to Anthropic (Claude) together
-            with the weather currently displayed. They are not linked to your identity and are not used
+            with recent relevant messages from the conversation and the weather currently displayed. They are not linked to your identity and are not used
             for anything else.</li>
+            <li><b>AI conversation history</b> — saved locally on this device, without cloud synchronisation. You can delete conversations in the AI panel; clearing app data also removes the local history.</li>
         </ul>
 
         <p>If you enable “Follow my location”, the locality is checked when you open or return to the app and periodically while you use it. BigDataCloud identifies the locality. With notifications enabled, the last confirmed GPS locality is synced for alerts; browsing another city does not change this preference. When the app is closed, alerts use the last synced location without background GPS tracking.</p>

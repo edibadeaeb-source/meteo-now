@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.9">
+    <meta name="application-version" content="2026.10.07.10">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -120,6 +120,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="ai-conversations.js?v=1" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
@@ -3396,10 +3397,11 @@ document.querySelectorAll('.export-btn').forEach(function(btn) {
 });
 
 // ═══════════════════════════════════
-//  CHATBOT — Gemini + context live
+//  CHATBOT — Claude + fresh weather context and local conversations
 // ═══════════════════════════════════
 window.addEventListener('DOMContentLoaded', function() {
-var chatHistory = []; // istoricul conversatiei pentru context
+var conversations = window.MeteoConversations;
+var pendingChats = Object.create(null), drafts = Object.create(null), deleteId = null;
 var chatFab = document.getElementById('chatFab');
 var chatWindow = document.getElementById('chatWindow');
 var chatClose = document.getElementById('chatClose');
@@ -3408,22 +3410,118 @@ var chatSend = document.getElementById('chatSend');
 var chatMessages = document.getElementById('chatMessages');
 var chatSuggestions = document.getElementById('chatSuggestions');
 
-chatFab.addEventListener('click', function() {
-    chatWindow.classList.toggle('open');
-    chatFab.classList.remove('has-notification');
-    // Focus pe input doar pe desktop, pe mobil ar deschide tastatura
-    if (chatWindow.classList.contains('open') && window.innerWidth > 600) {
-        chatInput.focus();
+var chatMain = document.getElementById('chatMain'), chatHome = document.getElementById('chatHome');
+var chatArchive = document.getElementById('chatArchive'), chatBackdrop = document.getElementById('chatBackdrop');
+var chatTalkTab = document.getElementById('chatTalkTab'), chatHistoryTab = document.getElementById('chatHistoryTab');
+var chatNew = document.getElementById('chatNew'), chatMode = 'home';
+var backgroundState = [], wasOpen = false, restoreFocus = null;
+function enChat(){return typeof LANG!=='undefined' && LANG==='en';}
+function activeId(){var c=conversations.active();return c?c.id:null;}
+function buttonState(){chatSend.disabled=!chatInput.value.trim()||!!pendingChats[activeId()];}
+function storageNote(){
+    var note=document.getElementById('chatStorageNote');note.hidden=conversations.saved();
+    note.textContent=enChat()?'Your device cannot save conversations right now. You can continue chatting, but the history may not survive a restart.':'Dispozitivul nu poate salva conversațiile acum. Poți continua discuția, dar istoricul poate dispărea la repornire.';
+}
+function setMode(mode){
+    chatMode=mode;chatWindow.dataset.mode=mode;
+    chatMain.hidden=mode==='history';chatArchive.hidden=mode!=='history';
+    chatHome.hidden=mode!=='home';chatMessages.hidden=mode!=='chat';
+    chatSuggestions.hidden=mode!=='home';chatWindow.querySelector('.chat-input-area').hidden=mode==='history';
+    chatTalkTab.setAttribute('aria-selected',String(mode!=='history'));
+    chatHistoryTab.setAttribute('aria-selected',String(mode==='history'));
+    chatTalkTab.tabIndex=mode==='history'?-1:0;chatHistoryTab.tabIndex=mode==='history'?0:-1;
+}
+function renderHistory(){
+    chatArchive.replaceChildren();
+    var note=document.createElement('p');note.className='ai-history-note';
+    note.textContent=enChat()?'Saved on this device. Continue a conversation or start a new one.':'Salvate pe acest dispozitiv. Reia o conversație sau începe una nouă.';chatArchive.appendChild(note);
+    var list=conversations.list();
+    if(!list.length){var empty=document.createElement('p');empty.className='ai-history-note';empty.textContent=enChat()?'Your conversations will appear here after your first question.':'Conversațiile tale vor apărea aici după prima întrebare.';chatArchive.appendChild(empty);}
+    list.forEach(function(c){
+        var row=document.createElement('div');row.className='ai-history-row';row.dataset.id=c.id;
+        if(deleteId===c.id){
+            var question=document.createElement('span');question.className='ai-delete-question';question.textContent=enChat()?'Delete this conversation?':'Ștergi această conversație?';row.appendChild(question);
+            var actions=document.createElement('div');actions.className='ai-delete-controls';
+            [['cancel',enChat()?'Cancel':'Anulează'],['confirm',enChat()?'Delete':'Șterge']].forEach(function(p){var b=document.createElement('button');b.dataset.action=p[0];b.textContent=p[1];actions.appendChild(b);});row.appendChild(actions);
+        }else{
+            var open=document.createElement('button');open.className='ai-history-open';open.dataset.action='open';
+            var title=document.createElement('span');title.className='ai-history-title';title.textContent=c.title;
+            var meta=document.createElement('span');meta.className='ai-history-meta';meta.textContent=[c.city,new Date(c.updated).toLocaleDateString(enChat()?'en-GB':'ro-RO',{day:'numeric',month:'short'})].filter(Boolean).join(' · ');
+            open.append(title,meta);row.appendChild(open);
+            var remove=document.createElement('button');remove.className='ai-icon-button';remove.dataset.action='delete';remove.setAttribute('aria-label',(enChat()?'Delete conversation: ':'Șterge conversația: ')+c.title);
+            remove.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5"/></svg>';row.appendChild(remove);
+        }
+        chatArchive.appendChild(row);
+    });
+}
+function updateLabels(){
+    var en=enChat();chatTalkTab.textContent=en?'Ask AI':'Întreabă AI-ul';chatHistoryTab.textContent=en?'Conversations':'Conversații';
+    chatNew.setAttribute('aria-label',en?'New conversation':'Conversație nouă');chatClose.setAttribute('aria-label',en?'Close':'Închide');
+    chatFab.setAttribute('aria-label',en?'Open weather assistant':'Deschide asistentul meteo');
+    document.getElementById('chatHomeTitle').textContent=en?'What would you like to know?':'Ce vrei să afli despre vreme?';
+    chatInput.placeholder=en?'Ask about the weather, rain or your plans…':'Întreabă-mă despre vreme, ploaie sau planurile tale…';
+    chatInput.setAttribute('aria-label',en?'Your question':'Întrebarea ta');chatSend.setAttribute('aria-label',en?'Send question':'Trimite întrebarea');
+    document.getElementById('chatContextLabel').textContent=(en?'Weather in ':'Vremea din ')+(LOC.nume||'METEO NOW');
+    if(chatMode==='history')renderHistory();storageNote();
+}
+function renderConversation(){
+    var c=conversations.active();chatMessages.replaceChildren();
+    if(c){
+        if(c.truncated)addMessage(enChat()?'Showing the most recent messages in this conversation.':'Se afișează cele mai recente mesaje din această conversație.',false);
+        c.messages.forEach(function(m){var msg=addMessage(m.text,m.role==='user');if(m.role==='error')msg.classList.add('error');
+            if(m.city&&m.city!==LOC.nume){var label=document.createElement('span');label.className='ai-message-city';label.textContent=m.city;msg.prepend(label);}
+        });
+        if(pendingChats[c.id])addMessage(enChat()?'Checking the weather':'Verific vremea',false).classList.add('typing');
     }
+    setMode(c&&c.messages.length?'chat':'home');buttonState();
+    if(typeof actualizeazaChat==='function')actualizeazaChat();updateLabels();
+    chatMain.scrollTop=chatMode==='home'?0:chatMain.scrollHeight;
+}
+function viewportChat(){if(!chatWindow.classList.contains('open'))return;var vv=window.visualViewport;chatWindow.style.setProperty('--ai-viewport-height',(vv?vv.height:window.innerHeight)+'px');chatWindow.style.setProperty('--ai-viewport-top',(vv?vv.offsetTop:0)+'px');chatWindow.dataset.keyboard=String(!!vv&&vv.height<window.innerHeight-150);}
+function syncOpen(){
+    var open=chatWindow.classList.contains('open');if(open===wasOpen)return;wasOpen=open;
+    chatWindow.setAttribute('aria-hidden',String(!open));chatFab.setAttribute('aria-expanded',String(open));chatBackdrop.hidden=!open;document.body.classList.toggle('ai-is-open',open);
+    if(open){
+        restoreFocus=document.activeElement;chatFab.classList.remove('has-notification');
+        Array.prototype.forEach.call(document.body.children,function(el){if(el===chatWindow||el===chatBackdrop||['SCRIPT','STYLE','LINK'].indexOf(el.tagName)>=0)return;backgroundState.push({el:el,inert:el.hasAttribute('inert')});el.setAttribute('inert','');});
+        viewportChat();renderConversation();
+        if(window.innerWidth>900)chatInput.focus({preventScroll:true});else chatClose.focus({preventScroll:true});
+    }else{
+        backgroundState.forEach(function(s){if(s.el.isConnected&&!s.inert)s.el.removeAttribute('inert');});backgroundState=[];
+        if(restoreFocus&&restoreFocus.isConnected&&!restoreFocus.closest('[inert]'))restoreFocus.focus({preventScroll:true});
+    }
+}
+chatFab.addEventListener('click',function(){chatWindow.classList.toggle('open');syncOpen();});
+function closeChat(){chatWindow.classList.remove('open');syncOpen();}
+chatClose.addEventListener('click',closeChat);chatBackdrop.addEventListener('click',closeChat);
+new MutationObserver(syncOpen).observe(chatWindow,{attributes:true,attributeFilter:['class']});
+if(window.visualViewport){window.visualViewport.addEventListener('resize',viewportChat);window.visualViewport.addEventListener('scroll',viewportChat);}window.addEventListener('resize',viewportChat);
+chatWindow.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){e.preventDefault();closeChat();return;}
+    if(e.key==='Tab'){var all=Array.prototype.filter.call(chatWindow.querySelectorAll('button:not(:disabled), textarea, [tabindex="0"]'),function(el){return el.tabIndex>=0&&el.getClientRects().length;});var first=all[0],last=all[all.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
 });
-chatClose.addEventListener('click', function() { chatWindow.classList.remove('open'); });
+function keepDraft(){drafts[activeId()||'new']=chatInput.value;}
+function restoreDraft(){chatInput.value=drafts[activeId()||'new']||'';chatInput.style.height='';buttonState();}
+chatNew.addEventListener('click',function(){keepDraft();conversations.blank();deleteId=null;restoreDraft();renderConversation();});
+chatTalkTab.addEventListener('click',renderConversation);
+chatHistoryTab.addEventListener('click',function(){keepDraft();setMode('history');renderHistory();});
+[chatTalkTab,chatHistoryTab].forEach(function(tab){tab.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();var other=tab===chatTalkTab?chatHistoryTab:chatTalkTab;other.click();other.focus();}});});
+chatArchive.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-action]'),row=b&&b.closest('[data-id]');if(!row)return;var cid=row.dataset.id;
+    if(b.dataset.action==='open'){keepDraft();conversations.select(cid);deleteId=null;restoreDraft();renderConversation();}
+    else if(b.dataset.action==='delete'){deleteId=cid;renderHistory();var confirm=chatArchive.querySelector('[data-action="confirm"]');if(confirm)confirm.focus();}
+    else if(b.dataset.action==='cancel'){deleteId=null;renderHistory();}
+    else if(b.dataset.action==='confirm'){if(pendingChats[cid])pendingChats[cid].controller.abort();conversations.remove(cid);deleteId=null;renderHistory();storageNote();}
+});
+window.MeteoChat={hasMessages:function(){var c=conversations.active();return !!(c&&c.messages.length);},updateLabels:updateLabels};
+renderConversation();
 
 function addMessage(text, isUser) {
     var div = document.createElement('div');
     div.className = 'chat-msg ' + (isUser ? 'user' : 'bot');
     div.textContent = text;
     chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    chatMain.scrollTop = chatMain.scrollHeight;
     return div;
 }
 
@@ -3582,16 +3680,17 @@ function getAppWeatherSnapshot() {
 }
 
 function sendChatMessage(text) {
-    if (!text || !text.trim()) return;
-    addMessage(text, true);
-    chatHistory.push({ role: 'user', text: text });
-    chatInput.value = '';
-    chatSend.disabled = true;
-    chatSuggestions.style.display = 'none';
-
-    var typing = addMessage(LANG === 'en' ? 'Thinking' : 'Mă gândesc', false);
-    typing.classList.add('typing');
-
+    text=String(text||'').trim().slice(0,2000);
+    if (!text || pendingChats[activeId()]) return;
+    var c=conversations.active()||conversations.start(LOC), cid=c.id;
+    var history=conversations.context(cid);
+    var requestLoc={nume:LOC.nume,tara:LOC.tara,admin:LOC.admin,lat:LOC.lat,lon:LOC.lon,tz:LOC.tz||'',
+        areStatiiProprii:typeof esteTargoviste==='function'?esteTargoviste():false,
+        inRomania:typeof esteRomania==='function'?esteRomania():false};
+    var controller=new AbortController(), timer=setTimeout(function(){controller.abort();},65000);
+    pendingChats[cid]={controller:controller};
+    conversations.append(cid,'user',text,requestLoc);
+    chatInput.value='';chatInput.style.height='';drafts[cid]='';drafts.new='';renderConversation();
     var context = getCurrentSensorContext();
 
     // Snapshot coerent cu orașul și valorile afișate acum în aplicație.
@@ -3599,46 +3698,37 @@ function sendChatMessage(text) {
 
     fetch('/ask', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             question: text,
             context: context,
-            history: chatHistory.slice(0, -1), // tot in afara de mesajul curent
+            history: history,
             lang: LANG,
-            locatie: {
-                nume: LOC.nume, tara: LOC.tara, admin: LOC.admin,
-                lat: LOC.lat, lon: LOC.lon, tz: LOC.tz || '',
-                areStatiiProprii: (typeof esteTargoviste === 'function') ? esteTargoviste() : false,
-                inRomania: (typeof esteRomania === 'function') ? esteRomania() : false
-            },
+            locatie: requestLoc,
             vremea: vremeaAcum
         })
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) { if(!r.ok)throw new Error('AI unavailable');return r.json(); })
     .then(function(data) {
-        chatMessages.removeChild(typing);
-        if (data.answer) {
-            addMessage(data.answer, false);
-            chatHistory.push({ role: 'model', text: data.answer });
-            // Pastram doar ultimele 20 schimburi ca sa nu crapam contextul
-            if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
-        } else {
-            addMessage('⚠️ Nu am putut obține un răspuns. ' + (data.error || ''), false);
-        }
-        chatSend.disabled = false;
-        if (window.innerWidth > 600) chatInput.focus();
+        if(typeof data.answer!=='string'||!data.answer.trim())throw new Error('Empty answer');
+        conversations.append(cid,'model',data.answer,requestLoc);
     })
     .catch(function(err) {
-        chatMessages.removeChild(typing);
-        addMessage('❌ Eroare conectare la server: ' + err.message, false);
-        chatSend.disabled = false;
+        conversations.append(cid,'error',enChat()?'I could not answer right now. Please try again.':'Nu am putut răspunde acum. Te rog să încerci din nou.',requestLoc);
+    }).finally(function(){
+        clearTimeout(timer);delete pendingChats[cid];
+        if(activeId()===cid){renderConversation();if(chatWindow.classList.contains('open')&&window.innerWidth>900)chatInput.focus();}
+        else if(chatMode==='history')renderHistory();
+        storageNote();
     });
 }
 
 chatSend.addEventListener('click', function() { sendChatMessage(chatInput.value); });
-chatInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') sendChatMessage(chatInput.value); });
+chatInput.addEventListener('keydown', function(e) { if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();sendChatMessage(chatInput.value);} });
+chatInput.addEventListener('input',function(){chatInput.style.height='auto';chatInput.style.height=Math.min(140,Math.max(chatMode==='home'?88:64,chatInput.scrollHeight))+'px';buttonState();});
 chatInput.addEventListener('focus', function() {
-    setTimeout(function() { chatMessages.scrollTop = chatMessages.scrollHeight; }, 300);
+    setTimeout(function() { chatMain.scrollTop = chatMain.scrollHeight; }, 300);
 });
 
 /* Click pe sugestii — UN SINGUR ascultător, pe container.
@@ -3668,25 +3758,40 @@ setInterval(function() {
 </script>
 
     <!-- ═══ CHATBOT WIDGET ═══ -->
-    <button class="chat-fab" id="chatFab" title="Chat AI">🤖</button>
-    <div class="chat-window" id="chatWindow">
+    <button class="chat-fab" id="chatFab" title="Chat AI" aria-controls="chatWindow" aria-expanded="false">🤖</button>
+    <div id="chatBackdrop" hidden aria-hidden="true"></div>
+    <div class="chat-window" id="chatWindow" role="dialog" aria-modal="true" aria-labelledby="aiDialogTitle" aria-hidden="true" data-mode="home">
         <div class="chat-header">
             <div>
-                <div class="chat-header-title">🤖 <span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
+                <div class="chat-header-title" id="aiDialogTitle"><span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
                 <div class="chat-header-sub" id="chatSub">METEO NOW</div>
             </div>
-            <button class="chat-close" id="chatClose" aria-label="Închide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="chat-messages" id="chatMessages">
-            <div class="chat-msg bot" id="chatSalut">
-                Salut! 👋 Sunt asistentul METEO NOW. Te pot ajuta cu vremea, prognozele și avertizările pentru orașul selectat. Ce vrei să afli?
+            <div class="ai-header-actions">
+                <button class="ai-icon-button" id="chatNew" aria-label="Conversație nouă"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 3l5 5M9 15l1-5 8-8 5 5-8 8-6 1z"/></svg></button>
+                <button class="chat-close ai-icon-button" id="chatClose" aria-label="Închide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
             </div>
         </div>
+        <div class="ai-tabs" role="tablist" aria-label="Asistent AI">
+            <button class="ai-tab" id="chatTalkTab" role="tab" aria-selected="true" aria-controls="chatMain">Întreabă AI-ul</button>
+            <button class="ai-tab" id="chatHistoryTab" role="tab" aria-selected="false" aria-controls="chatArchive">Conversații</button>
+        </div>
+        <div class="ai-main" id="chatMain" role="tabpanel" aria-labelledby="chatTalkTab">
+            <div class="ai-home" id="chatHome">
+                <svg class="ai-weather-mark" viewBox="0 0 120 106" fill="none" aria-hidden="true"><defs><linearGradient id="aiSkyGlow" x1="13" y1="10" x2="109" y2="98" gradientUnits="userSpaceOnUse"><stop stop-color="#dcb7ff"/><stop offset=".5" stop-color="#b7b3ff"/><stop offset="1" stop-color="#96e4ff"/></linearGradient></defs><circle cx="69" cy="35" r="21" stroke="url(#aiSkyGlow)" stroke-width="6"/><path d="M69 5v-3M97 17l4-3M103 39h5M43 15l-4-4" stroke="url(#aiSkyGlow)" stroke-width="5" stroke-linecap="round"/><path d="M24 83h64a19 19 0 0 0 0-38 27 27 0 0 0-51-5 22 22 0 0 0-13 43z" fill="url(#aiSkyGlow)" fill-opacity=".19" stroke="url(#aiSkyGlow)" stroke-width="4"/><path d="M41 94h38" stroke="url(#aiSkyGlow)" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/></svg>
+                <h2 id="chatHomeTitle">Ce vrei să afli despre vreme?</h2>
+                <p id="chatSalut">Vremea din orașul tău, explicată simplu.</p>
+            </div>
+            <div class="chat-messages" id="chatMessages" role="log" aria-live="polite" aria-relevant="additions text" hidden></div>
+        </div>
+        <div class="ai-main ai-history" id="chatArchive" role="tabpanel" aria-labelledby="chatHistoryTab" hidden></div>
         <div class="chat-suggestions" id="chatSuggestions"></div>
         <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chatInput" placeholder="Întreabă-mă orice..." data-i18n-ph="intreaba" autocomplete="off">
-            <button class="chat-send" id="chatSend">➤</button>
+            <div class="ai-composer"><div class="ai-composer-inner">
+                <textarea class="chat-input" id="chatInput" rows="2" maxlength="2000" placeholder="Întreabă-mă despre vreme, ploaie sau planurile tale…" aria-label="Întrebarea ta" autocomplete="off" enterkeyhint="send"></textarea>
+                <div class="ai-composer-footer"><span class="ai-composer-context" id="chatContextLabel">Datele meteo din aplicație</span><button class="chat-send" id="chatSend" aria-label="Trimite întrebarea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div>
+            </div></div>
         </div>
+        <p class="ai-storage-note" id="chatStorageNote" role="status" hidden></p>
     </div>
 
 <script>
@@ -7070,10 +7175,8 @@ function actualizeazaChat() {
 
     var salut = document.getElementById('chatSalut');
     if (salut) salut.textContent = en
-        ? 'Hi! 👋 I am the METEO NOW assistant. I can help with the weather, forecasts and warnings for ' +
-          (oras || 'your selected city') + '. What would you like to know?'
-        : 'Salut! 👋 Sunt asistentul METEO NOW. Te pot ajuta cu vremea, prognozele și avertizările pentru ' +
-          (oras || 'orașul selectat') + '. Ce vrei să afli?';
+        ? 'The weather in ' + (oras || 'your selected city') + ', explained simply.'
+        : 'Vremea din ' + (oras || 'orașul selectat') + ', explicată simplu.';
 
     var box = document.getElementById('chatSuggestions');
     if (!box) return;
@@ -7104,7 +7207,8 @@ function actualizeazaChat() {
         box.appendChild(b);
     });
     // dacă n-ai început încă discuția, sugestiile trebuie să fie vizibile
-    if (!chatHistory.length) box.style.display = '';
+    box.style.display=window.MeteoChat&&MeteoChat.hasMessages()?'none':'';
+    if(window.MeteoChat)MeteoChat.updateLabels();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -8470,6 +8574,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=12">
+<link rel="stylesheet" href="weather-ai.css?v=1">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>

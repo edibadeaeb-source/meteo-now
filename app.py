@@ -31,6 +31,7 @@ def _load_key(env_name, keys_attr):
         return ""
 
 ANTHROPIC_API_KEY   = _load_key("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
 import tempfile as _weather_tempfile
@@ -1922,7 +1923,7 @@ CUNOSTINTE UTILE:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  CHATBOT CLAUDE SONNET 4.6
+#  CHATBOT CLAUDE SONNET 5.5
 # ═══════════════════════════════════════════════════════════════
 @app.route('/ask', methods=['POST'])
 def ask():
@@ -2006,8 +2007,11 @@ def ask():
         "content-type": "application/json"
     }
     data = {
-        "model": "claude-sonnet-4-6",
+        "model": ANTHROPIC_MODEL,
         "max_tokens": 2000,
+        # Weather chat needs a direct answer; do not spend its short output
+        # budget on the new model's default up-front adaptive thinking.
+        "thinking": {"type": "between_tools"},
         "system": full_system,
         "messages": messages
     }
@@ -2017,16 +2021,19 @@ def ask():
         response.raise_for_status()
         result = response.json()
         
-        if 'content' not in result or len(result['content']) == 0:
-            print(f"⚠️ Raspuns gol: {result}")
-            return jsonify({'error': 'Raspuns gol de la Claude'}), 500
-        
-        answer = result['content'][0]['text']
+        # New models can return non-text blocks before or between text blocks.
+        # Thinking/signatures are never sent to the app as an answer.
+        answer = '\n'.join(block['text'] for block in result.get('content', [])
+            if isinstance(block, dict) and block.get('type', 'text') == 'text'
+            and isinstance(block.get('text'), str) and block['text'].strip()).strip()
+        if not answer:
+            print("⚠️ Claude returned no usable text")
+            return jsonify({'error': 'Raspuns gol de la Claude'}), 502
         stop_reason = result.get('stop_reason', 'unknown')
         usage = result.get('usage', {})
         print(f"✅ Claude OK ({len(answer)} chars, stop={stop_reason}, tokens in={usage.get('input_tokens',0)} out={usage.get('output_tokens',0)})")
         
-        return jsonify({'answer': answer})
+        return jsonify({'answer': answer, 'model': result.get('model', ANTHROPIC_MODEL)})
     except requests.exceptions.Timeout:
         return jsonify({'error': 'Timeout'}), 504
     except requests.exceptions.HTTPError as e:

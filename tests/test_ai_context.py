@@ -55,6 +55,42 @@ class WeatherPromptTests(unittest.TestCase):
         self.assertIn("America/New_York", sent)
         self.assertNotIn("ora Romaniei).", sent)
 
+    @patch.object(meteo.requests, "post")
+    def test_sonnet_55_reads_text_blocks_and_keeps_short_chat_budget(self, post):
+        post.return_value.raise_for_status.return_value = None
+        post.return_value.json.return_value = {
+            'model': 'claude-sonnet-5-5', 'stop_reason': 'end_turn',
+            'content': [{'type':'thinking','thinking':'','signature':'private'},
+                        {'type':'text','text':'Acum sunt 12°C.'},
+                        {'type':'text','text':'Maxima zilei este separată.'}]}
+        r=meteo.app.test_client().post('/ask',json={
+            'question':'Câte grade sunt acum?', 'history':[
+                {'role':'user','text':'Am întrebat de maximă.'},
+                {'role':'model','text':'Mai devreme discutam despre maximă.'}],
+            'locatie':{'nume':'New York City','lat':40.7128,'lon':-74.006,
+                       'tz':'America/New_York'}, 'vremea':snapshot()})
+        self.assertEqual(r.status_code,200)
+        self.assertEqual(r.get_json()['model'],'claude-sonnet-5-5')
+        self.assertEqual(r.get_json()['answer'],'Acum sunt 12°C.\nMaxima zilei este separată.')
+        sent=post.call_args.kwargs['json']
+        self.assertEqual(sent['model'],'claude-sonnet-5-5')
+        self.assertEqual(sent['thinking'],{'type':'between_tools'})
+        self.assertEqual(sent['max_tokens'],2000)
+        self.assertEqual(sent['messages'][-1]['role'],'user')
+        self.assertEqual(len(sent['messages']),3)
+        for parameter in ('temperature','top_p','top_k','tool_choice'):
+            self.assertNotIn(parameter,sent)
+
+    @patch.object(meteo.requests, 'post')
+    def test_non_text_response_is_not_exposed_as_answer(self, post):
+        post.return_value.raise_for_status.return_value=None
+        post.return_value.json.return_value={
+            'content':[{'type':'thinking','thinking':'','signature':'private'}]}
+        r=meteo.app.test_client().post('/ask',json={'question':'Salut'})
+        self.assertEqual(r.status_code,502)
+        self.assertNotIn('answer',r.get_json())
+        self.assertNotIn('private',r.get_data(as_text=True))
+
 
 
 class WidgetApiTests(unittest.TestCase):
