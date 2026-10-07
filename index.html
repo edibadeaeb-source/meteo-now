@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.8">
+    <meta name="application-version" content="2026.10.07.9">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -8560,7 +8560,7 @@ input, textarea, select, [contenteditable="true"] {
 
 <script src="weather-geography.js?v=1"></script>
 <script src="weather-library.js?v=6"></script>
-<script src="weather-data-cache.js?v=2"></script>
+<script src="weather-data-cache.js?v=3"></script>
 <script src="weather-romania.js?v=3"></script>
 <script src="weather-motion.js?v=5"></script>
 <script src="weather-atmosphere.js?v=8"></script>
@@ -8882,6 +8882,19 @@ function mobAnmSecundar() {
         }).catch(function(e) { _mobAnmLa = 0; console.error('judete:', e); });
     } catch (e) { _mobAnmLa = 0; console.error('ANM mobil:', e); }
 }
+function mobCompleteazaPloaie(loc, d) {
+    if (!window.MeteoForecastCache || !MeteoForecastCache.enrich) return;
+    MeteoForecastCache.enrich(loc,d).then(function(changed) {
+        if (!changed || MOBD!==d || mobCheieLoc(loc)!==mobCheieLoc(LOC)) return;
+        // Refresh just the forecast cards; keep maps, background and scroll intact.
+        var old=document.getElementById('mbCardOre');
+        var left=old && old.querySelector('.mb-ore') ? old.querySelector('.mb-ore').scrollLeft : 0;
+        if(old){old.outerHTML=mobCardOre();var track=document.querySelector('#mbCardOre .mb-ore');if(track)track.scrollLeft=left;}
+        var days=document.getElementById('mbCardZile');
+        if(days)days.outerHTML=mobCardZile();
+        mobLeaga(true);
+    });
+}
 function mobIncarca() {
     if (!esteMobil()) return Promise.resolve(null);
     var locCeruta = {
@@ -8898,6 +8911,7 @@ function mobIncarca() {
         _ultimaRandare = 0;
         mobAntet();
         mobRandare();
+        mobCompleteazaPloaie(locCeruta,dinCache);
         hideSplash();
         try { analizeazaZiua(); } catch (e) {}
         mobPrefetchVecini();
@@ -8913,6 +8927,7 @@ function mobIncarca() {
             MOBD=d; _mobDateCheie=cheie;
             if (d.timezone) LOC.tz=d.timezone;
             _ultimaRandare=0; mobAntet(); mobRandare(); hideSplash();
+            mobCompleteazaPloaie(locCeruta,d);
             try { analizeazaZiua(); } catch(e) {}
             mobPrefetchVecini(); mobAnmSecundar();
         }
@@ -8925,6 +8940,7 @@ function mobIncarca() {
         _ultimaRandare = 0;
         mobAntet();
         mobRandare();
+        mobCompleteazaPloaie(locCeruta,d);
         hideSplash();
         try { analizeazaZiua(); } catch (e) {}
         mobPrefetchVecini();
@@ -9171,6 +9187,8 @@ function mobCardOre() {
     for (var i = 0; i < o.time.length; i++) { if (mobDinIso(o.time[i]) >= acum) { start = Math.max(0, i - 1); break; } }
     var titluri = { temp: T('conditiiMeteo'), precip: T('precipitatii'), vant: T('vant') };
     var subt = { temp: T('temperatura') + ' (°' + UNIT + ')', precip: T('sanseDePloaie'), vant: T('viteza') + ' (km/h)' };
+    var rainSources=MOBD.weather_sources && MOBD.weather_sources.precipitation_probability;
+    if(rainSources && (rainSources.hourly||[]).indexOf('OpenWeather')>=0) subt.precip += LANG==='en'?' · 3-hour forecast intervals':' · intervale de prognoză de 3 ore';
 
     var h = '<div class="mb-cap"><span>' + titluri[_mobOraMod] + '</span>' +
         '<div class="mb-seg" id="mbSeg">' +
@@ -9248,7 +9266,7 @@ function mobCardZile() {
              '</div>';
     }
     if (MOBD.weather_sources && (MOBD.weather_sources.partial_days||[]).indexOf(zi.time[0])>=0) h+='<div class="mb-nota">'+(LANG==='en'?'Today’s min/max cover the available forecast hours.':'Min/max astăzi sunt pentru orele disponibile în prognoză.')+'</div>';
-    return '<div class="mb-card">' + h + '</div>';
+    return '<div class="mb-card" id="mbCardZile">' + h + '</div>';
 }
 
 /* ══ AVERTIZĂRILE ANM — prioritatea ta numărul unu ══ */
@@ -10159,7 +10177,7 @@ function mobCardHartaANM() {
         '<div class="mb-sursa-harta">© OpenStreetMap · ANM</div></div>';
 }
 
-function mobLeaga() {
+function mobLeaga(doarOre) {
     // comutatorul benzii pe ore
     var seg = document.getElementById('mbSeg');
     if (seg) {
@@ -10172,11 +10190,12 @@ function mobLeaga() {
                     var tmp = document.createElement('div');
                     tmp.innerHTML = mobCardOre();
                     vechi.replaceWith(tmp.firstElementChild);
-                    mobLeaga();
+                    mobLeaga(true);
                 }
             });
         });
     }
+    if (doarOre) return;
     // cardurile care deschid foaia
     Array.prototype.forEach.call(document.querySelectorAll('#mbContinut [data-foaie]'), function(el) {
         el.addEventListener('click', function() { mobDeschideFoaie(el.getAttribute('data-foaie')); });

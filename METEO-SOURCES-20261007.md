@@ -1,4 +1,4 @@
-# METEO NOW — 2026.10.07.6
+# METEO NOW — 2026.10.07.9
 
 ## Surse gratuite și comparație
 
@@ -145,3 +145,32 @@ capacitate separat înainte de a face o astfel de promisiune.
 
 Documentație suplimentară: https://openweathermap.org/forecast5,
 https://astral.readthedocs.io/en/latest/, https://github.com/ringsaturn/tzfpy.
+
+
+## Probabilitățile de precipitații — versiunea 9
+
+Cauză confirmată în producție: rezerva MET pentru Moreni, Sinaia și New York
+avea prognoza completă, dar zero probabilități comunicate. „—” era un câmp
+necunoscut, nu o probabilitate de 0%.
+
+- Serviciul completează doar probabilitățile lipsă din OpenWeather 5 day forecast.
+  Se folosește XML pentru limitele explicite UTC `from`/`to`. Procentele sunt
+  păstrate constante în intervalul nativ (de regulă 3 ore), fără interpolare.
+  Nu se extrapolează înainte sau după acoperire; `0` este o valoare validă.
+- Cache-ul optional, separat pe coordonate, durează 10 minute și este partajat
+  între workers. Răspunsurile 401/403/429 activează o pauză globală; erorile
+  opționale nu elimină prognoza completă. Cheia rămâne exclusiv pe server.
+- Dacă în următoarele 25 ore încă lipsesc procente, clientul cere în fundal numai
+  probabilitățile orare Open-Meteo pentru 10 zile, în UTC/Unix time. Asta nu
+  întârzie afișarea temperaturii. Cache separat per oraș, o singură cerere în curs,
+  identificarea prognozei și a orașului înainte de aplicarea rezultatului.
+- O prognoză mai nouă nu este modificată de un răspuns întârziat. Temperatura,
+  vremea, fundalul, hărțile și prospețimea cache-ului nu sunt schimbate de completare.
+  Doar cardurile pe ore/zile se actualizează și banda pe ore își păstrează scrollul.
+- Datele originale cunoscute sunt păstrate. Maximele zilnice sunt maximul
+  probabilităților pentru intervalele acoperite, nu probabilitatea calculată
+  prin adunare. Proveniența specifică este inclusă în `weather_sources` și credite.
+- Verificări: 48 teste Python, completare/cache/DST/0%/erori în JavaScript,
+  integrarea cardului real în browser mobil și regresiile notificărilor.
+
+Documentație: https://openweathermap.org/api/forecast5 și https://open-meteo.com/en/docs

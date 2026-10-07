@@ -89,6 +89,9 @@ class WeatherService:
         self.key, self.get, self.clock = key, get, clock
         self.cache, self.met_cache = OrderedDict(), OrderedDict()
         self.current_cache = OrderedDict()
+        self.probability_cache = OrderedDict()
+        self.probability_slots = [threading.Lock() for _ in range(32)]
+        self.probability_backoff = 0
         self.lock = threading.RLock()
         self.slots = [threading.Lock() for _ in range(32)]
         self.met_slots = [threading.Lock() for _ in range(32)]
@@ -156,6 +159,64 @@ class WeatherService:
                 'lat': lat, 'lon': lon, 'appid': self.key, 'units': 'metric'})
             self._store(self.current_cache, key, (self.clock(), data))
             return data
+
+    def _probabilities(self, lat, lon):
+        # Optional feed: cache successes and failures across both production workers.
+        if not self.key:
+            return []
+        key = (lat, lon)
+        with self.probability_slots[hash(key) % len(self.probability_slots)]:
+            with self._disk_lock(lat, lon, 'probabilities') as file:
+                cached = self.probability_cache.get(key)
+                if file and file.exists():
+                    try:
+                        cached = json.loads(file.read_text(encoding='utf8'))
+                    except (ValueError, OSError):
+                        pass
+                if isinstance(cached, dict) and self.clock() < cached.get('expires', 0):
+                    return cached.get('rows', [])
+                if self.cache_dir:
+                    try:
+                        self.probability_backoff = max(self.probability_backoff, float((self.cache_dir/'probability-backoff').read_text()))
+                    except (OSError, ValueError):
+                        pass
+                if self.clock() < self.probability_backoff:
+                    return []
+                rows, lifetime = [], 60
+                try:
+                    from weather_probability import intervals
+                    r = (self.get or requests.get)('https://api.openweathermap.org/data/2.5/forecast',
+                        params={'lat':lat,'lon':lon,'appid':self.key,'mode':'xml'},
+                        timeout=5, headers={'User-Agent':UA})
+                    r.raise_for_status()
+                    rows = intervals(r.content)
+                    lifetime = 600 if rows else 60
+                except Exception as error:
+                    response = getattr(error, 'response', None)
+                    if response is not None and response.status_code in (401, 403, 429):
+                        try:
+                            delay = max(60, float(response.headers.get('Retry-After', 600)))
+                        except ValueError:
+                            delay = 600
+                        self.probability_backoff = self.clock()+delay
+                        if self.cache_dir:
+                            try: (self.cache_dir/'probability-backoff').write_text(str(self.probability_backoff))
+                            except OSError: pass
+                    # Never log request URLs containing the private API key.
+                    logging.getLogger(__name__).warning('Optional rain probability unavailable (%s)', type(error).__name__)
+                cached = {'rows':rows,'expires':self.clock()+lifetime}
+                self._store(self.probability_cache, key, cached)
+                if file:
+                    try:
+                        tmp = file.with_suffix('.tmp')
+                        tmp.write_text(json.dumps(cached), encoding='utf8')
+                        os.replace(tmp, file)
+                        files = sorted(file.parent.glob('*.json'), key=lambda p:p.stat().st_mtime)
+                        for expired in files[:-256]:
+                            if expired != file: expired.unlink()
+                    except OSError:
+                        pass
+                return rows
 
     def current_summary(self, lat, lon):
         """Temperature bubbles do not download ten days of three forecasts."""
@@ -347,6 +408,10 @@ class WeatherService:
                     elif base is None:
                         raise RuntimeError('Datele meteo nu sunt disponibile momentan')
                 data = normalise(base, results.get('met'), results.get('current'), self.clock())
+                if any(v is None for v in data['hourly'].get('precipitation_probability', [])):
+                    from weather_probability import supplement
+                    rows = self._probabilities(lat, lon)
+                    if rows: supplement(data, rows)
                 self._store(self.cache, key, (self.clock(), data))
                 if file:
                     try:

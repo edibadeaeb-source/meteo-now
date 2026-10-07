@@ -244,6 +244,14 @@ def weather_forecast():
                 if isinstance(values, list):
                     data[section][field] = [values[i] for i in indices]
             data['weather_sources'][section] = [data['weather_sources'][section][i] for i in indices]
+            if section == 'hourly':
+                probabilities = data['weather_sources'].get('precipitation_probability', {})
+                if isinstance(probabilities.get('hourly'), list):
+                    probabilities['hourly'] = [probabilities['hourly'][i] for i in indices]
+            if section == 'daily':
+                probabilities = data['weather_sources'].get('precipitation_probability', {})
+                if isinstance(probabilities.get('daily'), list):
+                    probabilities['daily'] = [probabilities['daily'][i] for i in indices]
         return jsonify(data)
     except ValueError:
         return jsonify({'error': 'Coordonate invalide'}), 400

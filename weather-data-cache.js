@@ -1,7 +1,7 @@
 /* Per-city forecasts survive app restarts. Network refreshes never clear the UI. */
 (function(root) {
     'use strict';
-    var entries = Object.create(null), pending = Object.create(null), db = null;
+    var entries = Object.create(null), pending = Object.create(null), rainPending = Object.create(null), rainRetry = Object.create(null), db = null;
     var freshFor = 5 * 60000, visibleFor = 30 * 60000, limit = 16;
     function key(loc) { return (+loc.lat).toFixed(3) + ',' + (+loc.lon).toFixed(3); }
     function valid(d) { return d && d.current && d.hourly && d.daily && Array.isArray(d.hourly.time) && d.hourly.time.length && Array.isArray(d.daily.time) && d.daily.time.length && typeof d.current.temperature_2m==='number' && isFinite(d.current.temperature_2m); }
@@ -78,5 +78,55 @@
             .finally(function(){delete pending[k];});
         return pending[k];
     }
-    root.MeteoForecastCache = {ready:ready,peek:peek,fresh:fresh,put:put,request:request,key:key,entry:function(loc) { return entries[key(loc)] || null; }};
+    function hourStamp(iso,d) {
+        if (/[Zz]$|[+-]\d\d:\d\d$/.test(iso)) return Date.parse(iso)/1000;
+        // Ask Intl for the city's offset at this specific hour (including DST).
+        var utc=Date.parse(iso+'Z');
+        try {
+            var fmt=new Intl.DateTimeFormat('en-CA',{timeZone:d.timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+            var guess=utc;
+            for(var step=0;step<2;step++) {
+                var p={};fmt.formatToParts(new Date(guess)).forEach(function(x){p[x.type]=x.value;});
+                var local=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second);
+                guess=utc-(local-guess);
+            }
+            return guess/1000;
+        } catch(e) {return utc/1000-(d.utc_offset_seconds||0);}
+    }
+    function enrich(loc,d) {
+        if(!valid(d))return Promise.resolve(false);
+        var times=d.hourly.time, values=d.hourly.precipitation_probability||[];
+        var now=Date.now()/1000;
+        var missing=times.some(function(t,i){var stamp=hourStamp(t,d);return stamp>=now-3600&&stamp<now+25*3600&&values[i]==null;});
+        var k=key(loc);
+        if(!missing || Date.now()<(rainRetry[k]||0))return Promise.resolve(false);
+        if(rainPending[k])return rainPending[k];
+        // A missing optional field never delays painting the usable forecast.
+        var controller=typeof AbortController!=='undefined'?new AbortController():null;
+        var timer=setTimeout(function(){if(controller)controller.abort();},8000);
+        rainPending[k]=fetch('https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(loc.lat)+'&longitude='+encodeURIComponent(loc.lon)+'&hourly=precipitation_probability&forecast_days=10&timezone=UTC&timeformat=unixtime',controller?{signal:controller.signal}:{})
+            .then(function(r){if(!r.ok)throw new Error('Optional probability unavailable');return r.json();})
+            .then(function(raw){
+                if(!entries[k]||entries[k].d!==d)return false;
+                var h=raw.hourly||{}, lookup=Object.create(null),changed=false;
+                (h.time||[]).forEach(function(t,i){var v=(h.precipitation_probability||[])[i];if(typeof t==='number'&&typeof v==='number'&&isFinite(v)&&v>=0&&v<=100)lookup[t]=Math.round(v);});
+                d.hourly.precipitation_probability=values;
+                d.weather_sources=d.weather_sources||{};
+                var provenance=d.weather_sources.precipitation_probability=d.weather_sources.precipitation_probability||{};
+                provenance.hourly=provenance.hourly||times.map(function(){return null;});
+                times.forEach(function(t,i){var v=lookup[hourStamp(t,d)];if(values[i]==null&&v!=null){values[i]=v;provenance.hourly[i]='Open-Meteo';changed=true;}});
+                if(changed){
+                    var daily=d.daily, maxima=daily.precipitation_probability_max||daily.time.map(function(){return null;});
+                    provenance.daily=provenance.daily||daily.time.map(function(){return null;});
+                    daily.time.forEach(function(day,i){if(maxima[i]!=null&&provenance.daily[i]!=='OpenWeather')return;var known=values.filter(function(v,j){return times[j].slice(0,10)===day&&v!=null;});if(known.length){maxima[i]=Math.max.apply(null,known);provenance.daily[i]='Covered hourly probabilities';}});
+                    daily.precipitation_probability_max=maxima;
+                    provenance.hourly_supplement='Open-Meteo; matched by UTC timestamp; missing values only';
+                    persist(k);
+                }
+                return changed;
+            }).catch(function(){return false;})
+            .finally(function(){clearTimeout(timer);delete rainPending[k];rainRetry[k]=Date.now()+60000;});
+        return rainPending[k];
+    }
+    root.MeteoForecastCache = {ready:ready,peek:peek,fresh:fresh,put:put,request:request,enrich:enrich,key:key,entry:function(loc) { return entries[key(loc)] || null; }};
 })(window);
