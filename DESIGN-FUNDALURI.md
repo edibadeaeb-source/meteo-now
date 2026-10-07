@@ -2,6 +2,32 @@
 
 Actualizare: 7 octombrie 2026.
 
+## Nori în gri și albastru, fără verde — 2026.10.07.7
+
+Screenshotul „verde noros.jpeg” din Sinaia arăta varianta nocturnă a filmării
+Pexels 11564923. Ambele surse cu tentă verde (11565218 și 11564923) au fost
+înlocuite în variantele `overcast-a/b` și `overcast-night-a/b`. Filmarea nouă este
+„Overcast on Sky”, Altaf Shah, Pexels 12460328, cu licență Pexels:
+https://www.pexels.com/video/overcast-on-sky-12460328/.
+
+Două secvențe distincte păstrează rotația existentă. Ziua folosește nori gri cu
+nuanțe albastre discrete, iar noaptea gri-albastru închis, cu detalii mai clare.
+Varianta nocturnă este o gradație ilustrativă; nu se adaugă lună, stele, fulgere
+sau ploaie. Livrarea respectă rezoluția nativă 1080×1920 a sursei; există și
+varianta 720×1280 pentru economisirea datelor, fără mărire artificială la 2K.
+
+Căile noi `assets/weather-video/v7/` înlocuiesc atât video, cât și posterul
+afișat când animațiile sunt oprite. Cerul suprapus fotografiilor reale ale
+orașelor folosește aceeași rezervă nouă pentru categoria noros. Alegerea veche
+memorată păstrează identificatorul variantei, dar primește resursele noi.
+Celelalte categorii și filmarea originală de zi rămân în rotație.
+
+Verificări: opt decodări reale în browser, zi/noapte și HD/lite, inclusiv Sinaia
+noaptea; două elemente video reutilizate, poster potrivit și atingere fără
+reîncărcare. Toate cele 240 cadre din fiecare film de opt secunde au fost
+decodate, bucla nu are flash, iar mediile RGB nu prezintă dominantă verde.
+Testele existente verifică toate cele 48 localități și toate categoriile meteo.
+
 ## Atingeri fără evidențiere și retragerea unui film — 2026.10.07.5
 
 Efectul nativ de atingere al Androidului (`-webkit-tap-highlight-color`) este transparent în interfață, pentru a nu desena dreptunghiul albastru peste mesajele și panourile cu colțuri rotunjite. Descendenții panourilor folosesc explicit `user-select: none`; excepțiile existente pentru input, textarea, select și contenteditable rămân active, inclusiv în căutarea orașelor. Contururile pentru navigarea cu tastatura rămân disponibile. Închiderea mesajului păstrează aceleași acțiuni: X, atingere, glisare și Escape.

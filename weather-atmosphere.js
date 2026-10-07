@@ -90,12 +90,13 @@
     }
     function skyFor(chosen) {
         if (chosen.night) {
-            if (/^(partly-cloudy|overcast)$/.test(chosen.scene)) return 'assets/weather-video/v4/'+chosen.scene+'-night-a.webp';
+            if (chosen.scene === 'overcast') return 'assets/weather-video/v7/overcast-night-a.webp';
+            if (chosen.scene === 'partly-cloudy') return 'assets/weather-video/v4/partly-cloudy-night-a.webp';
             return 'assets/weather-video/v3/clear-night-b.webp';
         }
         var id = {'clear-day':'clear-day-a','partly-cloudy':'partly-cloudy-a',
             overcast:'overcast-a',rain:'overcast-a',twilight:'twilight-a'}[chosen.scene];
-        return id ? 'assets/weather-video/v3/'+id+'.webp' : ASSETS+chosen.scene+'.webp';
+        return id ? 'assets/weather-video/v'+(chosen.scene==='overcast'?'7':'3')+'/'+id+'.webp' : ASSETS+chosen.scene+'.webp';
     }
     function attributes(el, chosen) {
         el.className = 'weather-atmosphere';

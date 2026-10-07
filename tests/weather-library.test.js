@@ -15,7 +15,7 @@ for(const movie of weather){
 for(const suffix of ['a','b']){
  const next=visit();
  for(const movie of weather){
-  const clip=next.pick(movie,false,loc);assert.equal(clip.id,movie+'-'+suffix);assert.equal(clip.version,movie==='rain'?6:movie==='clear-night'&&suffix==='a'?5:3);
+  const clip=next.pick(movie,false,loc);assert.equal(clip.id,movie+'-'+suffix);assert.equal(clip.version,movie==='overcast'?7:movie==='rain'?6:movie==='clear-night'&&suffix==='a'?5:3);
   const dir=path.join(root,'assets/weather-video/v'+clip.version);
   for(const file of [clip.base+'-lite.mp4',clip.base+'-'+clip.quality+'.mp4',clip.base+'.webp'])assert.ok(fs.existsSync(path.join(dir,file)),file);
   assert.equal(next.pick(movie,false,loc).id,clip.id);assert.equal(next.pick(movie,false,other).id,suffix==='a'?movie:movie+'-a','another city owns its rotation');

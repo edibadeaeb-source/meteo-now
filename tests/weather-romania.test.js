@@ -19,7 +19,7 @@ for(const city of ro.cities){const loc={lat:city.lat,lon:city.lon,nume:city.name
   if(code===63&&!a.movie.startsWith('ro-slobozia-rain')&&!a.movie.startsWith('ro-miercurea-ciuc-rain'))assert.equal(a.movie,'rain');
  }
 }
-for(const [code,movie]of [[2,'partly-cloudy-night'],[3,'overcast-night']]){const a=select(code,{lat:40.7128,lon:-74.006,nume:'New York City'},true);assert.equal(a.movie,movie);assert.ok(a.clip.id.startsWith(movie));assert.equal(a.clip.version,4);}
+for(const [code,movie]of [[2,'partly-cloudy-night'],[3,'overcast-night']]){const a=select(code,{lat:40.7128,lon:-74.006,nume:'New York City'},true);assert.equal(a.movie,movie);assert.ok(a.clip.id.startsWith(movie));assert.equal(a.clip.version,code===3?7:4);}
 for(const loc of [{nume:'Arad',lat:31.26,lon:35.21},{nume:'Alexandria',lat:31.2,lon:29.9},{nume:'Sfântu Gheorghe',lat:44.9,lon:29.6,tara:'RO'},{nume:'Satu Mare',lat:46.8,lon:25.4,tara:'RO'},{nume:'București',lat:44.4268,lon:26.1025,tara:'MD'},{nume:'Voluntari',lat:44.435,lon:26.105,tara:'RO'},{nume:'București',lat:null,lon:null}])assert.equal(ro.city(loc),null,'unrelated place must not get a Romanian city frame');
 for(const spelling of ['Bucharest','Bucuresti','București'])assert.equal(ro.city({name:spelling,lat:44.4268,lon:26.1025}).id,'bucharest');
 assert.ok(!select(0,{nume:'Mangalia',lat:43.817,lon:28.578},false,5).movie.startsWith('ro-mangalia'),'no summer resort in cold weather');

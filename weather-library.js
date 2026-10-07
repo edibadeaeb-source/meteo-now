@@ -31,6 +31,11 @@
     clips['clear-night-a'].version = 5; clips['clear-night-a'].quality = '2k';
     clips['clear-night-a'].poster = 'assets/weather-video/v5/clear-night-a.webp';
     add('partly-cloudy','2k','2k'); add('overcast','2k','2k');
+    // The previous overcast sources had a green cast; new day/night paths avoid old media caches.
+    ['a','b'].forEach(function(letter) {
+        var clip=clips['overcast-'+letter]; clip.version=7; clip.quality='hd';
+        clip.poster='assets/weather-video/v7/overcast-'+letter+'.webp';
+    });
     add('rain','2k','2k');
     ['a','b'].forEach(function(letter) {
         var clip=clips['rain-'+letter]; clip.version=6;
