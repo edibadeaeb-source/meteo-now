@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.08.2">
+    <meta name="application-version" content="2026.10.08.3">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -3709,6 +3709,8 @@ function getAppWeatherSnapshot() {
         umiditate_procente: c.relative_humidity_2m,
         presiune_hpa: c.surface_pressure,
         precipitatii_mm: c.precipitation,
+        precipitatii_interval_secunde: c.precipitation_interval_seconds || c.interval || 3600,
+        intensitate_precipitatii_mmh: typeof c.precipitation==='number' ? c.precipitation*3600/(c.precipitation_interval_seconds || c.interval || 3600) : null,
         vant_kmh: c.wind_speed_10m,
         rafale_kmh: c.wind_gusts_10m,
         directie_vant_grade: c.wind_direction_10m,
@@ -8767,7 +8769,7 @@ input, textarea, select, [contenteditable="true"] {
 
 <script src="weather-geography.js?v=1"></script>
 <script src="weather-library.js?v=6"></script>
-<script src="weather-data-cache.js?v=3"></script>
+<script src="weather-data-cache.js?v=4"></script>
 <script src="weather-romania.js?v=3"></script>
 <script src="weather-motion.js?v=5"></script>
 <script src="weather-atmosphere.js?v=8"></script>
@@ -9099,6 +9101,8 @@ function mobCompleteazaPloaie(loc, d) {
         if(old){old.outerHTML=mobCardOre();var track=document.querySelector('#mbCardOre .mb-ore');if(track)track.scrollLeft=left;}
         var days=document.getElementById('mbCardZile');
         if(days)days.outerHTML=mobCardZile();
+        var uv=document.querySelector('.mb-uv-card');if(uv)uv.outerHTML=mobCardUV();
+        actualizeazaContext({});
         mobLeaga(true);
     });
 }
@@ -9393,7 +9397,7 @@ function mobCardOre() {
     var acum = mobAcumLocal(), start = 0;
     for (var i = 0; i < o.time.length; i++) { if (mobDinIso(o.time[i]) >= acum) { start = Math.max(0, i - 1); break; } }
     var titluri = { temp: T('conditiiMeteo'), precip: T('precipitatii'), vant: T('vant') };
-    var subt = { temp: T('temperatura') + ' (°' + UNIT + ')', precip: T('sanseDePloaie'), vant: T('viteza') + ' (km/h)' };
+    var subt = { temp: T('temperatura') + ' (°' + UNIT + ')', precip: (LANG==='en'?'Precipitation now · Rain chance later': 'Precipitații acum · Șanse de ploaie în orele următoare'), vant: T('viteza') + ' (km/h)' };
     var rainSources=MOBD.weather_sources && MOBD.weather_sources.precipitation_probability;
     if(rainSources && (rainSources.hourly||[]).indexOf('OpenWeather')>=0) subt.precip += LANG==='en'?' · 3-hour forecast intervals':' · intervale de prognoză de 3 ore';
 
@@ -9426,14 +9430,20 @@ function mobCardOre() {
         var val, sub = '';
         var esteAcum = k === start;
         if (_mobOraMod === 'temp') { val = Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k])) + '°'; sub = o.precipitation_probability[k] >= 15 ? o.precipitation_probability[k] + '%' : ''; }
-        else if (_mobOraMod === 'precip') { val = (o.precipitation_probability[k]==null?'—':o.precipitation_probability[k]+'%'); sub = (o.precipitation[k] || 0) > 0.05 ? (o.precipitation[k].toFixed(1) + ' mm') : ''; }
+        else if (_mobOraMod === 'precip') {
+            if(esteAcum){
+                var amount=MOBD.current.precipitation, seconds=MOBD.current.precipitation_interval_seconds || MOBD.current.interval || 3600;
+                var known=typeof amount==='number' && isFinite(amount) && amount>=0;
+                val=known ? (amount*3600/seconds).toFixed(1) : '—';sub=known?'mm/h':'';
+            }else{val=o.precipitation_probability[k]==null?'—':o.precipitation_probability[k]+'%';sub=(o.precipitation[k] || 0)>0.05 ? o.precipitation[k].toFixed(1)+' mm':'';}
+        }
         else { val = Math.round(esteAcum ? MOBD.current.wind_speed_10m : o.wind_speed_10m[k]); sub = 'km/h'; }
         h += '<div class="mb-ora' + (k === start ? ' acum' : '') + '">' +
              '<div class="o-t">' + etOra + '</div>' +
              '<div class="o-i">' + wmoIcon(esteAcum ? MOBD.current.weather_code : o.weather_code[k],
                  wmoNight(MOBD, esteAcum ? MOBD.current.time : o.time[k], esteAcum ? MOBD.current.is_day : (o.is_day || [])[k])) + '</div>' +
-             '<div class="o-p">' + (_mobOraMod === 'temp' ? sub : '') + '</div>' +
-             '<div class="o-v">' + val + (_mobOraMod === 'vant' ? '<div style="font-size:0.6rem;opacity:0.65;">km/h</div>' : '') + '</div>' +
+             '<div class="o-p">' + (_mobOraMod === 'temp' || (_mobOraMod==='precip'&&!esteAcum) ? sub : '') + '</div>' +
+             '<div class="o-v">' + val + (_mobOraMod === 'vant' || (_mobOraMod==='precip'&&esteAcum&&known) ? '<div style="font-size:0.6rem;opacity:0.75;">' + (_mobOraMod==='vant'?'km/h':'mm/h') + '</div>' : '') + '</div>' +
              '</div>';
         // intercalăm răsăritul/apusul dacă pică între ora asta și următoarea
         repere.forEach(function(r) {

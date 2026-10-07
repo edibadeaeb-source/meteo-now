@@ -1,5 +1,5 @@
 const fs=require('node:fs'),Module=require('node:module'),path=require('node:path');
-const fixture=path.join(__dirname,'weather-browser.cjs'),prefix=fs.readFileSync(fixture,'utf8').split(' // A tap used to')[0];
+const fixture=path.join(__dirname,'weather-browser.cjs'),prefix=fs.readFileSync(fixture,'utf8').split(' // A tap used to')[0].replace('deviceScaleFactor:2','deviceScaleFactor:1').replace('await page.goto(base,',"await page.emulateMedia({reducedMotion:'reduce'});await page.goto(base,");
 const checks=String.raw`
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('splash')).visibility==='hidden');
  await page.evaluate(()=>Object.defineProperty(navigator,'connection',{configurable:true,value:{saveData:true}}));
@@ -45,7 +45,7 @@ const checks=String.raw`
  await restored.evaluate(e=>Promise.all([MeteoForecastCache.request(e),MeteoForecastCache.request(e)]),e);assert.equal(shared,1,'prefetch and selection share a single request');
  for(let i=0;i<24;i++)await restored.evaluate(({i,forecast})=>MeteoForecastCache.put({lat:30+i/10,lon:20},forecast),{i,forecast});
  await restored.waitForTimeout(250);
- const count=await restored.evaluate(()=>new Promise((resolve,reject)=>{const o=indexedDB.open('meteo-forecast-cache-v1');o.onsuccess=()=>{const r=o.result.transaction('cities').objectStore('cities').count();r.onsuccess=()=>{o.result.close();resolve(r.result)};r.onerror=reject};o.onerror=reject}));
+ const count=await restored.evaluate(()=>new Promise((resolve,reject)=>{const o=indexedDB.open('meteo-forecast-cache-v2');o.onsuccess=()=>{const r=o.result.transaction('cities').objectStore('cities').count();r.onsuccess=()=>{o.result.close();resolve(r.result)};r.onerror=reject};o.onerror=reject}));
  assert.ok(count<=16,'persisted forecasts remain bounded: '+count);
  await restored.close();assert.deepEqual(errors,[]);await context.close();
  console.log('PASS: slow, failed and out-of-order city switches; headers stay consistent; expired data refreshes without blanking; persistent bounded cache and coalesced requests');

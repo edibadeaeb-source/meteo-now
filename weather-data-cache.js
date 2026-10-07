@@ -18,7 +18,7 @@
         function finish() { if (!settled) { settled = true; resolve(); } }
         var timer = setTimeout(finish, 800);
         try {
-            request = root.indexedDB.open('meteo-forecast-cache-v1', 1);
+            request = root.indexedDB.open('meteo-forecast-cache-v2', 1);
             request.onupgradeneeded = function() { request.result.createObjectStore('cities', {keyPath:'key'}); };
             request.onblocked = request.onerror = finish;
             request.onsuccess = function() {
@@ -99,30 +99,47 @@
         var now=Date.now()/1000;
         var missing=times.some(function(t,i){var stamp=hourStamp(t,d);return stamp>=now-3600&&stamp<now+25*3600&&values[i]==null;});
         var k=key(loc);
-        if(!missing || Date.now()<(rainRetry[k]||0))return Promise.resolve(false);
+        var uv=d.current.uv_index, uvMissing=typeof uv!=='number'||!isFinite(uv)||uv<0;
+        if((!missing && !uvMissing) || Date.now()<(rainRetry[k]||0))return Promise.resolve(false);
         if(rainPending[k])return rainPending[k];
         // A missing optional field never delays painting the usable forecast.
         var controller=typeof AbortController!=='undefined'?new AbortController():null;
         var timer=setTimeout(function(){if(controller)controller.abort();},8000);
-        rainPending[k]=fetch('https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(loc.lat)+'&longitude='+encodeURIComponent(loc.lon)+'&hourly=precipitation_probability&forecast_days=10&timezone=UTC&timeformat=unixtime',controller?{signal:controller.signal}:{})
+        rainPending[k]=fetch('https://api.open-meteo.com/v1/forecast?latitude='+encodeURIComponent(loc.lat)+'&longitude='+encodeURIComponent(loc.lon)+'&hourly=precipitation_probability,uv_index&current=uv_index&daily=uv_index_max&forecast_days=10&timezone=auto&timeformat=unixtime',controller?{signal:controller.signal}:{})
             .then(function(r){if(!r.ok)throw new Error('Optional probability unavailable');return r.json();})
             .then(function(raw){
                 if(!entries[k]||entries[k].d!==d)return false;
-                var h=raw.hourly||{}, lookup=Object.create(null),changed=false;
+                var h=raw.hourly||{}, lookup=Object.create(null),uvLookup=Object.create(null),changed=false,rainChanged=false,uvChanged=false;
                 (h.time||[]).forEach(function(t,i){var v=(h.precipitation_probability||[])[i];if(typeof t==='number'&&typeof v==='number'&&isFinite(v)&&v>=0&&v<=100)lookup[t]=Math.round(v);});
+                (h.time||[]).forEach(function(t,i){var v=(h.uv_index||[])[i];if(typeof t==='number'&&typeof v==='number'&&isFinite(v)&&v>=0)uvLookup[t]=v;});
                 d.hourly.precipitation_probability=values;
                 d.weather_sources=d.weather_sources||{};
                 var provenance=d.weather_sources.precipitation_probability=d.weather_sources.precipitation_probability||{};
                 provenance.hourly=provenance.hourly||times.map(function(){return null;});
-                times.forEach(function(t,i){var v=lookup[hourStamp(t,d)];if(values[i]==null&&v!=null){values[i]=v;provenance.hourly[i]='Open-Meteo';changed=true;}});
-                if(changed){
+                times.forEach(function(t,i){var v=lookup[hourStamp(t,d)];if(values[i]==null&&v!=null){values[i]=v;provenance.hourly[i]='Open-Meteo';changed=rainChanged=true;}});
+                var currentUV=raw.current||{}, uvStamp=typeof currentUV.time==='number'?currentUV.time:Date.parse(currentUV.time)/1000;
+                if(uvMissing && typeof currentUV.uv_index==='number' && isFinite(currentUV.uv_index) && currentUV.uv_index>=0 && isFinite(uvStamp) && Math.abs(now-uvStamp)<=1800){
+                    d.current.uv_index=currentUV.uv_index;uvChanged=changed=true;
+                    d.weather_sources.uv_index={source:'Open-Meteo',time:new Date(uvStamp*1000).toISOString(),kind:'Current UV; never the daily maximum'};
+                }
+                var uvs=d.hourly.uv_index=d.hourly.uv_index||times.map(function(){return null;});
+                times.forEach(function(t,i){var value=uvLookup[hourStamp(t,d)];if(uvs[i]==null && value!=null){uvs[i]=value;uvChanged=changed=true;}});
+                var dailyUV=raw.daily||{}, uvMax=d.daily.uv_index_max=d.daily.uv_index_max||d.daily.time.map(function(){return null;});
+                (dailyUV.time||[]).forEach(function(stamp,i){
+                    var value=(dailyUV.uv_index_max||[])[i];if(typeof value!=='number'||!isFinite(value)||value<0)return;
+                    var day=null;
+                    try {var p={};new Intl.DateTimeFormat('en-CA',{timeZone:raw.timezone||d.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(stamp*1000)).forEach(function(x){p[x.type]=x.value;});day=p.year+'-'+p.month+'-'+p.day;}catch(e){}
+                    var j=d.daily.time.indexOf(day);if(j>=0&&uvMax[j]==null){uvMax[j]=value;uvChanged=changed=true;}
+                });
+                if(uvChanged)d.weather_sources.uv_supplement='Open-Meteo current and hourly UV, UTC timestamp matching; native daily UV maxima in the city timezone';
+                if(rainChanged){
                     var daily=d.daily, maxima=daily.precipitation_probability_max||daily.time.map(function(){return null;});
                     provenance.daily=provenance.daily||daily.time.map(function(){return null;});
                     daily.time.forEach(function(day,i){if(maxima[i]!=null&&provenance.daily[i]!=='OpenWeather')return;var known=values.filter(function(v,j){return times[j].slice(0,10)===day&&v!=null;});if(known.length){maxima[i]=Math.max.apply(null,known);provenance.daily[i]='Covered hourly probabilities';}});
                     daily.precipitation_probability_max=maxima;
                     provenance.hourly_supplement='Open-Meteo; matched by UTC timestamp; missing values only';
-                    persist(k);
                 }
+                if(changed)persist(k);
                 return changed;
             }).catch(function(){return false;})
             .finally(function(){clearTimeout(timer);delete rainPending[k];rainRetry[k]=Date.now()+60000;});

@@ -1,5 +1,5 @@
 const fs=require('node:fs'),Module=require('node:module'),path=require('node:path');
-let prefix=fs.readFileSync(path.join(__dirname,'weather-browser.cjs'),'utf8').split(' // A tap used to')[0];
+let prefix=fs.readFileSync(path.join(__dirname,'weather-browser.cjs'),'utf8').split(' // A tap used to')[0].replace('deviceScaleFactor:2','deviceScaleFactor:1').replace('await page.goto(base,',"await page.emulateMedia({reducedMotion:'reduce'});await page.goto(base,");
 const research=path.resolve(__dirname,'../../../03-Testare-si-capturi/tests');
 const moreni=JSON.parse(fs.readFileSync(path.join(research,'met-fallback-Moreni-20261007.json'),'utf8'));
 const caragiale=JSON.parse(fs.readFileSync(path.join(research,'met-fallback-Caragiale-20261007.json'),'utf8'));
@@ -20,12 +20,12 @@ const checks=String.raw`
  assert.ok(await page.locator('#mbCardOre').count());assert.equal(await page.locator('.mb-zi').count(),targetData.daily.time.length);
  assert.equal(await page.locator('.mb-uv-card .mb-val').innerText(),'—','missing UV must not become zero');
  await page.evaluate(()=>{_mobOraMod='precip';mobRandareAcum();});
- assert.equal(await page.locator('.mb-ora.acum .o-v').innerText(),'—','missing probability must not become 0%');
+ assert.ok((await page.locator('.mb-ora:not(.acum) .o-v').allInnerTexts()).includes('—'),'missing future probability must not become 0%');
  assert.equal(await page.locator('#mbContinut').innerText().then(t=>/NaN|undefined|null/.test(t)),false);
  assert.equal(await page.locator('#splash').evaluate(el=>el.classList.contains('hide')),true);
  await page.screenshot({path:path.join(out,'cold-gps-provider-recovery-412.png')});
  // Empty the disk cache before a second cold startup with every provider unavailable.
- await page.evaluate(()=>new Promise((resolve,reject)=>{const o=indexedDB.open('meteo-forecast-cache-v1');o.onsuccess=()=>{const t=o.result.transaction('cities','readwrite');t.objectStore('cities').clear();t.oncomplete=()=>{o.result.close();resolve()};t.onerror=reject};o.onerror=reject;}));
+ await page.evaluate(()=>new Promise((resolve,reject)=>{const o=indexedDB.open('meteo-forecast-cache-v2');o.onsuccess=()=>{const t=o.result.transaction('cities','readwrite');t.objectStore('cities').clear();t.oncomplete=()=>{o.result.close();resolve()};t.onerror=reject};o.onerror=reject;}));
  failAll=true;await page.reload({waitUntil:'domcontentloaded'});
  await page.waitForSelector('#mbWeatherError',{timeout:15000});
  assert.equal(await page.locator('#splash').evaluate(el=>el.classList.contains('hide')),true,'a genuine outage shows recovery controls instead of an endless splash');

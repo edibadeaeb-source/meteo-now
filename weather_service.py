@@ -1,8 +1,8 @@
 """Free weather sources, normalised to the app's existing forecast format.
 
-OpenWeather supplies current conditions; MET Norway supplies covered future
-hours/days. Open-Meteo supplies past/today daily extrema, solar/UV/probability
-fields and a fallback. Every substituted field retains its provenance.
+OpenWeather supplies recent numeric observations; MET Norway supplies the
+current condition and covered future hours/days. Open-Meteo supplies past/today
+daily extrema, solar/UV/probability fields and a fallback. Every substituted field retains its provenance.
 """
 from bisect import bisect_right
 from concurrent.futures import ThreadPoolExecutor
@@ -359,6 +359,8 @@ class WeatherService:
                             self._store(self.cache,key,cached)
                     except (OSError,ValueError,TypeError,KeyError):
                         pass
+                if cached and cached[1].get('weather_sources',{}).get('revision') != '2026.10.08.3':
+                    cached = None
                 if cached and self.clock() - cached[0] < 120:
                     data = deepcopy(cached[1])
                     data['weather_sources']['today'] = city_date(data, self.clock())
@@ -450,7 +452,8 @@ def normalise(base, met, current, now):
         return value.replace(tzinfo=tz).timestamp() if value.tzinfo is None else value.timestamp()
     def local(stamp):
         return datetime.fromtimestamp(stamp, tz).strftime('%Y-%m-%dT%H:%M')
-    sources = {'current': origin, 'hourly': [], 'daily': [], 'ancillary': 'Open-Meteo' if origin=='Open-Meteo' else 'Local solar calculation; other missing fields unavailable',
+    daylight = data['current'].get('is_day')
+    sources = {'revision':'2026.10.08.3', 'current': origin, 'hourly': [], 'daily': [], 'ancillary': 'Open-Meteo' if origin=='Open-Meteo' else 'Local solar calculation; other missing fields unavailable',
                'ancillary_fields': ['uv_index', 'uv_index_max', 'precipitation_probability',
                                     'precipitation_probability_max', 'visibility', 'sunrise', 'sunset', 'is_day'],
                'forecast_fields': ['temperature_2m', 'weather_code', 'precipitation'],
@@ -557,4 +560,32 @@ def normalise(base, met, current, now):
             sources['current'] = 'OpenWeather'
     except (KeyError, TypeError, ValueError, AttributeError):
         pass
+    # Keep the sky and precipitation tied to the same native MET forecast used
+    # for upcoming hours. OWM remains useful for recent temperature observations;
+    # its unconditional condition override produced "rain now / 0%" in Bucuresti.
+    sources['current_fields'] = {field:sources['current'] for field in
+        ('temperature_2m','apparent_temperature','relative_humidity_2m','surface_pressure',
+         'wind_speed_10m','wind_gusts_10m','wind_direction_10m','weather_code','precipitation')}
+    j = bisect_right(stamps, now)-1
+    if j>=0 and 0<=now-stamps[j]<=5400:
+        point=points[j][1]
+        interval=point.get('next_1_hours') or point.get('next_6_hours')
+        if interval:
+            code=met_code(interval.get('summary',{}).get('symbol_code'))
+            amount=number(interval.get('details',{}).get('precipitation_amount'))
+            period=1 if point.get('next_1_hours') else 6
+            if code is not None and amount is not None and amount>=0:
+                c=data['current']; c['weather_code']=code
+                c['precipitation']=round(amount/period,3)
+                c['rain']=0 if code in (68,69,71,73,75,85,86) else c['precipitation']
+                c['showers']=0;c['snowfall']=0  # Water equivalent cannot become snow depth.
+                if daylight in (0,1):c['is_day']=daylight
+                for field in ('weather_code','precipitation','rain','showers','snowfall'):
+                    sources['current_fields'][field]='MET Norway'
+                sources['current_condition']='MET Norway'
+                sources['current_condition_time']=local(now)
+                c['precipitation_interval_seconds']=3600
+    sources.setdefault('current_condition',sources['current'])
+    data['current'].setdefault('precipitation_interval_seconds',3600 if sources['current']=='OpenWeather' else data['current'].get('interval',900) if origin=='Open-Meteo' else 3600)
+    sources['condition_note']='Current sky and precipitation use the native MET interval where recent coverage exists; temperature may use a recent OpenWeather observation. Rain probabilities remain independent forecast probabilities.'
     return data

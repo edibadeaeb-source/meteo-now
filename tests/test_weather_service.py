@@ -51,7 +51,9 @@ class WeatherTests(unittest.TestCase):
         base, met, owm = fixtures()
         data = normalise(base, met, owm, NOW)
         self.assertEqual(data['current']['temperature_2m'],23.7)
-        self.assertEqual(data['current']['weather_code'],3)
+        self.assertEqual(data['current']['weather_code'],61)
+        self.assertEqual(data['weather_sources']['current_condition'],'MET Norway')
+        self.assertEqual(data['weather_sources']['current_fields']['temperature_2m'],'OpenWeather')
         self.assertEqual(data['current']['wind_speed_10m'],10.8)
         self.assertEqual(data['current']['uv_index'],2)
         self.assertEqual(data['daily']['temperature_2m_max'][1],40)  # Whole current day, not future-only maximum.
