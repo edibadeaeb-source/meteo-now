@@ -29,7 +29,11 @@
     clips['clear-night-a'].version = 5; clips['clear-night-a'].quality = '2k';
     clips['clear-night-a'].poster = 'assets/weather-video/v5/clear-night-a.webp';
     add('partly-cloudy','2k','2k'); add('overcast','2k','2k');
-    add('rain','hd','hd'); add('storm','hd','hd'); add('snow','hd','hd');
+    add('rain','2k','2k');
+    ['a','b'].forEach(function(letter) {
+        var clip=clips['rain-'+letter]; clip.version=6;
+        clip.poster='assets/weather-video/v6/rain-'+letter+'.webp';
+    }); add('storm','hd','hd'); add('snow','hd','hd');
     add('fog','2k','hd'); add('twilight','hd','hd');
     add('new-york','2k','2k'); add('miami','2k','hd');
     function register(movie,records) {

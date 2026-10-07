@@ -2,6 +2,16 @@
 
 Actualizare: 7 octombrie 2026.
 
+## Ploaie clară și orașe fără panouri goale — 2026.10.07.4
+
+Cele două filmări de ploaie peste vegetație (`14213657`, `14213653`) nu mai sunt selectate. Variantele `rain-a` și `rain-b` folosesc două surse verticale 4K ale lui Şeyhmus Kino, cu picături de apă clare și cer urban gri; prima este încadrată fără terenul verde din partea de jos. Livrarea este 1440×2560 sau 720×1280 pentru economisirea datelor; ambele au buclă de opt secunde, H.264 fără sunet, 30 fps. Fișierele au căi noi `assets/weather-video/v6/`, pentru a nu reutiliza fundalul verde păstrat în cache. Manifestul și pagina de credite includ sursele noi. Originalele vechi rămân arhivate, fără a participa la selecția fundalurilor.
+
+Prognozele fiecărui oraș sunt memorate separat în IndexedDB, maximum 16 locații. Datele sunt proaspete cinci minute; o copie de maximum 30 de minute se poate afișa imediat în timp ce se actualizează în fundal. Memorarea asincronă evită scrierea unor prognoze mari în localStorage în timpul scrollului. Orașele salvate sunt pregătite în fundal, întâi vecinii, cu maximum două cereri simultane; economisirea datelor dezactivează această preîncărcare. Cererile pentru aceeași locație sunt reunite.
+
+La alegerea unui oraș încă nepregătit, orașul afișat și datele lui rămân împreună până la primirea prognozei noi. Numele, regiunea și temperatura se schimbă împreună, cu un indicator mic în bara orașului în timpul așteptării; nu se mai inserează cardul „Se încarcă datele meteo…”. Răspunsurile întârziate nu pot înlocui orașul ales mai recent. Dacă rețeaua eșuează, rămâne orașul corect și apare un mesaj scurt de reîncercare. La pornirea fără niciun cache, după un eșec prelungit există un buton de reîncercare, fără un card de încărcare permanent.
+
+Verificări: decodare reală a ambelor variante de film, toate cadrele și îmbinările buclelor fără flash, rezervă 720p, oprirea animațiilor, resursele v6 offline și cereri Range; schimbări de oraș lente, eșuate și în ordine inversă, cache după redeschidere, actualizare în fundal, eliminarea datelor prea vechi și plafonarea stocării; lista orașelor, atingerea scurtă și dimensiunile ecranului. Testele sunt automate în browser; nu reprezintă un test fizic nou pe S24 Ultra.
+
 ## România și categorii nocturne — versiunea 2026.10.07.2
 
 `weather-romania.js` înregistrează un catalog fix pentru 48 de localități: toate reședințele de județ distincte, București, Moreni, Sinaia, Sighișoara, Hunedoara, Turda, Mangalia și Mediaș. Sunt 136 de fotografii reale din Wikimedia Commons, verificate vizual și după proveniență. Pentru București, Brașov, Cluj-Napoca și Timișoara există și șapte filmări locale din Pexels. Cadrele care nu corespundeau localității și câteva imagini prea mici au fost excluse. Pentru Mangalia, cadrul estival din Olimp, parte a municipiului, este folosit numai de la 18°C în sus; seara și noaptea nu îl pot selecta.

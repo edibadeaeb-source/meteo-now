@@ -36,6 +36,7 @@ const checks=String.raw`
  assert.equal(await page.locator('#moRez').isVisible(),false,'late results cannot reappear after clearing');
  await page.locator('#moCauta').fill('Cluj');await page.waitForFunction(()=>document.querySelector('#moRez [data-g]'));
  await page.locator('#moRez [data-g]').first().click();
+ await page.waitForFunction(()=>LOC.nume==='Cluj-Napoca' && _mobDateCheie===mobCheieLoc(LOC));
  assert.equal(await page.evaluate(()=>LOC.nume),'Cluj-Napoca');assert.equal(await page.locator('#mobFoaie').isVisible(),false);assert.equal(await page.locator('#chatFab').isVisible(),true);
  await open();await page.touchscreen.tap(20,20);assert.equal(await page.locator('#chatFab').isVisible(),true,'backdrop closing restores AI');
  await page.evaluate(()=>{LANG='en';mobDeschideFoaie('orase');});assert.equal(await page.locator('#moCauta').getAttribute('aria-label'),'Search for a city…');assert.equal(await page.locator('#moStergeCautare').getAttribute('aria-label'),'Clear search');

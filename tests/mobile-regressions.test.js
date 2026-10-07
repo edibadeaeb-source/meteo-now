@@ -1,4 +1,5 @@
 const fs = require('fs');
+var window = {};
 const assert = require('assert');
 const html = fs.readFileSync(require('path').join(__dirname, '..', 'index.html'), 'utf8');
 function between(a, b) {
