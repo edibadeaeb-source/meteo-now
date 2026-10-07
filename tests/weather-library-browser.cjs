@@ -19,7 +19,7 @@ const checks=String.raw`
    MOBD.daily.sunrise[0]=date+'T06:40';MOBD.daily.sunset[0]=date+'T19:30';
    await MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC);mobAntet();window.scrollTo(0,0);
  },id);
- const checkedFilms=films.filter(f=>!process.env.METEO_LIBRARY_FILM||f.id.startsWith(process.env.METEO_LIBRARY_FILM));
+ const checkedFilms=films.filter(f=>f.id!=='twilight-a'&&(!process.env.METEO_LIBRARY_FILM||f.id.startsWith(process.env.METEO_LIBRARY_FILM)));
  for(const film of checkedFilms){
    console.log('Checking new film: '+film.id);await setFilm(film.id);
    await page.waitForFunction(id=>{const v=document.querySelector('.weather-video.is-visible');return document.querySelector('#mobCer[data-video="playing"]')&&v?.currentSrc.includes('/'+id+'-')&&v.currentTime>.2;},film.id,{timeout:20000});

@@ -18,6 +18,8 @@
     });
     function add(movie,qualityA,qualityB) {
         ['a','b'].forEach(function(letter,i) {
+            // Withdrawn: soft HD sunset with a distracting green lens flare and judder.
+            if (movie === 'twilight' && letter === 'a') return;
             var id=movie+'-'+letter;
             clips[id]={id:id,base:id,quality:i?qualityB:qualityA,version:3,native:true,
                 precipitation:movie==='rain'||movie==='snow',poster:'assets/weather-video/v3/'+id+'.webp'};

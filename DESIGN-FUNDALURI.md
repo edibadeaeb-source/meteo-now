@@ -2,6 +2,12 @@
 
 Actualizare: 7 octombrie 2026.
 
+## Atingeri fără evidențiere și retragerea unui film — 2026.10.07.5
+
+Efectul nativ de atingere al Androidului (`-webkit-tap-highlight-color`) este transparent în interfață, pentru a nu desena dreptunghiul albastru peste mesajele și panourile cu colțuri rotunjite. Descendenții panourilor folosesc explicit `user-select: none`; excepțiile existente pentru input, textarea, select și contenteditable rămân active, inclusiv în căutarea orașelor. Contururile pentru navigarea cu tastatura rămân disponibile. Închiderea mesajului păstrează aceleași acțiuni: X, atingere, glisare și Escape.
+
+Filmul `twilight-a` (Pexels 5533652, Time Lapse Video of a Sunset) este retras din catalog pentru imaginea prea moale, reflexia verde și mișcarea neplăcută din materialul sursă. Apărea în poza New York înainte de răsărit, când condiția era „senin”. Rotația de răsărit/apus păstrează filmul original și varianta `twilight-b`; celelalte categorii nu sunt schimbate. O alegere veche salvată pentru filmul retras este ignorată, iar `restore` nu îl mai acceptă. Fișierele istorice rămân pentru backup, fără a fi folosite în aplicație.
+
 ## Ploaie clară și orașe fără panouri goale — 2026.10.07.4
 
 Cele două filmări de ploaie peste vegetație (`14213657`, `14213653`) nu mai sunt selectate. Variantele `rain-a` și `rain-b` folosesc două surse verticale 4K ale lui Şeyhmus Kino, cu picături de apă clare și cer urban gri; prima este încadrată fără terenul verde din partea de jos. Livrarea este 1440×2560 sau 720×1280 pentru economisirea datelor; ambele au buclă de opt secunde, H.264 fără sunet, 30 fps. Fișierele au căi noi `assets/weather-video/v6/`, pentru a nu reutiliza fundalul verde păstrat în cache. Manifestul și pagina de credite includ sursele noi. Originalele vechi rămân arhivate, fără a participa la selecția fundalurilor.

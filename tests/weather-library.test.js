@@ -3,7 +3,7 @@ const root=path.join(__dirname,'..'),source=fs.readFileSync(path.join(root,'weat
 const values={};const localStorage={getItem:k=>values[k]||null,setItem:(k,v)=>values[k]=v};
 function visit(){const c=vm.createContext({window:{},localStorage,Math});vm.runInContext(source,c);return c.window.MeteoWeatherLibrary;}
 const loc={lat:44.9266,lon:25.4566},other={lat:40.7128,lon:-74.006};
-const weather=['clear-day','clear-night','partly-cloudy','overcast','rain','storm','snow','fog','twilight'];
+const weather=['clear-day','clear-night','partly-cloudy','overcast','rain','storm','snow','fog'];
 let first=visit();
 for(const movie of weather){
  const original=first.pick(movie,false,loc);assert.equal(original.id,movie);assert.equal(original.version,2);
@@ -21,9 +21,13 @@ for(const suffix of ['a','b']){
   assert.equal(next.pick(movie,false,loc).id,clip.id);assert.equal(next.pick(movie,false,other).id,suffix==='a'?movie:movie+'-a','another city owns its rotation');
  }
 }
+assert.equal(visit().restore('twilight-a','twilight'),null,'withdrawn flare footage cannot be restored from old cache');
+for(const id of ['twilight','twilight-b','twilight']) { const lib=visit(),clip=lib.pick('twilight',false,loc);assert.equal(clip.id,id);assert.equal(lib.pick('twilight',false,loc).id,id); }
 const last=visit();for(const movie of weather)assert.equal(last.pick(movie,false,loc).id,movie,'original films remain in the rotation');
 // Separate day/night choices, corrupted storage, and a bounded history.
 assert.equal(last.pick('partly-cloudy',true,loc).id,'partly-cloudy');
 values['meteo-weather-rotation-v1']='17';assert.equal(visit().pick('rain',false,loc).id,'rain');
 const bounded=visit();for(let i=0;i<100;i++)bounded.pick('rain',false,{lat:i/10,lon:20});assert.equal(Object.keys(JSON.parse(values['meteo-weather-rotation-v1'])).length,64);
-console.log('PASS: two new films for every weather category, originals retained, stable visits, city/night isolation, real assets, safe cached IDs and bounded rotation history');
+values['meteo-weather-rotation-v1']=JSON.stringify({'44.927,25.457:twilight:day':'twilight-a'});
+assert.equal(visit().pick('twilight',false,loc).id,'twilight','an old withdrawn choice selects an available film');
+console.log('PASS: weather variants rotate safely, poor twilight film withdrawn, originals retained, stable visits, city/night isolation, real assets, safe cached IDs and bounded rotation history');
