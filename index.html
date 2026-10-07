@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.08.1">
+    <meta name="application-version" content="2026.10.08.2">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -2686,6 +2686,7 @@ function updateRecs(temp, hum, iaq) {
 //  METEO — Târgoviște + București
 // ═══════════════════════════════════════
 function fetchWeather() {
+    var locCeruta = {lat:+TGV.lat, lon:+TGV.lon};
     // prin proxy Flask (cheia rămâne pe server); doar pe file:// cade pe apelul direct
     var _u = (location.protocol.indexOf('http') === 0)
         ? ('api/owm/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro'))
@@ -2693,6 +2694,7 @@ function fetchWeather() {
     fetch(_u)
         .then(function(r) { return r.json(); })
         .then(function(d) {
+            if (!sfatAceeasiLocatie(locCeruta)) return;
             var desc = d.weather[0].description;
             desc = desc.charAt(0).toUpperCase() + desc.slice(1);
             var icon = d.weather[0].icon;
@@ -2726,7 +2728,7 @@ function fetchWeather() {
                 if (d.sys && d.sys.sunrise) {
                     document.getElementById('sunriseVal').innerText = new Date(d.sys.sunrise * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', optOra());
                     document.getElementById('sunsetVal').innerText  = new Date(d.sys.sunset  * 1000).toLocaleTimeString(LANG === 'en' ? 'en-GB' : 'ro-RO', optOra());
-                    sunTimes = { rise: d.sys.sunrise * 1000, set: d.sys.sunset * 1000 };
+                    sunTimes = { rise: d.sys.sunrise * 1000, set: d.sys.sunset * 1000, lat:locCeruta.lat, lon:locCeruta.lon, utc_offset_seconds:d.timezone };
                     updateSunArc();
                 }
             } catch (e) {}
@@ -2740,6 +2742,7 @@ function fetchWeather() {
                 incarcaContextExtins();
             } catch (e) {}
         }).catch(function() {
+            if (!sfatAceeasiLocatie(locCeruta)) return;
             document.getElementById('weatherInfo').innerHTML = '⚠️ Date meteo indisponibile.';
         });
 }
@@ -2750,6 +2753,7 @@ function fetchWeather() {
    „bea apă" până la „nu ieși acum, e cod portocaliu". Nivelul (1–4)
    dă și culoarea benzii, iar mesajele se rotesc unul după altul.
    ═══════════════════════════════════════════════════════════════════ */
+var _ctxSfatLoc = null;
 var CTX = {};                 // contextul meteo curent, completat din mai multe surse
 var _sfaturi = [], _sfatIdx = 0, _sfatTimer = null;
 
@@ -2838,22 +2842,22 @@ var REGULI_SFAT = [
       en: function() { return '<b>Yellow warning</b> in your area. Nothing dramatic, but worth a look at the map before you head out.'; } },
 
     { id: 'arsita', nivel: 4, ico: '🥵', cand: function(c) { return c.resimtit >= 38; },
-      ro: function(c) { return 'Se resimt <b>' + fT(c.resimtit, 0) + '</b>. Asta nu mai e vară, e cuptor. Stai în casă între 11 și 17 dacă poți și bea apă des.'; },
-      en: function(c) { return 'It feels like <b>' + fT(c.resimtit, 0) + '</b>. That is oven territory. Stay indoors between 11am and 5pm if you can, and drink often.'; } },
+      ro: function(c) { if(c.noapte) return 'Se resimt <b>' + fT(c.resimtit, 0) + '</b>. Căldura rămâne intensă și noaptea. Stai la răcoare și bea apă des.'; return 'Se resimt <b>' + fT(c.resimtit, 0) + '</b>. Asta nu mai e vară, e cuptor. Stai în casă între 11 și 17 dacă poți și bea apă des.'; },
+      en: function(c) { if(c.noapte) return 'It feels like <b>' + fT(c.resimtit, 0) + '</b>. The heat persists tonight. Keep cool and drink water often.'; return 'It feels like <b>' + fT(c.resimtit, 0) + '</b>. That is oven territory. Stay indoors between 11am and 5pm if you can, and drink often.'; } },
 
     { id: 'canicula', nivel: 3, ico: '🌡️', cand: function(c) { return c.resimtit >= 34 && c.resimtit < 38; },
-      ro: function(c) { return '<b>' + fT(c.resimtit, 0) + '</b> resimțiți. Ziua perfectă pentru o limonadă rece la umbră — și pentru zero eroism la soare.'; },
-      en: function(c) { return 'Feels like <b>' + fT(c.resimtit, 0) + '</b>. A perfect day for cold lemonade in the shade — and zero heroics in the sun.'; } },
+      ro: function(c) { if(c.noapte) return '<b>' + fT(c.resimtit, 0) + '</b> resimțiți. Este cald și noaptea. Bea apă și păstrează camera răcoroasă.'; return '<b>' + fT(c.resimtit, 0) + '</b> resimțiți. Ziua perfectă pentru o limonadă rece la umbră — și pentru zero eroism la soare.'; },
+      en: function(c) { if(c.noapte) return 'Feels like <b>' + fT(c.resimtit, 0) + '</b>. A hot night too. Drink water and keep your room cool.'; return 'Feels like <b>' + fT(c.resimtit, 0) + '</b>. A perfect day for cold lemonade in the shade — and zero heroics in the sun.'; } },
 
     { id: 'hidratare', nivel: 2, ico: '💧', cand: function(c) { return c.resimtit >= 29 && c.resimtit < 34; },
       ro: function() { return 'E cald. Bea apă <b>înainte</b> să-ți fie sete — setea apare deja când corpul a rămas în urmă.'; },
       en: function() { return 'It is hot. Drink water <b>before</b> you feel thirsty — thirst shows up once your body is already behind.'; } },
 
-    { id: 'uvExtrem', nivel: 3, ico: '🧴', cand: function(c) { return c.uv >= 8; },
+    { id: 'uvExtrem', nivel: 3, ico: '🧴', cand: function(c) { return c.noapte === false && c.uv >= 8; },
       ro: function(c) { return 'Indice UV <b>' + Math.round(c.uv) + '</b> — foarte mare. Pielea se arde în sub 20 de minute. Cremă, pălărie, umbră.'; },
       en: function(c) { return 'UV index <b>' + Math.round(c.uv) + '</b> — very high. Skin burns in under 20 minutes. Sunscreen, hat, shade.'; } },
 
-    { id: 'uvMare', nivel: 2, ico: '😎', cand: function(c) { return c.uv >= 6 && c.uv < 8; },
+    { id: 'uvMare', nivel: 2, ico: '😎', cand: function(c) { return c.noapte === false && c.uv >= 6 && c.uv < 8; },
       ro: function(c) { return 'UV <b>' + Math.round(c.uv) + '</b>. Ochelarii de soare nu sunt doar de fițe azi, iar crema chiar ajută.'; },
       en: function(c) { return 'UV <b>' + Math.round(c.uv) + '</b>. Sunglasses are not just a look today, and sunscreen actually helps.'; } },
 
@@ -2909,12 +2913,12 @@ var REGULI_SFAT = [
       ro: function(c) { return 'Ziua asta e cu <b>' + fDifAbs(c.abatere, 1) + '</b> ' + (c.abatere > 0 ? 'peste' : 'sub') + ' normalul ultimilor 30 de ani. Nu e o zi obișnuită de ' + c.ziLuna + '.'; },
       en: function(c) { return 'Today is <b>' + fDifAbs(c.abatere, 1) + '</b> ' + (c.abatere > 0 ? 'above' : 'below') + ' the 30-year normal. Not your average ' + c.ziLuna + '.'; } },
 
-    { id: 'apusCurand', nivel: 1, ico: '🌇', cand: function(c) { return c.minPanaApus != null && c.minPanaApus > 0 && c.minPanaApus <= 60; },
+    { id: 'apusCurand', nivel: 1, ico: '🌇', cand: function(c) { return c.noapte === false && c.minPanaApus != null && c.minPanaApus > 0 && c.minPanaApus <= 60; },
       ro: function(c) { return 'Apusul e peste <b>' + c.minPanaApus + ' de minute</b>. Dacă voiai o plimbare, acum e lumina bună.'; },
       en: function(c) { return 'Sunset in <b>' + c.minPanaApus + ' minutes</b>. If you wanted a walk, this is the good light.'; } },
 
     { id: 'ziPerfecta', nivel: 1, ico: '🌤️', cand: function(c) {
-          return c.temp >= 18 && c.temp <= 27 && c.cod <= 3 && c.vant < 7 && c.precipAcum <= 0.05 && c.probUrm < 30 && !c.noapte; },
+          return c.temp >= 18 && c.temp <= 27 && c.cod <= 3 && c.vant < 7 && c.precipAcum <= 0.05 && c.probUrm < 30 && c.noapte === false; },
       ro: function(c) { return '<b>' + fT(c.temp, 0) + '</b>, cer bun și vânt blând. Vremea asta nu ține o veșnicie — ieși un pic afară.'; },
       en: function(c) { return '<b>' + fT(c.temp, 0) + '</b>, clear-ish sky and gentle wind. This will not last forever — go outside for a bit.'; } },
 
@@ -2924,29 +2928,101 @@ var REGULI_SFAT = [
 
     // plasă de siguranță: dacă nimic altceva nu s-a potrivit, banda nu rămâne goală
     { id: 'neutru', nivel: 0, ico: '🙂', cand: function() { return true; },
-      ro: function(c) { return 'Vremea e cuminte azi: <b>' + fT(c.temp, 0) + '</b>, fără nimic de semnalat. Zi bună!'; },
-      en: function(c) { return 'Quiet weather today: <b>' + fT(c.temp, 0) + '</b>, nothing to report. Have a good one!'; } }
+      ro: function(c) { if(c.noapte) return 'Acum sunt <b>' + fT(c.temp, 0) + '</b>. Vreme liniștită în această noapte.'; return 'Vremea e cuminte azi: <b>' + fT(c.temp, 0) + '</b>, fără nimic de semnalat. Zi bună!'; },
+      en: function(c) { if(c.noapte) return 'Currently <b>' + fT(c.temp, 0) + '</b>. Quiet weather tonight.'; return 'Quiet weather today: <b>' + fT(c.temp, 0) + '</b>, nothing to report. Have a good one!'; } }
 ];
 
+// Solar times and advice belong to the displayed coordinates, never a previous city.
+function sfatAceeasiLocatie(loc) {
+    return typeof LOC !== 'undefined' && LOC && loc && +loc.lat === +LOC.lat && +loc.lon === +LOC.lon;
+}
+function sfatDateMobile() {
+    try { return typeof esteMobil==='function' && esteMobil() && typeof mobDatePentruLoc==='function' ? mobDatePentruLoc(LOC) : null; } catch(e) { return null; }
+}
+function sfatOraLocala(data) {
+    var tz=data && data.timezone || LOC.tz, now=new Date();
+    try {
+        if(tz){
+            var parts=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(now), p={};
+            parts.forEach(function(x){p[x.type]=x.value;});
+            return p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute+':'+p.second;
+        }
+    } catch(e) {}
+    var off=data && data.utc_offset_seconds;
+    return typeof off==='number' && isFinite(off) ? new Date(now.getTime()+off*1000).toISOString().slice(0,19) : null;
+}
+function sfatMinute(iso) {
+    var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+    return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0))/60000 : null;
+}
+function actualizeazaOraSfat(data) {
+    CTX.minPanaApus=null;CTX.noapte=null;
+    var local=sfatOraLocala(data), now=sfatMinute(local), day=local && local.slice(0,10);
+    if(data && local){
+        var daily=data.daily || {}, rises=daily.sunrise || [], sets=daily.sunset || [];
+        var i=(daily.time || []).indexOf(day);
+        if(i<0)i=rises.findIndex(function(t){return String(t||'').slice(0,10)===day;});
+        var rise=sfatMinute(rises[i]), set=sfatMinute(sets[i]);
+        if(rise!=null && set!=null && set>rise && String(sets[i]).slice(0,10)===day){
+            CTX.noapte=now<rise || now>=set;
+            var minutes=set-now;
+            if(!CTX.noapte && minutes>0 && minutes<=60)CTX.minPanaApus=Math.ceil(minutes);
+            return;
+        }
+        // Polar day/night or absent solar times: use a flag for this local hour.
+        var hourly=data.hourly || {}, h=(hourly.time || []).findIndex(function(t){return String(t).slice(0,13)===local.slice(0,13);});
+        var flag=h>=0 && hourly.is_day ? hourly.is_day[h] : null;
+        if(flag==null){var cur=data.current || {}, stamp=sfatMinute(cur.time);if(stamp!=null && Math.abs(now-stamp)<=30)flag=cur.is_day;}
+        if(flag===0 || flag==='0' || flag===false)CTX.noapte=true;
+        if(flag===1 || flag==='1' || flag===true)CTX.noapte=false;
+    }
+    if(CTX.noapte!==null || !sunTimes || !sfatAceeasiLocatie(sunTimes))return;
+    var solarLocal=sfatOraLocala(sunTimes), setDay=null;
+    if(solarLocal){
+        var setDate=new Date(sunTimes.set), tz=LOC.tz;
+        try {if(tz){var p={};new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(setDate).forEach(function(x){p[x.type]=x.value;});setDay=p.year+'-'+p.month+'-'+p.day;}else setDay=new Date(sunTimes.set+sunTimes.utc_offset_seconds*1000).toISOString().slice(0,10);}catch(e){}
+    }
+    // Expired or untagged solar data cannot produce a countdown.
+    if(!solarLocal || setDay!==solarLocal.slice(0,10) || !isFinite(sunTimes.rise) || !isFinite(sunTimes.set) || sunTimes.set<=sunTimes.rise)return;
+    var ms=Date.now(), minutes=(sunTimes.set-ms)/60000;
+    CTX.noapte=ms<sunTimes.rise || ms>=sunTimes.set;
+    if(!CTX.noapte && minutes>0 && minutes<=60)CTX.minPanaApus=Math.ceil(minutes);
+}
+function completeazaSfatMobil(data) {
+    if(!data)return;
+    var cur=data.current || {}, daily=data.daily || {}, hourly=data.hourly || {}, local=sfatOraLocala(data);
+    var day=local && local.slice(0,10), i=(daily.time || []).indexOf(day);
+    var number=function(v){return typeof v==='number' && isFinite(v) ? v : null;};
+    CTX.temp=number(cur.temperature_2m);CTX.resimtit=number(cur.apparent_temperature);
+    CTX.cod=number(cur.weather_code);CTX.umiditate=number(cur.relative_humidity_2m);CTX.presiune=number(cur.surface_pressure);
+    CTX.uv=number(cur.uv_index);CTX.precipAcum=number(cur.precipitation);
+    CTX.vant=number(cur.wind_speed_10m)==null ? null : cur.wind_speed_10m/3.6;
+    CTX.rafale=number(cur.wind_gusts_10m)==null ? null : cur.wind_gusts_10m/3.6;
+    CTX.max=i>=0 && daily.temperature_2m_max ? number(daily.temperature_2m_max[i]) : null;
+    CTX.min=i>=0 && daily.temperature_2m_min ? number(daily.temperature_2m_min[i]) : null;
+    CTX.ploaieAzi=i>=0 && daily.precipitation_sum ? number(daily.precipitation_sum[i]) : null;
+    CTX.probUrm=null;
+    if(local){
+        var now=sfatMinute(local), known=[];
+        (hourly.time || []).forEach(function(t,j){var stamp=sfatMinute(t), prob=number((hourly.precipitation_probability || [])[j]);if(stamp!=null && stamp>=now && stamp<now+360 && prob!=null)known.push(prob);});
+        if(known.length)CTX.probUrm=Math.max.apply(null,known);
+    }
+}
 // ── strânge tot ce știm despre vremea de acum ──
 function actualizeazaContext(partial) {
-    for (var k in partial) CTX[k] = partial[k];
-    CTX.anm = codANMLocal();
-    try {
-        if (sunTimes && sunTimes.set) {
-            var d = (sunTimes.set - Date.now()) / 60000;
-            CTX.minPanaApus = (d > 0 && d < 600) ? Math.round(d) : null;
-            CTX.noapte = Date.now() > sunTimes.set || Date.now() < sunTimes.rise;
-        }
-    } catch (e) {}
-    try {
-        CTX.ziLuna = new Date().toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO',
-                                                   { day: 'numeric', month: 'long' });
-    } catch (e) { CTX.ziLuna = ''; }
+    var key=LOC.lat+','+LOC.lon;
+    if(_ctxSfatLoc!==key){CTX={};_ctxSfatLoc=key;}
+    for(var k in partial)CTX[k]=partial[k];
+    var data=sfatDateMobile();completeazaSfatMobil(data);actualizeazaOraSfat(data);
+    CTX.anm=codANMLocal();
+    try {CTX.ziLuna=new Date().toLocaleDateString(LANG==='en'?'en-GB':'ro-RO',{day:'numeric',month:'long',timeZone:LOC.tz || undefined});}catch(e){CTX.ziLuna='';}
     randeazaSfaturi();
 }
 
 function calculeazaSfaturi() {
+    var data=sfatDateMobile();
+    if(typeof esteMobil==='function' && esteMobil() && !data)return [];
+    actualizeazaOraSfat(data);
     var c = CTX, out = [];
     if (c.temp === undefined || c.temp === null) return out;
     if (c.resimtit === undefined || c.resimtit === null) c.resimtit = c.temp;
@@ -2980,8 +3056,10 @@ function randeazaSfaturi() {
 }
 
 function aratăToast() {
+    if(document.hidden){_popAratat=false;_sfatTimer=null;return;}
+    actualizeazaContext({});
     var t = document.getElementById('sfatToast'), s = _sfaturi[0];
-    if (!t || !s) return;
+    if (!t || !s){_popAratat=false;_sfatTimer=null;return;}
     document.getElementById('stIco').textContent = s.ico;
     document.getElementById('stText').innerHTML = s.text;
     document.getElementById('stEt').textContent =
@@ -3016,12 +3094,14 @@ function porneșteRotatia() {}
 // Trecutul contează: fără el aplicația n-ar putea spune „ce răcoare, după
 // atâta caniculă" — ar ști doar că azi sunt 24 de grade.
 function incarcaContextExtins() {
+    var locCeruta={lat:+TGV.lat,lon:+TGV.lon};
     var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + TGV.lat + '&longitude=' + TGV.lon +
             '&current=uv_index,precipitation,wind_gusts_10m,apparent_temperature' +
             '&hourly=precipitation_probability' +
             '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum' +
             '&past_days=5&forecast_days=2&timezone=auto';
     fetch(u).then(function(r) { return r.json(); }).then(function(d) {
+        if(!sfatAceeasiLocatie(locCeruta))return;
         var cur = d.current || {}, zi = d.daily || {}, ore = d.hourly || {};
         var prob = 0;
         try {
@@ -10222,6 +10302,7 @@ function mobRandare() {
 }
 function mobRandareAcum() {
     if (!esteMobil() || !mobDatePentruLoc()) return;
+    actualizeazaContext({});
     mobOpresteObservatori();
     // Păstrăm containerele Leaflet în viață cât timp refacem restul
     // cardurilor. Dalele și straturile deja descărcate nu se mai pierd
