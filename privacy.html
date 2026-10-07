@@ -68,7 +68,7 @@
 
         <h2>2. Ce date folosim</h2>
         <ul>
-            <li><b>Locația aproximativă sau precisă</b> — doar dacă îți dai acordul. O folosim pentru a determina localitatea și a afișa vremea pentru ea. La folosirea butonului de localizare, coordonatele sunt trimise către BigDataCloud pentru identificarea localității și apoi către serviciile meteo (vezi secțiunea 5) pentru prognoză. Pentru utilizarea obișnuită nu le salvăm pe serverele noastre. Dacă activezi notificările, coordonatele și numele localității selectate sunt păstrate împreună cu abonamentul tehnic, pentru a trimite alerte relevante. Poți refuza accesul și poți căuta manual orice oraș.</li>
+            <li><b>Locația aproximativă sau precisă</b> — doar dacă îți dai acordul. O folosim pentru a determina localitatea și a afișa vremea pentru ea. La folosirea butonului de localizare, coordonatele sunt trimise către BigDataCloud pentru identificarea localității și apoi către serviciile meteo (vezi secțiunea 5) pentru prognoză. Prognozele pentru coordonatele cerute sunt păstrate într-un cache al serverului, fără identificator de persoană sau dispozitiv. Cererile către MET Norway trec prin serverul METEO NOW, astfel că furnizorul primește IP-ul serverului. Dacă activezi notificările, coordonatele și numele localității selectate sunt păstrate împreună cu abonamentul tehnic, pentru a trimite alerte relevante. Poți refuza accesul și poți căuta manual orice oraș.</li>
             <li><b>Preferințele tale</b> (orașul ales, tema, limba, locațiile recente) se salvează
             local, în memoria aplicației. Pentru ca orașele salvate să apară în selectorul widgeturilor,
             lista este sincronizată prin Firebase numai sub formă criptată end-to-end (AES-GCM);
