@@ -5,7 +5,11 @@ const memory={};const storage={getItem:k=>memory[k]||null,setItem:(k,v)=>{memory
 let store=load(storage),city={nume:'Moreni',lat:44.983,lon:25.644};
 assert.equal(store.active(),null);const a=store.start(city);
 store.append(a.id,'user','Plouă azi?',city);store.append(a.id,'model','Șansa este 0%.',city);
-store=load(storage);assert.equal(store.active().id,a.id);assert.equal(store.active().messages[1].text,'Șansa este 0%.');
+assert.equal(JSON.parse(memory['meteo-ai-conversations-v1']).active,null,'selection belongs only to the current session');
+store=load(storage);assert.equal(store.active(),null,'restart shows the landing screen');assert.equal(store.get(a.id).messages[1].text,'Șansa este 0%.','saved messages survive');
+const legacy=JSON.parse(memory['meteo-ai-conversations-v1']);legacy.active=a.id;memory['meteo-ai-conversations-v1']=JSON.stringify(legacy);
+assert.equal(load(storage).active(),null,'older saved selection is ignored without deleting history');assert.equal(load(storage).get(a.id).messages.length,2);
+assert.equal(store.select(a.id),true);assert.equal(store.active().id,a.id,'history can be selected explicitly');
 const b=store.start({nume:'New York City'});store.append(b.id,'user','Cum e vremea?',{nume:'New York City'});
 store.append(a.id,'model','Răspuns întârziat pentru Moreni.',city);
 assert.equal(store.active().id,b.id);assert.equal(store.active().messages.length,1,'delayed reply belongs to original conversation');

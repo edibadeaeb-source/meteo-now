@@ -21,16 +21,18 @@ const checks=String.raw`
  await send('Plouă azi?');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Plouă azi?'));
  console.log('First AI answer received');
  assert.equal(requests.length,1);assert.equal(requests[0].locatie.nume,loc.nume);assert.equal(requests[0].vremea.curent.temperatura_c,28);
- await page.locator('#chatClose').click();
- assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),false);
+ const background=async()=>{await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(50);assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true');assert.equal(await page.evaluate(()=>MeteoConversations.active()),null);assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),false);await page.evaluate(()=>{delete document.visibilityState;document.dispatchEvent(new Event('visibilitychange'));});assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true','resume stays on weather');};
+ await background();await show();assert.equal(await page.locator('#chatHome').isVisible(),true,'retained Android tab returns to AI landing screen');await page.locator('#chatClose').click();
  await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.MOBD&&window.MeteoChat);await show();
- assert.ok((await page.locator('#chatMessages').textContent()).includes('Răspuns pentru Plouă azi?'),'history survives page/app restart');
- console.log('AI history restored after restart');
+ assert.equal(await page.locator('#chatHome').isVisible(),true,'fresh restart does not reopen a conversation');assert.equal(await page.locator('#chatMessages').isVisible(),false);
+ await page.locator('#chatHistoryTab').click();await page.locator('.ai-history-open').filter({hasText:'Plouă azi?'}).click();
+ assert.ok((await page.locator('#chatMessages').textContent()).includes('Răspuns pentru Plouă azi?'),'saved history can be reopened manually');
+ console.log('AI restart and resume keep history without reopening it');
  await send('Dar mâine?');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Dar mâine?'));
  assert.equal(requests[1].history.length,2);assert.equal(requests[1].history[0].text,'Plouă azi?');
  await page.locator('#chatNew').click();await send('Răspuns lent');await page.waitForFunction(()=>document.querySelector('.chat-msg.typing'));
  const slowId=await page.evaluate(()=>MeteoConversations.active().id);
- await page.locator('#chatNew').click();await send('Altă discuție');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Altă discuție'));
+ await background();await show();assert.equal(await page.locator('#chatHome').isVisible(),true);await send('Altă discuție');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Altă discuție'));
  lateReply();await page.waitForFunction(id=>MeteoConversations.get(id).messages.some(m=>m.role==='model'),slowId);
  console.log('AI replies stayed in their own conversations');
  assert.ok(!(await page.locator('#chatMessages').textContent()).includes('Răspuns lent'),'late reply does not leak into another conversation');
@@ -55,6 +57,24 @@ const checks=String.raw`
    if([320,412,1280].includes(width))await page.screenshot({path:path.join(shots,'ai-home-'+width+'.png')});
  }
  await page.setViewportSize({width:412,height:915});
+ const typography=await page.locator('#chatInput').evaluate(e=>{const s=getComputedStyle(e);return{placeholder:e.placeholder,top:parseFloat(s.paddingTop),left:parseFloat(s.paddingLeft),line:parseFloat(s.lineHeight)};});
+ assert.ok(typography.placeholder.startsWith('Întreabă-mă'));assert.ok(typography.top>=6&&typography.left>=4&&typography.line>=24,'diacritics have space inside the textarea');
+ const suggestionPress=await page.locator('.chat-suggestion').first().evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));return{pressed:e.classList.contains('ai-touch-down'),old:e.classList.contains('presat')};});assert.equal(suggestionPress.pressed,true);assert.equal(suggestionPress.old,false,'AI suggestions use one press animation');await page.evaluate(()=>document.getElementById('chatMain').dispatchEvent(new Event('scroll')));assert.equal(await page.locator('.chat-suggestion').first().evaluate(e=>e.classList.contains('ai-touch-down')),false,'scroll releases button');
+ const actualPress=await page.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),animation:getComputedStyle(e,'::before').animationName,transform:getComputedStyle(e).transform};});
+ assert.equal(actualPress.pressed,true);assert.equal(actualPress.pulse,true);assert.equal(actualPress.animation,'none','reduced motion disables shimmer');assert.equal(actualPress.transform,'none');
+ await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointercancel')));await page.waitForTimeout(600);
+ assert.equal(await page.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false,'cancel releases all press effects');
+ await page.locator('#chatSend').dispatchEvent('pointerdown',{pointerType:'touch'});assert.equal(await page.locator('#chatSend').evaluate(e=>e.classList.contains('ai-glass-pulse')),false,'disabled send does not animate');
+ // Isolate the short animation from headless software rendering of weather videos.
+ const motionPage=await context.newPage();await motionPage.goto(base+'/cache-test');await motionPage.emulateMedia({reducedMotion:'no-preference'});
+ const realButtonHandlers=fs.readFileSync(path.join(root,'index.html'),'utf8').split('var pressedChatButton=null;')[1].split('function addMessage(text, isUser)')[0];
+ const markup=await page.locator('#chatWindow').evaluate(e=>e.outerHTML);
+ await motionPage.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#18243e;font-family:Inter,system-ui,sans-serif}#chatWindow{height:880px;max-height:none;display:flex;flex-direction:column;margin:12px}.chat-messages{display:flex;flex-direction:column}</style><link rel="stylesheet" href="'+base+'/weather-ai.css">'+markup);
+ await motionPage.addScriptTag({content:"var chatWindow=document.getElementById('chatWindow');var pressedChatButton=null;"+realButtonHandlers});
+ const glass=await motionPage.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),sweep:getComputedStyle(e,'::before').animationName,glow:getComputedStyle(e,'::after').animationName};});
+ assert.equal(glass.pressed,true);assert.equal(glass.pulse,true);assert.equal(glass.sweep,'aiGlassSweep');assert.equal(glass.glow,'aiGlassGlow');
+ await motionPage.screenshot({path:path.join(shots,'ai-glass-press-412.png')});await motionPage.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerup')));await motionPage.waitForTimeout(600);
+ assert.equal(await motionPage.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false);await motionPage.close();await page.bringToFront();if(await page.locator('#chatWindow').getAttribute('aria-hidden')==='true')await show();
  await page.evaluate(()=>{window.realChatViewport=window.visualViewport;Object.defineProperty(window,'visualViewport',{configurable:true,value:{height:350,offsetTop:0}});window.dispatchEvent(new Event('resize'));});
  assert.equal(await page.locator('#chatWindow').getAttribute('data-keyboard'),'true');
  const keyboardFit=await page.evaluate(()=>{const dialog=document.getElementById('chatWindow').getBoundingClientRect(),send=document.getElementById('chatSend').getBoundingClientRect();return send.bottom<=dialog.bottom&&dialog.bottom<=350;});assert.equal(keyboardFit,true,'keyboard keeps send button in view');
@@ -67,7 +87,7 @@ const checks=String.raw`
  await page.locator('#chatClose').click();await page.waitForTimeout(100);
  assert.equal(await page.evaluate(()=>_nrPanouri),0,'switching AI tabs cannot leak background scroll locks');
  assert.deepEqual(errors,[]);
- console.log('AI browser passed: restart, fresh weather, conversation history, delayed replies, deletion, keyboard/accessibility, RO/EN and six screen sizes');
+ console.log('AI browser passed: restart/resume landing screen, liquid glass/reduced motion, placeholder diacritics, fresh weather, conversation history, delayed replies, deletion, keyboard/accessibility, RO/EN and six screen sizes');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});`;
 const m=new Module(fixture,module);m.filename=fixture;m.paths=Module._nodeModulePaths(path.dirname(fixture));m._compile(prefix+checks,fixture);

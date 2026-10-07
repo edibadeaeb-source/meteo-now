@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.10">
+    <meta name="application-version" content="2026.10.08.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -120,7 +120,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="ai-conversations.js?v=1" defer></script>
+    <script src="ai-conversations.js?v=2" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
@@ -3493,6 +3493,15 @@ function syncOpen(){
 }
 chatFab.addEventListener('click',function(){chatWindow.classList.toggle('open');syncOpen();});
 function closeChat(){chatWindow.classList.remove('open');syncOpen();}
+function leaveChat(){
+    // Android can retain the browser tab when the app is closed from Recents.
+    // Reset the visible session as well as the selection restored on a new boot.
+    if(!chatWindow.classList.contains('open')&&!activeId())return;
+    releaseChatButton();keepDraft();closeChat();conversations.blank();deleteId=null;
+    chatInput.value='';chatInput.style.height='';
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')leaveChat();});
+window.addEventListener('pagehide',leaveChat);
 chatClose.addEventListener('click',closeChat);chatBackdrop.addEventListener('click',closeChat);
 new MutationObserver(syncOpen).observe(chatWindow,{attributes:true,attributeFilter:['class']});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',viewportChat);window.visualViewport.addEventListener('scroll',viewportChat);}window.addEventListener('resize',viewportChat);
@@ -3515,6 +3524,19 @@ chatArchive.addEventListener('click',function(e){
 });
 window.MeteoChat={hasMessages:function(){var c=conversations.active();return !!(c&&c.messages.length);},updateLabels:updateLabels};
 renderConversation();
+
+var pressedChatButton=null;
+function pulseButton(button,e){
+    if(!button||button.disabled||!button.isConnected)return;
+    if(e&&e.clientX!=null){var r=button.getBoundingClientRect();button.style.setProperty('--ai-press-x',(e.clientX-r.left)+'px');button.style.setProperty('--ai-press-y',(e.clientY-r.top)+'px');}
+    if(button.classList.contains('ai-glass-pulse'))return;
+    button.classList.add('ai-glass-pulse');setTimeout(function(){button.classList.remove('ai-glass-pulse');},520);
+}
+function releaseChatButton(){if(pressedChatButton)pressedChatButton.classList.remove('ai-touch-down');pressedChatButton=null;}
+chatWindow.addEventListener('pointerdown',function(e){var button=e.target.closest('button');if(!button||button.disabled)return;releaseChatButton();pressedChatButton=button;button.classList.add('ai-touch-down');pulseButton(button,e);});
+window.addEventListener('pointerup',releaseChatButton);window.addEventListener('pointercancel',releaseChatButton);
+window.addEventListener('blur',releaseChatButton);chatWindow.addEventListener('scroll',releaseChatButton,{capture:true,passive:true});
+chatWindow.addEventListener('click',function(e){pulseButton(e.target.closest('button'));});
 
 function addMessage(text, isUser) {
     var div = document.createElement('div');
@@ -8574,7 +8596,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=12">
-<link rel="stylesheet" href="weather-ai.css?v=1">
+<link rel="stylesheet" href="weather-ai.css?v=2">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -11142,7 +11164,7 @@ function mobHartaAnm(id) {
 
     document.addEventListener('pointerdown', function(e) {
         var el = e.target.closest(SELECTOR_APASABIL);
-        if (el) incepeApasarea(el, e.clientX, e.clientY);
+        if (el && !el.closest('#chatWindow')) incepeApasarea(el, e.clientX, e.clientY);
     }, { passive: true });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function(ev) {
         document.addEventListener(ev, terminaApasarea, { passive: true });

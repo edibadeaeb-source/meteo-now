@@ -35,7 +35,7 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .chat-input-area {display:block;flex-shrink:0;padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));border:0!important;background:transparent!important;}
 #chatWindow .ai-composer {padding:1.5px;border-radius:25px;background:linear-gradient(115deg,#bca0f4aa,#d4c1ff55 45%,#90d9ffbb);box-shadow:0 3px 20px #b0acff0b;}
 #chatWindow .ai-composer-inner {border-radius:23.5px;background:rgba(9,18,39,.85);padding:15px 14px 10px;}
-#chatWindow #chatInput {display:block;box-sizing:border-box;width:100%;height:64px;min-height:64px;max-height:140px;resize:none;overflow-y:auto;padding:0;background:transparent!important;border:0!important;outline:0;font:400 16px/1.5 Inter,system-ui,sans-serif;color:#f5f7ff!important;touch-action:pan-y;}
+#chatWindow #chatInput {display:block;box-sizing:border-box;width:100%;height:64px;min-height:64px;max-height:140px;resize:none;overflow-y:auto;padding:6px 4px 4px;background:transparent!important;border:0!important;outline:0;font:400 16px/1.55 Inter,system-ui,sans-serif;color:#f5f7ff!important;caret-color:#c5ddff;touch-action:pan-y;}
 #chatWindow[data-mode="home"] #chatInput {height:88px;}
 #chatWindow #chatInput::placeholder {color:#d4dced!important;opacity:.8;}
 #chatWindow .ai-composer-footer {display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #ffffff15;padding-top:9px;margin-top:8px;}
@@ -56,6 +56,16 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .ai-storage-note {margin:0;padding:0 20px 10px;font-size:.72rem;line-height:1.45;color:#ffddc0;flex-shrink:0;}
 #chatWindow button:focus-visible {outline:2px solid #b2dfff;outline-offset:3px;}
 #chatWindow .ai-composer:focus-within {box-shadow:0 0 0 2px #b4c6ff35;}
+#chatWindow button {position:relative;isolation:isolate;overflow:hidden;transition:transform .24s cubic-bezier(.2,1.35,.35,1),border-color .2s;box-shadow:inset 0 1px 0 #ffffff17,inset 0 -1px 0 #ffffff07;}
+#chatWindow .ai-history-open {border-radius:16px;}
+#chatWindow button::before,#chatWindow button::after {content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;opacity:0;}
+#chatWindow button::before {background:linear-gradient(115deg,transparent 20%,#ffffff08 38%,#ffffff36 50%,#ffffff08 62%,transparent 80%);transform:translateX(-120%);}
+#chatWindow button::after {background:radial-gradient(circle at var(--ai-press-x,50%) var(--ai-press-y,50%),#e6efff55,transparent 70%);}
+#chatWindow button.ai-glass-pulse::before {animation:aiGlassSweep .5s cubic-bezier(.2,.65,.3,1);}
+#chatWindow button.ai-glass-pulse::after {animation:aiGlassGlow .46s ease-out;}
+#chatWindow button.ai-touch-down,#chatWindow button:not(:disabled):active {transform:scale(.96) translateY(.5px);border-color:#e0eaff75;}
+@keyframes aiGlassSweep {0%{transform:translateX(-120%);opacity:0;}15%{opacity:.9;}85%{opacity:.65;}100%{transform:translateX(120%);opacity:0;}}
+@keyframes aiGlassGlow {0%{transform:scale(.75);opacity:0;}25%{opacity:.65;}100%{transform:scale(1.08);opacity:0;}}
 #chatWindow[data-keyboard="true"] .chat-suggestions, #chatWindow[data-keyboard="true"] .ai-home {display:none!important;}
 @media (max-width:380px),(max-height:700px) {
     #chatWindow .chat-suggestions {flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:10px;touch-action:pan-x;scrollbar-width:none;}
@@ -75,4 +85,5 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 }
 @media (max-height:450px) {#chatWindow .ai-home {padding:10px 24px;}#chatWindow .ai-weather-mark {display:none;}#chatWindow .ai-home h2 {font-size:23px;}#chatWindow .ai-home p {display:none;}#chatWindow .chat-suggestions {padding-top:10px;}}
 @media (prefers-reduced-transparency:reduce) {#chatWindow {background:#152039!important;backdrop-filter:none;-webkit-backdrop-filter:none;}}
+@media (prefers-reduced-motion:reduce) {#chatWindow button {transition:none!important;transform:none!important;}#chatWindow button::before,#chatWindow button::after {animation:none!important;opacity:0!important;}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {#chatWindow {background:#152039!important;}}

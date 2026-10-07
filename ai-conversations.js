@@ -9,7 +9,8 @@
     try {
         var raw=JSON.parse(root.localStorage.getItem(storageKey)||'null');
         if(raw&&raw.version===1&&Array.isArray(raw.conversations)){
-            state.active=typeof raw.active==='string'?raw.active:null;
+            // Restore saved messages, never reopen the previous session's thread.
+            state.active=null;
             state.conversations=raw.conversations.filter(valid).slice(0,30).map(function(c){
                 c.title=String(c.title||'').slice(0,120);
                 c.city=String(c.city||'').slice(0,120);
@@ -23,15 +24,16 @@
         state.conversations.sort(function(a,b){return b.updated-a.updated;});
         state.conversations=state.conversations.slice(0,30);
         // Bound local storage by actual payload size, not just conversation count.
-        var encoded=JSON.stringify(state);
+        function encode(){return JSON.stringify({version:1,active:null,conversations:state.conversations});}
+        var encoded=encode();
         while(encoded.length>220000&&state.conversations.length>1){
             var victim=state.conversations.length-1;
             if(state.conversations[victim].id===state.active)victim--;
-            state.conversations.splice(victim,1);encoded=JSON.stringify(state);
+            state.conversations.splice(victim,1);encoded=encode();
         }
         if(state.conversations.length===1){
             var c=state.conversations[0];
-            while(encoded.length>220000&&c.messages.length>2){c.messages.shift();c.truncated=true;encoded=JSON.stringify(state);}
+            while(encoded.length>220000&&c.messages.length>2){c.messages.shift();c.truncated=true;encoded=encode();}
         }
         try {root.localStorage.setItem(storageKey,encoded);saved=true;}catch(e){saved=false;}
         return saved;

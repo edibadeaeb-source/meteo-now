@@ -3,7 +3,7 @@
 //      (2) NU păstrează pagina în cache — conținutul vine mereu proaspăt din rețea.
 // Cache-ul e folosit DOAR ca rezervă când nu ai internet.
 
-const CACHE = 'meteo-now-net-v40';
+const CACHE = 'meteo-now-net-v41';
 const WEATHER_ASSETS = 'meteo-weather-assets-v1';
 const WEATHER_VIDEO = 'meteo-weather-video-v2';
 const videoLoads = new Map();
