@@ -2,6 +2,31 @@
 
 Actualizare: 7 octombrie 2026.
 
+## Mesajul din aplicație cu liquid glass — 2026.10.07.8
+
+Mesajul de întâmpinare folosește acum un singur strat de blur, suprafață
+translucidă cu reflexie discretă și margini de sticlă, fără fundal suplimentar
+peste pagină. Iconița are un suport rotunjit, orașul are simbol de localizare,
+iar textul este puțin mai mare. Numele lungi se încadrează pe mai multe rânduri,
+fără să intre sub butonul de închidere, care are o zonă de apăsare de 44×44 px.
+
+Gravitatea colorează iconița, eticheta și bara de timp, păstrând aceeași
+suprafață transparentă. Doar mesajele ANM sunt etichetate „Avertizare meteo”;
+sfaturile obișnuite folosesc „Vremea acum”, „De reținut” sau „Atenție”. Textele
+și eticheta de închidere sunt localizate în RO/EN.
+
+Bara folosește transform, fără schimbarea lățimii la fiecare cadru, și durează
+11 secunde pentru mesaje obișnuite sau 15 pentru cele importante, la fel ca
+închiderea automată. Apăsarea, glisarea în sus și Escape păstrează comportamentul
+existent. Mesajul ascuns nu poate intercepta atingeri și nu este citit de
+cititorul de ecran. Există variante pentru transparență redusă, lipsa suportului
+de blur și animații reduse.
+
+Verificări în browser: 320/412/430/820 px, zi/noapte, patru niveluri, RO/EN,
+nume foarte lung și durata barei; închidere tactilă, apăsare lungă fără selecție,
+editarea căutării și Escape. Verificările generale ale aplicației acoperă
+și cele șapte dimensiuni de ecran folosite anterior.
+
 ## Nori în gri și albastru, fără verde — 2026.10.07.7
 
 Screenshotul „verde noros.jpeg” din Sinaia arăta varianta nocturnă a filmării

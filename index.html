@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.07.7">
+    <meta name="application-version" content="2026.10.07.8">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -315,49 +315,81 @@
         #sfatToast {
             position: fixed; z-index: 9700;
             top: calc(16px + env(safe-area-inset-top, 0px));
-            right: 16px; width: min(340px, calc(100vw - 32px));
+            right: 16px; width: min(380px, calc(100vw - 32px));
             pointer-events: none;
             opacity: 0; transform: translateY(-14px) scale(0.97);
             transition: opacity 0.35s ease, transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1);
         }
         #sfatToast.vizibil { opacity: 1; transform: translateY(0) scale(1); }
+        #sfatToast:not(.vizibil) { visibility: hidden; }
         .st-card {
+            --st-accent: 192, 226, 255;
+            --st-tint: rgba(9, 26, 46, .62);
             pointer-events: auto; position: relative; overflow: hidden;
-            display: flex; align-items: flex-start; gap: 11px;
-            border-radius: 18px; padding: 13px 14px;
-            /* fundalul e destul de opac ca textul să se vadă și fără blur */
-            background: rgba(18, 26, 54, 0.86);
-            -webkit-backdrop-filter: blur(22px) saturate(170%);
-            backdrop-filter: blur(22px) saturate(170%);
-            border: 1px solid rgba(255, 255, 255, 0.20);
-            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.22);
-            color: #fff; cursor: pointer;
+            display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; gap: 12px;
+            border-radius: 24px; padding: 16px 15px 20px;
+            background: linear-gradient(125deg, rgba(255,255,255,.16), transparent 48%, rgba(255,255,255,.035)), var(--st-tint);
+            -webkit-backdrop-filter: blur(22px) saturate(145%);
+            backdrop-filter: blur(22px) saturate(145%);
+            border: 1px solid rgba(255,255,255,.32); border-top-color: rgba(255,255,255,.6);
+            box-shadow: 0 12px 34px rgba(3,14,28,.26), inset 0 1px 0 rgba(255,255,255,.42), inset 0 -1px 0 rgba(255,255,255,.1);
+            color: #fff; cursor: pointer; text-shadow: 0 1px 3px rgba(3,15,29,.36);
         }
-        .st-ico { font-size: 1.35rem; line-height: 1.25; flex-shrink: 0; }
-        .st-mij { flex: 1; min-width: 0; }
-        .st-et { font-size: 0.63rem; font-weight: 800; letter-spacing: 0.9px; text-transform: uppercase;
-                 color: rgba(255,255,255,0.62); margin-bottom: 2px; }
-        .st-text { font-size: 0.86rem; line-height: 1.45; color: #eef2ff; }
+        html[data-weather-night="1"] .st-card { --st-tint: rgba(12,23,42,.43); }
+        .st-ico {
+            display: grid; place-items: center; width: 44px; height: 44px; border-radius: 15px;
+            font-size: 1.65rem; line-height: 1;
+            background: linear-gradient(135deg, rgba(255,255,255,.21), rgba(var(--st-accent),.09));
+            border: 1px solid rgba(var(--st-accent),.32);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.34); text-shadow: none;
+        }
+        .st-mij { min-width: 0; }
+        .st-city { display: flex; align-items: flex-start; gap: 5px; padding-right: 38px; }
+        .st-city svg { width: 13px; height: 13px; flex: 0 0 13px; margin-top: 2px; opacity: .84; }
+        .st-et { font-size: .74rem; line-height: 1.4; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+                 color: rgba(255,255,255,.96); overflow-wrap: anywhere; }
+        .st-kind {
+            display: inline-block; max-width: 100%; margin-top: 5px; padding: 3px 8px;
+            border-radius: 20px; font-size: .61rem; line-height: 1.4; font-weight: 700; letter-spacing: .2px;
+            color: rgb(var(--st-accent)); background: rgba(var(--st-accent),.1);
+            border: 1px solid rgba(var(--st-accent),.2);
+        }
+        .st-text { margin-top: 7px; font-size: .90rem; font-weight: 500; line-height: 1.5; color: rgba(255,255,255,.96); overflow-wrap: anywhere; }
         .st-text b { color: #fff; font-weight: 800; }
         .st-x {
-            flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; cursor: pointer;
-            border: none; background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.8);
-            font-size: 0.7rem; line-height: 1; font-family: inherit;
+            position: absolute; top: 5px; right: 5px; width: 44px; height: 44px; padding: 12px;
+            border-radius: 50%; cursor: pointer; border: none; background: transparent; color: rgba(255,255,255,.88);
             display: flex; align-items: center; justify-content: center;
         }
-        .st-x:hover { background: rgba(255,255,255,0.26); color: #fff; }
+        .st-x::before { content: ''; position: absolute; inset: 6px; border-radius: inherit;
+            background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.045));
+            border: 1px solid rgba(255,255,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
+        .st-x svg { position: relative; width: 20px; height: 20px; pointer-events: none; }
+        .st-x:active::before { background: rgba(255,255,255,.25); }
+        .st-x:focus-visible { outline: 2px solid rgb(var(--st-accent)); outline-offset: -3px; }
         /* firul de timp care arată cât mai stă */
-        .st-timp { position: absolute; left: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.55); width: 100%; }
-        #sfatToast.vizibil .st-timp { animation: stScurge 11s linear forwards; }
-        @keyframes stScurge { from { width: 100%; } to { width: 0; } }
-        /* nuanța urmează gravitatea */
-        .st-card.nv2 { background: rgba(94, 74, 8, 0.90); border-color: rgba(245,197,0,0.45); }
-        .st-card.nv3 { background: rgba(104, 50, 12, 0.90); border-color: rgba(249,115,22,0.50); }
-        .st-card.nv4 { background: rgba(102, 28, 32, 0.92); border-color: rgba(229,72,77,0.55); }
+        .st-timp { position: absolute; left: 0; bottom: 0; height: 2px; background: rgba(var(--st-accent),.72);
+            width: 100%; transform-origin: left; }
+        #sfatToast.vizibil .st-timp { animation: stScurge var(--st-duration, 11s) linear forwards; }
+        @keyframes stScurge { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+        /* Gravitatea se vede în accente, păstrând suprafața transparentă. */
+        .st-card.nv2 { --st-accent: 255, 226, 159; }
+        .st-card.nv3 { --st-accent: 255, 196, 147; }
+        .st-card.nv4 { --st-accent: 255, 172, 182; }
         @media (max-width: 900px), (max-height: 560px) and (pointer: coarse) {
             /* pe telefon îl coborâm sub bara care apare la derulare */
-            #sfatToast { top: calc(60px + env(safe-area-inset-top, 0px)); right: 12px; left: 12px; width: auto; }
-            .st-text { font-size: 0.84rem; }
+            #sfatToast { top: calc(60px + env(safe-area-inset-top, 0px)); right: 12px; left: 12px;
+                width: min(460px, calc(100vw - 24px)); margin-inline: auto; }
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .st-card { background: rgba(15,32,51,.95); }
+        }
+        @media (prefers-reduced-transparency: reduce) {
+            .st-card { background: rgba(15,32,51,.96); -webkit-backdrop-filter: none; backdrop-filter: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #sfatToast { transition: none; transform: none; }
+            #sfatToast .st-timp { animation: none; display: none; }
         }
         .hero-extra { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
         .hero-tiles { display: flex; flex-direction: column; gap: 12px; justify-content: center; }
@@ -1602,15 +1634,16 @@
 </div>
 
 <!-- ═══ MESAJ DISCRET — sfatul potrivit vremii de acum ═══ -->
-<div id="sfatToast" role="status" aria-live="polite">
+<div id="sfatToast" role="status" aria-live="polite" aria-atomic="true" aria-hidden="true">
     <div class="st-card" id="stCard">
-        <span class="st-ico" id="stIco">💡</span>
+        <span class="st-ico" id="stIco" aria-hidden="true">💡</span>
         <div class="st-mij">
-            <div class="st-et" id="stEt">Vremea la tine</div>
+            <div class="st-city"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><div class="st-et" id="stEt">Vremea la tine</div></div>
+            <div class="st-kind" id="stKind">Vremea acum</div>
             <div class="st-text" id="stText"></div>
         </div>
-        <button class="st-x" id="stX" aria-label="Închide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        <span class="st-timp"></span>
+        <button type="button" class="st-x" id="stX" aria-label="Închide mesajul"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        <span class="st-timp" aria-hidden="true"></span>
     </div>
 </div>
 
@@ -2953,14 +2986,23 @@ function aratăToast() {
     document.getElementById('stEt').textContent =
         ((typeof LOC !== 'undefined' && LOC.nume) ? LOC.nume : T('spEticheta'));
     document.getElementById('stCard').className = 'st-card nv' + s.nivel;
+    var en = LANG === 'en', oficial = /^anm[234]$/.test(s.id || '');
+    document.getElementById('stKind').textContent = oficial ? (en ? 'Weather warning' : 'Avertizare meteo') :
+        s.nivel >= 3 ? (en ? 'Take care' : 'Atenție') : s.nivel === 2 ? (en ? 'Good to know' : 'De reținut') :
+        (en ? 'Weather now' : 'Vremea acum');
+    document.getElementById('stX').setAttribute('aria-label', en ? 'Dismiss message' : 'Închide mesajul');
+    var durata = s.nivel >= 3 ? 15000 : 11000;
+    t.style.setProperty('--st-duration', (durata / 1000) + 's');
+    t.setAttribute('aria-hidden', 'false');
     t.classList.add('vizibil');
     // dispare singur; avertizările grave stau ceva mai mult
-    _sfatTimer = setTimeout(inchideToast, s.nivel >= 3 ? 15000 : 11000);
+    if (_sfatTimer) clearTimeout(_sfatTimer);
+    _sfatTimer = setTimeout(inchideToast, durata);
 }
 
 function inchideToast() {
     var t = document.getElementById('sfatToast');
-    if (t) t.classList.remove('vizibil');
+    if (t) { t.classList.remove('vizibil'); t.setAttribute('aria-hidden', 'true'); }
     if (_sfatTimer) { clearTimeout(_sfatTimer); _sfatTimer = null; }
 }
 
