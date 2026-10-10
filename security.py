@@ -175,7 +175,7 @@ def _positive_env(name, default, maximum):
 
 
 def install_security(app, hosted, admin_secret):
-    origins = ['https://meteo-now.onrender.com']
+    origins = ['https://meteo-now.onrender.com', 'https://meteo-targoviste.onrender.com']
     origins.extend(x.strip().rstrip('/') for x in os.environ.get('METEO_ALLOWED_ORIGINS', '').split(',')
                    if x.strip().startswith('https://') and '*' not in x)
     if not hosted:

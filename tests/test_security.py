@@ -87,6 +87,12 @@ class SecurityMiddlewareTests(unittest.TestCase):
     def test_native_clients_without_origin_remain_supported(self):
         self.assertEqual(self.client.get('/api/widget').status_code, 200)
 
+    def test_owned_legacy_service_origin_remains_supported(self):
+        origin = 'https://meteo-targoviste.onrender.com'
+        response = self.client.post('/ask', headers={'Origin': origin}, json={})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['Access-Control-Allow-Origin'], origin)
+
     def test_cors_preflight_only_allows_own_origin(self):
         headers = {'Origin': 'https://meteo-now.onrender.com', 'Access-Control-Request-Method': 'POST',
                    'Access-Control-Request-Headers': 'Content-Type'}
