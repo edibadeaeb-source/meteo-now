@@ -17,10 +17,15 @@ async function denied(path,method='GET',data){const r=await request(path,method,
  await denied('senzori/unknown_device','PUT',{test:true});
  await denied('','PATCH',{'status/test':true,'push_subs/fixture/test':false});
  for(const p of ['senzori/bme680','senzori/lorawan','istoric/lorawan','esp32_location','sparkfun_location','status','status_lorawan']){
-  assert.equal((await request(p,'PUT',{fixture:true})).status,200,p+' temporary station writer compatibility');
+  assert.equal((await request(p,'PUT',{fixture:true},true)).status,200,p+' trusted station data fixture');
+  await denied(p,'PUT',{changed:true});
+  await denied(p,'PATCH',{changed:true});
+  await denied(p,'DELETE');
+  await denied(p+'/child','PUT',{changed:true});
   assert.equal((await request(p)).status,200,p+' public station read');
+  assert.deepEqual(await (await request(p)).json(),{fixture:true},p+' denied writes leave station data unchanged');
  }
  const untouched=await (await request('push_subs/fixture','GET',undefined,true)).json();assert.equal(untouched.test,true,'denied writes must not alter private data');
  assert.equal((await request('push_subs/fixture','PUT',{server:true},true)).status,200,'trusted server can write private data');
- console.log('PASS: root, notification/widget branches, commands, unknown paths and atomic mixed writes denied; trusted server and explicit station compatibility preserved. Station anonymous writes remain a documented IoT migration task.');
+ console.log('PASS: anonymous writes denied on root, private branches and all station paths, including updates, deletes and child writes; existing station reads and trusted server access preserved.');
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

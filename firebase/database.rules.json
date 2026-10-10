@@ -3,13 +3,13 @@
     ".read": false,
     ".write": false,
     "senzori": {
-      "bme680": { ".read": true, ".write": true },
-      "lorawan": { ".read": true, ".write": true }
+      "bme680": { ".read": true, ".write": false },
+      "lorawan": { ".read": true, ".write": false }
     },
-    "istoric": { "lorawan": { ".read": true, ".write": true } },
-    "esp32_location": { ".read": true, ".write": true },
-    "sparkfun_location": { ".read": true, ".write": true },
-    "status": { ".read": true, ".write": true },
-    "status_lorawan": { ".read": true, ".write": true }
+    "istoric": { "lorawan": { ".read": true, ".write": false } },
+    "esp32_location": { ".read": true, ".write": false },
+    "sparkfun_location": { ".read": true, ".write": false },
+    "status": { ".read": true, ".write": false },
+    "status_lorawan": { ".read": true, ".write": false }
   }
 }
