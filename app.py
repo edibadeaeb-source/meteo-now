@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
 import requests
 import csv
 import html
@@ -16,8 +15,7 @@ from pathlib import Path
 from flask import send_file
 import tempfile, zipfile
 
-app = Flask(__name__)
-CORS(app)
+app = Flask(__name__, static_folder=None)
 
 # ─── Chei API: întâi din variabilele de mediu, apoi din keys.py (fișier local, privat) ───
 def _load_key(env_name, keys_attr):
@@ -40,7 +38,7 @@ _weather_service = WeatherService(OPENWEATHER_API_KEY,
 VAPID_PUBLIC_KEY    = _load_key("VAPID_PUBLIC_KEY", "VAPID_PUBLIC_KEY")
 VAPID_PRIVATE_KEY   = _load_key("VAPID_PRIVATE_KEY", "VAPID_PRIVATE_KEY")
 VAPID_CLAIM_EMAIL   = _load_key("VAPID_CLAIM_EMAIL", "VAPID_CLAIM_EMAIL") or "mailto:admin@example.com"
-PUSH_CRON_SECRET    = _load_key("PUSH_CRON_SECRET", "PUSH_CRON_SECRET") or "schimba-ma"
+PUSH_CRON_SECRET    = _load_key("PUSH_CRON_SECRET", "PUSH_CRON_SECRET")
 if not ANTHROPIC_API_KEY:
     print("⚠️  ANTHROPIC_API_KEY lipsește (setează variabila de mediu sau keys.py) — asistentul AI nu va funcționa.")
 OUTPUT_DIR = "exported_data"
@@ -104,6 +102,8 @@ def start_tunnel():
 # Tunelul Cloudflare pornește DOAR local (pe Windows, cu cloudflared.exe prezent).
 # Pe un server găzduit (Render/Railway/etc., care setează variabila PORT) NU pornește.
 _IS_HOSTED = bool(os.environ.get('PORT'))
+from security import install_security, public_file, cron_authorized, valid_push_endpoint, valid_push_keys
+install_security(app, _IS_HOSTED, lambda: _load_key('METEO_ADMIN_TOKEN', 'METEO_ADMIN_TOKEN'))
 if not _IS_HOSTED and os.path.exists(os.path.join(BASE_DIR, 'cloudflared.exe')):
     threading.Thread(target=start_tunnel, daemon=True).start()
 
@@ -154,10 +154,14 @@ def assetlinks():
 @app.route('/<path:fname>')
 def meteo_static(fname):
     # Fișiere statice ale noului site (manifest PWA, service worker, iconițe)
+    if not public_file(fname):
+        return 'Not found', 404
     safe = os.path.normpath(fname)
     if safe.startswith('..') or os.path.isabs(safe):
         return 'Not found', 404
     full = os.path.join(METEO_DIR, safe)
+    if not Path(full).resolve().is_relative_to(Path(METEO_DIR).resolve()):
+        return 'Not found', 404
     if os.path.isfile(full):
         resp = send_from_directory(METEO_DIR, safe)
         # tipul corect pentru manifestul PWA (unele servere îl trimit greșit)
@@ -279,6 +283,13 @@ def weather_current_batch():
 
 @app.route('/api/owm/weather')
 def owm_weather():
+    try:
+        lat, lon = _weather_service.coordinates(request.args.get('lat', '44.9266'), request.args.get('lon', '25.4566'))
+        lang = request.args.get('lang', 'ro')
+        if lang not in ('ro', 'en'):
+            raise ValueError()
+    except ValueError:
+        return jsonify({'error': 'Coordonate sau limbă invalide'}), 400
     key = 'weather:' + request.args.get('lat','') + ',' + request.args.get('lon','') + ',' + request.args.get('lang','ro')
     now = now_ro()
     c = _owm_cache.get(key)
@@ -286,20 +297,29 @@ def owm_weather():
         return jsonify(c[1])
     try:
         r = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
-            'lat': request.args.get('lat', '44.9266'), 'lon': request.args.get('lon', '25.4566'),
-            'units': 'metric', 'lang': request.args.get('lang', 'ro'), 'appid': OPENWEATHER_API_KEY
+            'lat': lat, 'lon': lon,
+            'units': 'metric', 'lang': lang, 'appid': OPENWEATHER_API_KEY
         }, timeout=15)
         r.raise_for_status()
         data = r.json()
+        if len(_owm_cache) >= 512:
+            _owm_cache.pop(next(iter(_owm_cache)))
         _owm_cache[key] = (now, data)
         return jsonify(data)
     except Exception as e:
         if c:
             return jsonify(c[1])
-        return jsonify({'error': str(e)}), 502
+        return jsonify({'error': 'Datele meteo nu sunt disponibile momentan'}), 502
 
 @app.route('/api/owm/find')
 def owm_find():
+    try:
+        lat, lon = _weather_service.coordinates(request.args.get('lat', '44.9266'), request.args.get('lon', '25.4566'))
+        count = int(request.args.get('cnt', '25'))
+        if not 1 <= count <= 50:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Parametri invalizi'}), 400
     key = 'find:' + request.args.get('lat', '') + ',' + request.args.get('lon', '')
     now = now_ro()
     c = _owm_cache.get(key)
@@ -307,22 +327,26 @@ def owm_find():
         return jsonify(c[1])
     try:
         r = requests.get('https://api.openweathermap.org/data/2.5/find', params={
-            'lat': request.args.get('lat', '44.9266'), 'lon': request.args.get('lon', '25.4566'),
-            'cnt': request.args.get('cnt', '25'), 'units': 'metric', 'lang': 'ro', 'appid': OPENWEATHER_API_KEY
+            'lat': lat, 'lon': lon,
+            'cnt': count, 'units': 'metric', 'lang': 'ro', 'appid': OPENWEATHER_API_KEY
         }, timeout=15)
         r.raise_for_status()
         data = r.json()
+        if len(_owm_cache) >= 512:
+            _owm_cache.pop(next(iter(_owm_cache)))
         _owm_cache[key] = (now, data)
         return jsonify(data)
     except Exception as e:
         if c:
             return jsonify(c[1])
-        return jsonify({'error': str(e)}), 502
+        return jsonify({'error': 'Datele meteo nu sunt disponibile momentan'}), 502
 
 @app.route('/api/owm/tile/<layer>/<int:z>/<int:x>/<int:y>.png')
 def owm_tile(layer, z, x, y):
     allowed = {'pressure_new', 'clouds_new', 'wind_new', 'precipitation_new', 'temp_new'}
     if layer not in allowed:
+        return 'Not found', 404
+    if not 0 <= z <= 18 or not (0 <= x < 2**z and 0 <= y < 2**z):
         return 'Not found', 404
     try:
         r = requests.get(f'https://tile.openweathermap.org/map/{layer}/{z}/{x}/{y}.png',
@@ -347,18 +371,20 @@ def _fb(path, method='GET', payload=None):
     """Citire/scriere simplă în Firebase Realtime Database."""
     url = f"{PUSH_FIREBASE_URL}/{path}.json"
     try:
+        from firebase_access import authorization_headers
+        headers = authorization_headers()
         if method == 'GET':
-            r = requests.get(url, timeout=15)
+            r = requests.get(url, headers=headers, timeout=15)
         elif method == 'PUT':
-            r = requests.put(url, json=payload, timeout=15)
+            r = requests.put(url, json=payload, headers=headers, timeout=15)
         elif method == 'DELETE':
-            r = requests.delete(url, timeout=15)
+            r = requests.delete(url, headers=headers, timeout=15)
         else:
-            r = requests.post(url, json=payload, timeout=15)
+            r = requests.post(url, json=payload, headers=headers, timeout=15)
         r.raise_for_status()
         return True if method == 'DELETE' else r.json()
     except Exception as e:
-        print(f"⚠️  Firebase {method} {path}: {e}")
+        print(f"⚠️  Firebase {method} unavailable ({type(e).__name__})")
         return None
 
 
@@ -392,14 +418,11 @@ def push_subscribe():
     if not isinstance(sub, dict):
         return jsonify({'error': 'abonament invalid'}), 400
     endpoint = sub.get('endpoint')
-    if (not isinstance(sub, dict) or not isinstance(endpoint, str)
-            or not endpoint.startswith('https://')
-            or not isinstance(sub.get('keys'), dict)
-            or not sub['keys'].get('p256dh') or not sub['keys'].get('auth')):
+    if not valid_push_endpoint(endpoint) or not valid_push_keys(sub.get('keys')):
         return jsonify({'error': 'abonament invalid'}), 400
     inreg = {
         'endpoint': endpoint,
-        'keys': sub.get('keys', {}),
+        'keys': {k: sub['keys'][k] for k in ('auth', 'p256dh')},
         'creat': now_ro().isoformat(timespec='seconds')
     }
     # O locație lipsă/invalidă nu devine în mod implicit Târgoviște.
@@ -413,6 +436,9 @@ def push_subscribe():
     for camp in ('nume', 'tara', 'admin', 'judet', 'limba', 'unitate', 'fus'):
         if sub.get(camp):
             inreg[camp] = str(sub[camp])[:60]
+    old = _fb(f'push_subs/{_sub_key(endpoint)}')
+    if isinstance(old, dict) and old.get('keys') != inreg['keys']:
+        return jsonify({'error': 'abonament neconfirmat'}), 403
     saved = _fb(f'push_subs/{_sub_key(endpoint)}', 'PUT', inreg)
     if not isinstance(saved, dict) or saved.get('endpoint') != endpoint:
         return jsonify({'error': 'abonamentul nu a putut fi salvat'}), 503
@@ -456,7 +482,7 @@ def push_test_device():
     if not isinstance(body, dict):
         return jsonify({'error': 'abonament invalid'}), 400
     endpoint = body.get('endpoint')
-    if not isinstance(endpoint, str) or not isinstance(body.get('keys'), dict):
+    if not valid_push_endpoint(endpoint) or not isinstance(body.get('keys'), dict):
         return jsonify({'error': 'abonament invalid'}), 400
     key = _sub_key(endpoint)
     sub = _fb(f'push_subs/{key}')
@@ -487,7 +513,14 @@ def push_unsubscribe():
         return jsonify({'error': 'abonament invalid'}), 400
     endpoint = sub.get('endpoint')
     if isinstance(endpoint, str) and endpoint:
+        if not valid_push_endpoint(endpoint) or not isinstance(sub.get('keys'), dict):
+            return jsonify({'error': 'abonament invalid'}), 400
         key = _sub_key(endpoint)
+        saved = _fb(f'push_subs/{key}')
+        if saved is None:
+            return jsonify({'error': 'abonamentul nu a putut fi verificat'}), 503
+        if not isinstance(saved, dict) or saved.get('keys') != sub['keys']:
+            return jsonify({'error': 'abonament neconfirmat'}), 403
         if _fb(f'push_subs/{key}', 'DELETE') is not True:
             return jsonify({'error': 'abonamentul nu a putut fi șters'}), 503
         _fb(f'push_weather_state/{key}', 'DELETE')
@@ -498,6 +531,8 @@ def push_unsubscribe():
 
 def _send_push(subscription, payload):
     """Trimite o notificare către un abonament. Returnează (succes, cod)."""
+    if not valid_push_endpoint(subscription.get('endpoint')):
+        return False, 400
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
@@ -550,7 +585,7 @@ def broadcast_push(payload):
 @app.route('/api/push/test', methods=['POST', 'GET'])
 def push_test():
     """Trimite o notificare de test (util la verificare)."""
-    if request.args.get('secret') != PUSH_CRON_SECRET:
+    if not cron_authorized(PUSH_CRON_SECRET):
         return jsonify({'error': 'acces interzis'}), 403
     t, s = broadcast_push({
         'title': 'METEO NOW | Test notificare',
@@ -570,7 +605,7 @@ def push_check():
     Important: returnează MEREU 200, chiar și când ANM nu răspunde, ca serviciul
     de cron să nu raporteze erori pentru probleme temporare din exterior.
     """
-    if request.args.get('secret') != PUSH_CRON_SECRET:
+    if not cron_authorized(PUSH_CRON_SECRET):
         return jsonify({'error': 'acces interzis'}), 403
     rezultat = {'ok': True}
     try:
@@ -731,8 +766,8 @@ def _clima_interval_30_ani(lat, lon, an_start, an_end, mmdd):
 @app.route('/api/clima')
 def clima_istoric():
     try:
-        lat = round(float(request.args.get('lat', 44.9266)), 2)
-        lon = round(float(request.args.get('lon', 25.4566)), 2)
+        lat, lon = _weather_service.coordinates(request.args.get('lat', 44.9266), request.args.get('lon', 25.4566))
+        lat, lon = round(lat, 2), round(lon, 2)
     except (TypeError, ValueError):
         return jsonify({'error': 'coordonate invalide'}), 400
 
@@ -1063,7 +1098,7 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
 
 @app.route('/api/push/meteo')
 def push_weather():
-    if request.args.get('secret') != PUSH_CRON_SECRET:
+    if not cron_authorized(PUSH_CRON_SECRET):
         return jsonify({'error': 'acces interzis'}), 403
     try:
         return jsonify(_push_weather_intern()), 200
@@ -1342,7 +1377,7 @@ def push_rezumat():
     Se apelează din cron: dimineața (?moment=dimineata) și seara (?moment=seara).
     Returnează mereu 200, ca serviciul de cron să nu semnaleze erori externe.
     """
-    if request.args.get('secret') != PUSH_CRON_SECRET:
+    if not cron_authorized(PUSH_CRON_SECRET):
         return jsonify({'error': 'acces interzis'}), 403
     try:
         return _rezumat_intern(request.args.get('moment', 'dimineata'))
@@ -1927,13 +1962,45 @@ CUNOSTINTE UTILE:
 # ═══════════════════════════════════════════════════════════════
 @app.route('/ask', methods=['POST'])
 def ask():
-    body = request.json or {}
-    user_question = body.get('question', '').strip()
+    try:
+        body = request.get_json(silent=True)
+    except (ValueError, RecursionError):
+        return jsonify({'error': 'Cerere invalidă'}), 400
+    if not isinstance(body, dict) or not isinstance(body.get('question'), str):
+        return jsonify({'error': 'Întrebare invalidă'}), 400
+    user_question = body['question'].strip()
     context = body.get('context', {})
     history = body.get('history', [])
-    lang = (body.get('lang') or 'ro').lower()
+    lang = body.get('lang') or 'ro'
     loc = body.get('locatie') or {}
     vremea = body.get('vremea') or {}
+
+    if (len(user_question) > 2000 or not isinstance(lang, str) or lang not in ('ro', 'en')
+            or not isinstance(context, dict) or not isinstance(loc, dict)
+            or not isinstance(vremea, dict) or not isinstance(history, list) or len(history) > 40):
+        return jsonify({'error': 'Date invalide pentru conversație'}), 400
+    for field in ('nume', 'tara', 'admin', 'tz'):
+        if field in loc and (not isinstance(loc[field], str) or len(loc[field]) > 120):
+            return jsonify({'error': 'Localitate invalidă'}), 400
+    if 'lat' in loc or 'lon' in loc:
+        try:
+            loc['lat'], loc['lon'] = _weather_service.coordinates(loc.get('lat'), loc.get('lon'))
+        except ValueError:
+            return jsonify({'error': 'Coordonate invalide'}), 400
+    if vremea.get('localitate') is not None and not isinstance(vremea['localitate'], dict):
+        return jsonify({'error': 'Snapshot invalid'}), 400
+    if len(json.dumps(vremea, ensure_ascii=False)) > 90000 or len(json.dumps(context, ensure_ascii=False)) > 8000:
+        return jsonify({'error': 'Prea multe date pentru conversație'}), 400
+    for sensor in ('esp32', 'lorawan'):
+        value = context.get(sensor, {})
+        if not isinstance(value, dict) or any(not isinstance(x, (str, int, float, type(None))) for x in value.values()):
+            return jsonify({'error': 'Date senzori invalide'}), 400
+        if value.get('status_badge') is not None and not isinstance(value['status_badge'], str):
+            return jsonify({'error': 'Stare senzor invalidă'}), 400
+    if any(not isinstance(m, dict) or m.get('role') not in ('user', 'model')
+           or not isinstance(m.get('text'), str) or len(m['text']) > 8000 for m in history):
+        return jsonify({'error': 'Istoric invalid'}), 400
+    history = [{'role': m['role'], 'text': m['text'][:4000]} for m in history[-16:]]
 
     if not user_question:
         return jsonify({'error': 'No question'}), 400
@@ -2017,7 +2084,7 @@ def ask():
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=60)
+        response = requests.post(url, headers=headers, json=data, timeout=(5, 60))
         response.raise_for_status()
         result = response.json()
         
@@ -2041,7 +2108,7 @@ def ask():
         return jsonify({'error': f'API Error: {e.response.status_code}'}), 500
     except Exception as e:
         print(f"❌ Eroare: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Asistentul nu este disponibil momentan'}), 500
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -9,7 +9,7 @@ meteo = fixtures.meteo
 
 class DeliveryTests(unittest.TestCase):
     def setUp(self):
-        self.sub = {'endpoint': 'https://push.example.test/abc',
+        self.sub = {'endpoint': 'https://fcm.googleapis.com/fcm/send/test-only',
                     'keys': {'auth': 'auth', 'p256dh': 'key'},
                     'lat': 44.9266, 'lon': 25.4566, 'nume': 'Moreni', 'tara': 'RO', 'admin': 'Dâmbovița'}
         self.storage = {'push_subs': {'a': self.sub}, 'push_weather_state': {}}
@@ -123,10 +123,13 @@ class DeliveryTests(unittest.TestCase):
 
     def test_turning_off_requires_confirmed_server_deletion(self):
         client = meteo.app.test_client()
+        body = {'endpoint': self.sub['endpoint'], 'keys': self.sub['keys']}
         with patch.object(meteo, '_fb', return_value=None):
-            self.assertEqual(client.post('/api/push/unsubscribe', json={'endpoint': self.sub['endpoint']}).status_code, 503)
-        with patch.object(meteo, '_fb', return_value=True):
-            self.assertEqual(client.post('/api/push/unsubscribe', json={'endpoint': self.sub['endpoint']}).status_code, 200)
+            self.assertEqual(client.post('/api/push/unsubscribe', json=body).status_code, 503)
+        def remove(path, method='GET', payload=None):
+            return self.sub if method == 'GET' else True
+        with patch.object(meteo, '_fb', side_effect=remove):
+            self.assertEqual(client.post('/api/push/unsubscribe', json=body).status_code, 200)
 
     def test_test_button_rejects_malformed_requests_and_cooldown(self):
         client = meteo.app.test_client()

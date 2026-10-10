@@ -54,7 +54,7 @@
     root.MeteoConversations={
         active:active,start:start,append:append,get:find,
         list:function(){return state.conversations.filter(function(c){return c.messages.length;});},
-        context:function(cid){var c=find(cid);return c?c.messages.filter(function(m){return m.role==='user'||m.role==='model';}).slice(-40).map(function(m){return {role:m.role,text:m.text};}):[];},
+        context:function(cid){var c=find(cid);return c?c.messages.filter(function(m){return m.role==='user'||m.role==='model';}).slice(-16).map(function(m){return {role:m.role,text:m.text.slice(0,4000)};}):[];},
         select:function(cid){if(!find(cid))return false;state.active=cid;persist();return true;},
         blank:function(){state.active=null;persist();},
         remove:function(cid){state.conversations=state.conversations.filter(function(c){return c.id!==cid;});if(state.active===cid)state.active=null;persist();},

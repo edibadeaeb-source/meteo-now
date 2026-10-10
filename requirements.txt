@@ -4,6 +4,7 @@ requests>=2.31
 openpyxl>=3.1
 gunicorn>=21.2
 pywebpush>=2.0
+google-auth>=2.40,<3
 
 astral>=3.2,<4
 tzfpy>=2.1,<3

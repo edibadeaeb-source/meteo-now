@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.08.3">
+    <meta name="application-version" content="2026.10.10.1">
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -120,7 +120,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="ai-conversations.js?v=2" defer></script>
+    <script src="ai-conversations.js?v=3" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
@@ -2261,9 +2261,14 @@ const UNIV_SF  = [UNIV_LAT - 0.00010, UNIV_LON + 0.00005]; // nod SparkFun, usor
 // ═══════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════
+function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c];
+    });
+}
 function addAlert(msg, type) {
     const li = document.createElement('li');
-    li.innerHTML = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    li.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
     if (type === 'danger')  li.style.color = '#f87171';
     if (type === 'warning') li.style.color = '#fb923c';
     alertList.prepend(li);
@@ -2687,10 +2692,8 @@ function updateRecs(temp, hum, iaq) {
 // ═══════════════════════════════════════
 function fetchWeather() {
     var locCeruta = {lat:+TGV.lat, lon:+TGV.lon};
-    // prin proxy Flask (cheia rămâne pe server); doar pe file:// cade pe apelul direct
-    var _u = (location.protocol.indexOf('http') === 0)
-        ? ('api/owm/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro'))
-        : ('https://api.openweathermap.org/data/2.5/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&appid=c4aee3e251a51e2b8ccbdda9ae64d0e1&units=metric&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro'));
+    // Provider credentials stay on the server, including local previews.
+    var _u = 'api/owm/weather?lat=' + TGV.lat + '&lon=' + TGV.lon + '&lang=' + (typeof LANG !== 'undefined' ? LANG : 'ro');
     fetch(_u)
         .then(function(r) { return r.json(); })
         .then(function(d) {
@@ -3813,13 +3816,21 @@ function sendChatMessage(text) {
             vremea: vremeaAcum
         })
     })
-    .then(function(r) { if(!r.ok)throw new Error('AI unavailable');return r.json(); })
+    .then(function(r) {
+        if(!r.ok){
+            var err=new Error('AI unavailable');
+            if(r.status===429)err.userMessage=enChat()?'The assistant has reached a temporary usage limit. Please try again later.':'Asistentul a atins o limită temporară de utilizare. Te rog să reîncerci mai târziu.';
+            if(r.status===503)err.userMessage=enChat()?'The assistant is busy. Please try again in a few seconds.':'Asistentul este ocupat. Te rog să reîncerci în câteva secunde.';
+            throw err;
+        }
+        return r.json();
+    })
     .then(function(data) {
         if(typeof data.answer!=='string'||!data.answer.trim())throw new Error('Empty answer');
         conversations.append(cid,'model',data.answer,requestLoc);
     })
     .catch(function(err) {
-        conversations.append(cid,'error',enChat()?'I could not answer right now. Please try again.':'Nu am putut răspunde acum. Te rog să încerci din nou.',requestLoc);
+        conversations.append(cid,'error',err.userMessage||(enChat()?'I could not answer right now. Please try again.':'Nu am putut răspunde acum. Te rog să încerci din nou.'),requestLoc);
     }).finally(function(){
         clearTimeout(timer);delete pendingChats[cid];
         if(activeId()===cid){renderConversation();if(chatWindow.classList.contains('open')&&window.innerWidth>900)chatInput.focus();}
@@ -3944,7 +3955,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ═══════════════════════════════════════════════════════════
 //  MODULE 1:1 IMGW — gauges NOAA, sinoptic, radar, prognoze
 // ═══════════════════════════════════════════════════════════
-var OWM_KEY = 'c4aee3e251a51e2b8ccbdda9ae64d0e1';   // folosit doar ca fallback pe file://
+// Weather tile credentials stay on the server.
 var USE_OWM_PROXY = location.protocol.indexOf('http') === 0;
 // TGV e definit deja în <head> (coordonatele locației curente)
 
@@ -4478,7 +4489,7 @@ function culNum(c) {
     if (c.indexOf('galb') >= 0) return 1;
     return 0;
 }
-function stripHtml(s) { var t = document.createElement('div'); t.innerHTML = s || ''; return (t.textContent || '').replace(/\s+/g, ' ').trim(); }
+function stripHtml(s) { var t = new DOMParser().parseFromString(String(s || ''), 'text/html'); return (t.body.textContent || '').replace(/\s+/g, ' ').trim(); }
 var WARN_COLS = { 0: 'transparent', 1: '#f7ff3c', 2: '#ff8c1a', 3: '#e5202b' };
 
 /* ══════════════════════════════════════════════════════════════
@@ -4503,9 +4514,8 @@ function _dinMesaj(txt, eticheta, urmatoare) {
 function stripLinii(s) {
     var h = String(s || '').replace(/<br\s*\/?>/gi, '\n')
                            .replace(/<\/(p|div|li|tr|h\d)>/gi, '\n');
-    var t = document.createElement('div');
-    t.innerHTML = h;
-    return (t.textContent || '').split('\n')
+    var t = new DOMParser().parseFromString(h, 'text/html');
+    return (t.body.textContent || '').split('\n')
         .map(function(r) { return r.replace(/\s+/g, ' ').trim(); })
         .filter(Boolean).join('\n');
 }
@@ -5105,9 +5115,7 @@ function initPressureMap() {
 }
 function setPressureLayer(name) {
     if (pressureLayer) pressureMapL.removeLayer(pressureLayer);
-    var turl = USE_OWM_PROXY
-        ? 'api/owm/tile/' + name + '/{z}/{x}/{y}.png'
-        : 'https://tile.openweathermap.org/map/' + name + '/{z}/{x}/{y}.png?appid=' + OWM_KEY;
+    var turl = 'api/owm/tile/' + name + '/{z}/{x}/{y}.png';
     pressureLayer = L.tileLayer(turl, { opacity: 0.7 }).addTo(pressureMapL);
 }
 
@@ -5225,12 +5233,12 @@ function bindSearch(inputId, resultsId) {
 function showPlaceForecast(p) {
     var box = document.getElementById('placeForecast');
     box.style.display = 'block';
-    box.innerHTML = '<h4>Prognoză — ' + p.name + '</h4><div class="panel-note">Se încarcă...</div>';
+    box.innerHTML = '<h4>Prognoză — ' + escapeHtml(p.name) + '</h4><div class="panel-note">Se încarcă...</div>';
     document.getElementById('locSearch2').scrollIntoView({ behavior: 'smooth', block: 'center' });
     fetch('https://api.open-meteo.com/v1/forecast?latitude=' + p.latitude + '&longitude=' + p.longitude + '&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum&current_weather=true&forecast_days=7&timezone=auto')
         .then(function(r) { return r.json(); })
         .then(function(d) {
-            var html = '<h4>Prognoză — ' + p.name + (p.admin1 ? ' (' + p.admin1 + ')' : '') + '</h4>';
+            var html = '<h4>Prognoză — ' + escapeHtml(p.name) + (p.admin1 ? ' (' + escapeHtml(p.admin1) + ')' : '') + '</h4>';
             if (d.current_weather) html += '<p style="font-size:0.9rem;margin:6px 0;">Acum: <b>' + fT(d.current_weather.temperature, 1) + '</b> · ' + wmoText(d.current_weather.weathercode) + ' ' + wmoIcon(d.current_weather.weathercode, wmoNight(d, d.current_weather.time, d.current_weather.is_day)) + '</p>';
             html += '<div class="day-cards">';
             d.daily.time.forEach(function(t, i) {
@@ -6142,7 +6150,7 @@ async function pushUnsubscribe() {
         if (sub) {
             var r = await pushFetch('api/push/unsubscribe', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ endpoint: sub.endpoint })
+                body: JSON.stringify(abonamentPushJSON(sub))
             });
             if (!r.ok) throw new Error('unsubscribe failed');
             if (await sub.unsubscribe() !== true) throw new Error('local unsubscribe failed');
@@ -7067,7 +7075,7 @@ function puneMarcajLocatie() {
             var m = window[p[0]];
             if (!m || !m.setView) return;
             var mk = L.marker([LOC.lat, LOC.lon], { icon: icon, zIndexOffset: 1000 })
-                .addTo(m).bindPopup('<b>' + LOC.nume + '</b>');
+                .addTo(m).bindPopup('<b>' + escapeHtml(LOC.nume) + '</b>');
             _pinuri.push({ map: m, marker: mk });
             // zoom potrivit: radarul nu suportă zoom mare
             var z = Math.min(p[1], m.getMaxZoom ? m.getMaxZoom() : p[1]);
@@ -7609,7 +7617,7 @@ function deseneazaRecente() {
         var special = Math.abs(x.lat - 44.9266) < 0.05 && Math.abs(x.lon - 25.4566) < 0.05;
         d.className = activ ? 'lr-activ' : '';
         d.innerHTML = (activ ? '📍 ' : (special ? '🏛️ ' : '🕘 ')) +
-                      x.nume + (x.admin ? ' <span style="opacity:.6;font-size:.9em;">· ' + x.admin + '</span>' : '');
+                      escapeHtml(x.nume) + (x.admin ? ' <span style="opacity:.6;font-size:.9em;">· ' + escapeHtml(x.admin) + '</span>' : '');
         d.addEventListener('click', function() {
             seteazaLocatie(x, true, 'manual');
             inchideLocPanel();
@@ -10645,8 +10653,8 @@ function mobFoaieOrase() {
             '<div class="mo-rez" id="moRez" style="display:none;"></div></div>';
     l.forEach(function(o, i) {
         h += '<div class="mo-oras' + (i === curent ? ' curent' : '') + '" data-i="' + i + '">' +
-             '<div class="mo-st"><div class="mo-nume">' + (i === curent ? '➤ ' : '') + (o.nume || '') + '</div>' +
-             '<div class="mo-sub">' + [o.admin, o.tara].filter(Boolean).join(', ') + '</div></div>' +
+             '<div class="mo-st"><div class="mo-nume">' + (i === curent ? '➤ ' : '') + escapeHtml(o.nume) + '</div>' +
+             '<div class="mo-sub">' + escapeHtml([o.admin, o.tara].filter(Boolean).join(', ')) + '</div></div>' +
              '<div class="mo-t" id="moT' + i + '">–</div>' +
              (l.length > 1 ? '<button class="mo-sterge" data-sterge="' + i + '" aria-label="' + T('sterge') + '">' + SVG_X + '</button>' : '') +
              '</div>';
@@ -10744,8 +10752,8 @@ function mobFoaieOrase() {
                     var g = d.results || [];
                     if (!g.length) { rez.style.display = 'none'; return; }
                     rez.innerHTML = g.map(function(x, i) {
-                        return '<div data-g="' + i + '">' + x.name +
-                               '<small>' + [x.admin1, x.country].filter(Boolean).join(', ') + '</small></div>';
+                        return '<div data-g="' + i + '">' + escapeHtml(x.name) +
+                               '<small>' + escapeHtml([x.admin1, x.country].filter(Boolean).join(', ')) + '</small></div>';
                     }).join('');
                     rez.style.display = 'block';
                     Array.prototype.forEach.call(rez.querySelectorAll('[data-g]'), function(el) {

@@ -4,3 +4,16 @@ keys.py
 *.keystore
 keystore.properties
 local.properties
+.env
+.env.*
+!.env.example
+*service-account*.json
+*service_account*.json
+*.pem
+*.key
+*.p12
+*.jks
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm

@@ -1,0 +1,13 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "senzori": {
+      "bme680": { ".read": true },
+      "lorawan": { ".read": true }
+    },
+    "istoric": { "lorawan": { ".read": true } },
+    "esp32_location": { ".read": true },
+    "sparkfun_location": { ".read": true }
+  }
+}

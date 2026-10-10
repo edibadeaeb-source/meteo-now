@@ -8,6 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("meteo_app", ROOT / "app.py")
 meteo = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(meteo)
+meteo.app.config.update(TESTING=True, SECURITY_LIMITS_ENABLED=False)
 
 
 def snapshot(lat=40.7128, lon=-74.006):
