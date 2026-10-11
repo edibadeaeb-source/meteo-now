@@ -27,7 +27,7 @@ Nu există o listare publică a rapoartelor. Consultarea se face prin consola Fi
 
 ## Verificări și instalare
 
-89 teste Python au trecut, inclusiv 10 teste noi pentru schema strictă, date private, limite, coadă, autentificarea Firebase și izolarea erorilor. Testele JavaScript și browserul mobil verifică păstrarea comportamentului fetch, absența datelor private, deduplicarea, limitele, AI-ul și antetele reale de securitate. Emulatorul confirmă că `diagnostics_v1` este privat.
+90 teste Python au trecut, inclusiv 11 teste noi pentru schema strictă, date private, limite, coadă, autentificarea Firebase și izolarea erorilor. Testele JavaScript și browserul mobil verifică păstrarea comportamentului fetch, absența datelor private, deduplicarea, limitele, AI-ul și antetele reale de securitate. Emulatorul confirmă că `diagnostics_v1` este privat.
 
 APK și AAB 1.0.20 au fost construite; semnătura APK a fost verificată. Instalează APK-ul nou peste 1.0.19, fără ștergerea datelor, pentru raportarea nativă a widgeturilor. Partea web și serverul se actualizează automat. Verificarea fizică pe S24 Ultra rămâne de făcut.
 

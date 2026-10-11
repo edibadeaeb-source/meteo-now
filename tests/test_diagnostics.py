@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from flask import Flask
-from diagnostics import Reporter, install_diagnostics, normalize
+from diagnostics import Reporter, install_diagnostics, normalize, service_key
 from security import install_security
 
 
@@ -16,6 +16,13 @@ def event(**kwargs):
 
 
 class DiagnosticPrivacyTests(unittest.TestCase):
+    def test_renamed_legacy_service_keeps_separate_reports(self):
+        for env in [{'RENDER_SERVICE_NAME':'meteo-vechi'}, {'RENDER_SERVICE_NAME':'meteo-targoviste'},
+                    {'RENDER_SERVICE_ID':'srv-d9jmnbrtqb8s73amvl4g'},
+                    {'RENDER_EXTERNAL_HOSTNAME':'meteo-targoviste.onrender.com'}]:
+            with patch.dict('os.environ', env, clear=True): self.assertEqual(service_key(), 'legacy')
+        with patch.dict('os.environ', {'RENDER_SERVICE_NAME':'meteo-now'}, clear=True): self.assertEqual(service_key(), 'main')
+
     def test_rejects_raw_data_and_arbitrary_strings(self):
         for key, value in [('message', 'question'), ('stack', 'token'), ('url', 'https://host/?lat=44.99'),
                            ('city', 'Moreni'), ('userId', '123'), ('coordinates', [44, 25])]:

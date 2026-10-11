@@ -24,6 +24,14 @@ SCRIPTS = {'index.html', 'diagnostics.js', 'weather-data-cache.js', 'weather-atm
 DATABASE = 'https://licenta-ae902-default-rtdb.europe-west1.firebasedatabase.app'
 
 
+def service_key():
+    # Render's injected service name can retain its original slug after a rename.
+    legacy = (os.environ.get('RENDER_SERVICE_ID') == 'srv-d9jmnbrtqb8s73amvl4g'
+              or os.environ.get('RENDER_EXTERNAL_HOSTNAME') == 'meteo-targoviste.onrender.com'
+              or os.environ.get('RENDER_SERVICE_NAME') in {'meteo-vechi', 'meteo-targoviste'})
+    return 'legacy' if legacy else 'main'
+
+
 def normalize(data):
     allowed = {'code', 'component', 'operation', 'release', 'platform', 'error', 'script', 'line', 'column', 'status'}
     if not isinstance(data, dict) or set(data) - allowed:
@@ -101,7 +109,7 @@ class Reporter:
             raise RuntimeError('Private storage unavailable')
         now = datetime.now(timezone.utc)
         day = now.strftime('%Y-%m-%d')
-        service = 'legacy' if os.environ.get('RENDER_SERVICE_NAME') == 'meteo-vechi' else 'main'
+        service = service_key()
         fingerprint = hashlib.sha256(json.dumps(event, sort_keys=True).encode()).hexdigest()[:24]
         url = DATABASE + '/diagnostics_v1/' + day + '/' + service + '/' + fingerprint + '.json'
         response = requests.patch(url, headers=headers, params={'print': 'silent'},
