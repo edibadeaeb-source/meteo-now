@@ -17,9 +17,70 @@ const checks=String.raw`
  console.log('AI home opened');
  assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'false');
  assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),true,'background cannot be touched');
+ // Exercise the actual global pull handler as well as chat touch isolation.
+ await page.evaluate(()=>{
+   window.aiRefreshCalls=[];window.aiRefreshOriginals={};
+   ['fetchWeather','loadSynopStations','refreshWarnings','loadFlood','loadPrecip','refreshRadarFrames'].forEach(name=>{
+     aiRefreshOriginals[name]=window[name];window[name]=()=>aiRefreshCalls.push(name);
+   });
+   window.aiTouch=(target,type,y=150,count=1)=>{
+     const touch=new Touch({identifier:1,target,clientX:200,clientY:y});
+     const fingers=Array.from({length:count},(_,i)=>new Touch({identifier:i+1,target,clientX:200+i*20,clientY:y}));
+     target.dispatchEvent(new TouchEvent(type,{bubbles:true,cancelable:true,touches:/end|cancel/.test(type)?[]:fingers,changedTouches:[touch]}));
+   };
+   window.aiPull=target=>{aiTouch(target,'touchstart',150);aiTouch(target,'touchmove',310);aiTouch(target,'touchend',310);};
+   window.aiScrollBefore=scrollY;
+   ['.chat-header','#chatMain','#chatInput','#chatBackdrop'].forEach(sel=>aiPull(document.querySelector(sel)));
+   // Direct window events bypass panel stopPropagation and must still be gated.
+   aiPull(window);
+ });
+ assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[],'AI gestures cannot refresh weather');
+ assert.equal(await page.evaluate(()=>scrollY),await page.evaluate(()=>aiScrollBefore),'background scroll stays fixed');
+ assert.ok((await page.locator('#pullRefresh').getAttribute('style')).includes('-60px'),'refresh indicator stays hidden');
+ assert.equal(await page.locator('#chatWindow').evaluate(e=>getComputedStyle(e).touchAction),'pan-x pan-y','panel allows internal scrolling without page pinch zoom');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true');
+ assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'1');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'true');
+ assert.notEqual(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e,'::placeholder').textShadow),'none','empty composer invitation glows');
+ assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','reduced motion keeps glow static');
+ await page.locator('#chatInput').fill(' ');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false','glow fades with the first typed character');
+ assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'0');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'false');
+ assert.equal(await page.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').opacity),'0');
+ assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e,'::placeholder').textShadow),'none');
+ await page.locator('#chatInput').fill('');assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true');
+ // A real upward swipe must still scroll a long chat, without moving the page.
+ await page.evaluate(()=>{const filler=document.createElement('div');filler.id='aiScrollProbe';filler.style.cssText='height:1800px;flex-shrink:0';chatMain.append(filler);chatMain.scrollTop=0;});
+ const area=await page.locator('#chatMain').boundingBox();
+ await cdpCity.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:210,y:area.y+area.height-20}]});
+ for(let i=1;i<=5;i++){await cdpCity.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:210,y:area.y+area.height-20-i*30}]});await page.waitForTimeout(35);}
+ await cdpCity.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await page.waitForFunction(()=>chatMain.scrollTop>30);
+ assert.equal(await page.evaluate(()=>scrollY),await page.evaluate(()=>aiScrollBefore));
+ assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[]);
+ await page.evaluate(()=>{document.getElementById('aiScrollProbe').remove();chatMain.scrollTop=0;});
+ await page.locator('#chatHistoryTab').click();await page.evaluate(()=>aiPull(document.getElementById('chatArchive')));
+ assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[]);
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false','history has no idle animation');
+ await page.locator('#chatTalkTab').click();await page.locator('#chatClose').click();
+ // Opening and closing AI midway through a weather pull must cancel the gesture.
+ await page.evaluate(()=>{aiTouch(window,'touchstart',150);aiTouch(window,'touchmove',310);});
+ await show();await page.locator('#chatClose').click();
+ await page.evaluate(()=>aiTouch(window,'touchend',310));assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[]);
+ await page.evaluate(()=>{aiTouch(window,'touchstart',150);aiTouch(window,'touchmove',310);aiTouch(window,'touchcancel',310);aiTouch(window,'touchend',310);});
+ assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[],'canceled touches cannot refresh');
+ await page.evaluate(()=>{aiTouch(window,'touchstart',150);aiTouch(window,'touchmove',310,2);aiTouch(window,'touchend',310);});
+ assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[],'pinching cannot refresh');
+ await page.evaluate(()=>aiPull(window));
+ assert.equal(await page.evaluate(()=>aiRefreshCalls.length),6,'weather pull works again after closing AI');
+ await page.evaluate(()=>{Object.assign(window,aiRefreshOriginals);});await show();
+ console.log('AI gestures isolated; native chat scrolling, canceled/mid-open gestures, restored weather refresh and idle glow passed');
  const send=async q=>{await page.locator('#chatInput').fill(q);await page.locator('#chatSend').click();};
  await send('Plouă azi?');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Plouă azi?'));
  console.log('First AI answer received');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'true','empty composer glows in an ongoing conversation too');
  assert.equal(requests.length,1);assert.equal(requests[0].locatie.nume,loc.nume);assert.equal(requests[0].vremea.curent.temperatura_c,28);
  const background=async()=>{await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(50);assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true');assert.equal(await page.evaluate(()=>MeteoConversations.active()),null);assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),false);await page.evaluate(()=>{delete document.visibilityState;document.dispatchEvent(new Event('visibilitychange'));});assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true','resume stays on weather');};
  await background();await show();assert.equal(await page.locator('#chatHome').isVisible(),true,'retained Android tab returns to AI landing screen');await page.locator('#chatClose').click();
@@ -73,6 +134,19 @@ const checks=String.raw`
  await motionPage.addScriptTag({content:"var chatWindow=document.getElementById('chatWindow');var pressedChatButton=null;"+realButtonHandlers});
  const glass=await motionPage.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),sweep:getComputedStyle(e,'::before').animationName,glow:getComputedStyle(e,'::after').animationName};});
  assert.equal(glass.pressed,true);assert.equal(glass.pulse,true);assert.equal(glass.sweep,'aiGlassSweep');assert.equal(glass.glow,'aiGlassGlow');
+ const ambient=await motionPage.locator('.ai-ambient-glow').evaluate(e=>({name:getComputedStyle(e,'::before').animationName,pointer:getComputedStyle(e).pointerEvents}));
+ assert.equal(ambient.name,'aiAmbientFloat');assert.equal(ambient.pointer,'none');
+ assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'aiComposerGlow');
+ await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='false');
+ assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'none');
+ await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='true');
+ await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.idle='false');
+ assert.equal(await motionPage.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','typing stops idle animation entirely');
+ await motionPage.locator('#chatWindow').evaluate(e=>{e.dataset.idle='true';e.classList.remove('open');});
+ assert.equal(await motionPage.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','closed AI consumes no glow animation');
+ assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','closed composer consumes no animation');
+ await motionPage.locator('#chatWindow').evaluate(e=>e.classList.add('open'));
+
  await motionPage.screenshot({path:path.join(shots,'ai-glass-press-412.png')});await motionPage.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerup')));await motionPage.waitForTimeout(600);
  assert.equal(await motionPage.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false);await motionPage.close();await page.bringToFront();if(await page.locator('#chatWindow').getAttribute('aria-hidden')==='true')await show();
  await page.evaluate(()=>{window.realChatViewport=window.visualViewport;Object.defineProperty(window,'visualViewport',{configurable:true,value:{height:350,offsetTop:0}});window.dispatchEvent(new Event('resize'));});

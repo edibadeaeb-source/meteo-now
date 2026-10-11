@@ -7,6 +7,16 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
     border:1px solid rgba(206,220,255,.3)!important;color:#f5f7ff;
     backdrop-filter:blur(24px) saturate(135%);-webkit-backdrop-filter:blur(24px) saturate(135%);
     box-shadow:0 24px 64px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.12)!important;isolation:isolate;}
+/* Two soft highlights use only opacity/transform; never intercept touches. */
+#chatWindow {overscroll-behavior:none;touch-action:pan-x pan-y;}
+#chatWindow .ai-ambient-glow {position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:-1;opacity:0;transition:opacity .45s ease;}
+#chatWindow.open[data-idle="true"] .ai-ambient-glow {opacity:1;}
+#chatWindow .ai-ambient-glow::before,#chatWindow .ai-ambient-glow::after {content:'';position:absolute;width:105%;height:64%;border-radius:50%;animation:none;}
+#chatWindow .ai-ambient-glow::before {left:-32%;top:3%;background:radial-gradient(ellipse,#a986f548,transparent 67%);}
+#chatWindow .ai-ambient-glow::after {right:-35%;bottom:-9%;background:radial-gradient(ellipse,#6ccfff40,transparent 67%);}
+#chatWindow.open[data-idle="true"] .ai-ambient-glow::before {animation:aiAmbientFloat 9s ease-in-out infinite alternate;}
+#chatWindow.open[data-idle="true"] .ai-ambient-glow::after {animation:aiAmbientFloat 11s ease-in-out -3s infinite alternate-reverse;}
+@keyframes aiAmbientFloat {from {transform:translate3d(0,0,0);opacity:.65;}to {transform:translate3d(5%,5%,0);opacity:1;}}
 #chatWindow .chat-header {flex-shrink:0;gap:8px;padding:18px 18px 12px;background:transparent!important;border:0!important;}
 #chatWindow .chat-header>div:first-child {min-width:0;flex:1;}
 #chatWindow .chat-header-title {font-size:.92rem;letter-spacing:.015em;}
@@ -34,6 +44,11 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .chat-suggestion:active {transform:none;background:#ffffff20!important;filter:none;}
 #chatWindow .chat-input-area {display:block;flex-shrink:0;padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));border:0!important;background:transparent!important;}
 #chatWindow .ai-composer {padding:1.5px;border-radius:25px;background:linear-gradient(115deg,#bca0f4aa,#d4c1ff55 45%,#90d9ffbb);box-shadow:0 3px 20px #b0acff0b;}
+#chatWindow .ai-composer {position:relative;isolation:isolate;}
+#chatWindow .ai-composer::before {content:'';position:absolute;inset:-7px;border-radius:31px;pointer-events:none;z-index:-1;opacity:0;background:radial-gradient(ellipse at 12% 35%,#b396ff50,transparent 62%),radial-gradient(ellipse at 92% 70%,#81d8ff48,transparent 62%);box-shadow:0 0 20px #958aff20;transition:opacity .45s ease;}
+#chatWindow.open[data-composer-idle="true"] .ai-composer::before {opacity:.75;animation:aiComposerGlow 4.5s ease-in-out infinite alternate;}
+#chatWindow.open[data-composer-idle="true"] #chatInput::placeholder {text-shadow:0 0 12px #b9b6ff66;}
+@keyframes aiComposerGlow {from {opacity:.4;}to {opacity:.85;}}
 #chatWindow .ai-composer-inner {border-radius:23.5px;background:rgba(9,18,39,.85);padding:15px 14px 10px;}
 #chatWindow #chatInput {display:block;box-sizing:border-box;width:100%;height:64px;min-height:64px;max-height:140px;resize:none;overflow-y:auto;padding:6px 4px 4px;background:transparent!important;border:0!important;outline:0;font:400 16px/1.55 Inter,system-ui,sans-serif;color:#f5f7ff!important;caret-color:#c5ddff;touch-action:pan-y;}
 #chatWindow[data-mode="home"] #chatInput {height:88px;}
@@ -85,5 +100,5 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 }
 @media (max-height:450px) {#chatWindow .ai-home {padding:10px 24px;}#chatWindow .ai-weather-mark {display:none;}#chatWindow .ai-home h2 {font-size:23px;}#chatWindow .ai-home p {display:none;}#chatWindow .chat-suggestions {padding-top:10px;}}
 @media (prefers-reduced-transparency:reduce) {#chatWindow {background:#152039!important;backdrop-filter:none;-webkit-backdrop-filter:none;}}
-@media (prefers-reduced-motion:reduce) {#chatWindow button {transition:none!important;transform:none!important;}#chatWindow button::before,#chatWindow button::after {animation:none!important;opacity:0!important;}}
+@media (prefers-reduced-motion:reduce) {#chatWindow .ai-ambient-glow,#chatWindow .ai-composer::before {transition:none;}#chatWindow .ai-composer::before {animation:none!important;}#chatWindow .ai-ambient-glow::before,#chatWindow .ai-ambient-glow::after {animation:none!important;}#chatWindow button {transition:none!important;transform:none!important;}#chatWindow button::before,#chatWindow button::after {animation:none!important;opacity:0!important;}}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {#chatWindow {background:#152039!important;}}

@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.3">
+    <meta name="application-version" content="2026.10.12.4">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3512,7 +3512,12 @@ var chatNew = document.getElementById('chatNew'), chatMode = 'home';
 var backgroundState = [], wasOpen = false, restoreFocus = null;
 function enChat(){return typeof LANG!=='undefined' && LANG==='en';}
 function activeId(){var c=conversations.active();return c?c.id:null;}
-function buttonState(){chatSend.disabled=!chatInput.value.trim()||!!pendingChats[activeId()];}
+function syncChatGlow(){
+    var empty=!chatInput.value.length;
+    chatWindow.dataset.idle=String(chatMode==='home'&&empty);
+    chatWindow.dataset.composerIdle=String(chatMode!=='history'&&empty);
+}
+function buttonState(){chatSend.disabled=!chatInput.value.trim()||!!pendingChats[activeId()];syncChatGlow();}
 function storageNote(){
     var note=document.getElementById('chatStorageNote');note.hidden=conversations.saved();
     note.textContent=enChat()?'Your device cannot save conversations right now. You can continue chatting, but the history may not survive a restart.':'Dispozitivul nu poate salva conversațiile acum. Poți continua discuția, dar istoricul poate dispărea la repornire.';
@@ -3525,6 +3530,7 @@ function setMode(mode){
     chatTalkTab.setAttribute('aria-selected',String(mode!=='history'));
     chatHistoryTab.setAttribute('aria-selected',String(mode==='history'));
     chatTalkTab.tabIndex=mode==='history'?-1:0;chatHistoryTab.tabIndex=mode==='history'?0:-1;
+    syncChatGlow();
 }
 function renderHistory(){
     chatArchive.replaceChildren();
@@ -3598,6 +3604,12 @@ function leaveChat(){
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')leaveChat();});
 window.addEventListener('pagehide',leaveChat);
 chatClose.addEventListener('click',closeChat);chatBackdrop.addEventListener('click',closeChat);
+// Keep chat scrolling native, but do not pass gestures to the weather page.
+[chatWindow,chatBackdrop].forEach(function(panel){
+    ['touchstart','touchmove','touchend','touchcancel','wheel'].forEach(function(type){
+        panel.addEventListener(type,function(e){e.stopPropagation();},{passive:true});
+    });
+});
 new MutationObserver(syncOpen).observe(chatWindow,{attributes:true,attributeFilter:['class']});
 if(window.visualViewport){window.visualViewport.addEventListener('resize',viewportChat);window.visualViewport.addEventListener('scroll',viewportChat);}window.addEventListener('resize',viewportChat);
 chatWindow.addEventListener('keydown',function(e){
@@ -3891,6 +3903,7 @@ meteoInterval(function() {
     <button class="chat-fab" id="chatFab" title="Chat AI" aria-controls="chatWindow" aria-expanded="false">🤖</button>
     <div id="chatBackdrop" hidden aria-hidden="true"></div>
     <div class="chat-window" id="chatWindow" role="dialog" aria-modal="true" aria-labelledby="aiDialogTitle" aria-hidden="true" data-mode="home">
+        <div class="ai-ambient-glow" aria-hidden="true"></div>
         <div class="chat-header">
             <div>
                 <div class="chat-header-title" id="aiDialogTitle"><span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
@@ -5865,16 +5878,29 @@ enableSwipe('#forecast-section', '.fc-pill');
 (function() {
     var startY = 0, pulling = false, ind = document.getElementById('pullRefresh');
     if (!ind) return;
+    function cancelPull() {
+        pulling = false;
+        ind.style.transform = 'translate(-50%, -60px)';
+    }
+    function blocked(e) {
+        var ai = document.getElementById('chatWindow');
+        var cities = document.getElementById('mobFoaie');
+        var settings = document.getElementById('settingsSheet');
+        return _nrPanouri > 0 || (ai && ai.classList.contains('open')) ||
+            (cities && cities.classList.contains('deschis')) ||
+            (settings && settings.classList.contains('open')) ||
+            !!(e.target.closest && e.target.closest('#chatWindow, #chatBackdrop, .leaflet-container, .sheet, .loc-panel'));
+    }
+    // Opening AI also cancels a pull that began on the weather page.
+    var ai = document.getElementById('chatWindow');
+    if (ai) new MutationObserver(function(){if(ai.classList.contains('open'))cancelPull();})
+        .observe(ai,{attributes:true,attributeFilter:['class']});
     window.addEventListener('touchstart', function(e) {
-        var foaieMobila = document.getElementById('mobFoaie');
-        if (window.scrollY > 4 || e.touches.length !== 1 ||
-            (foaieMobila && foaieMobila.classList.contains('deschis'))) {
-            pulling = false; return;
-        }
-        if (document.getElementById('settingsSheet').classList.contains('open')) { pulling = false; return; }
+        if (blocked(e) || window.scrollY > 4 || e.touches.length !== 1) { cancelPull(); return; }
         startY = e.touches[0].clientY; pulling = true;
     }, { passive: true });
     window.addEventListener('touchmove', function(e) {
+        if (blocked(e) || e.touches.length !== 1) { cancelPull(); return; }
         if (!pulling) return;
         var d = e.touches[0].clientY - startY;
         if (d > 0 && window.scrollY <= 4) {
@@ -5885,6 +5911,7 @@ enableSwipe('#forecast-section', '.fc-pill');
         }
     }, { passive: true });
     window.addEventListener('touchend', function(e) {
+        if (blocked(e)) { cancelPull(); return; }
         if (!pulling) return;
         pulling = false;
         var d = (e.changedTouches[0] ? e.changedTouches[0].clientY : startY) - startY;
@@ -5900,6 +5927,7 @@ enableSwipe('#forecast-section', '.fc-pill');
             ind.style.transform = 'translate(-50%, -60px)';
         }
     }, { passive: true });
+    window.addEventListener('touchcancel', cancelPull, { passive: true });
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -8721,7 +8749,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=2">
+<link rel="stylesheet" href="weather-ai.css?v=3">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
