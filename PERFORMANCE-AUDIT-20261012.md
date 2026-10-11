@@ -1,13 +1,13 @@
 # METEO NOW — activitate, trafic și widgeturi
 
-Web/server **2026.10.12.1**, Service Worker **v50**. Android **1.0.23 / versionCode 24**, targetSdk 36.
+Web/server **2026.10.12.2**, Service Worker **v51**. Android **1.0.23 / versionCode 24**, targetSdk 36.
 
 ## Probleme corectate
 
 - Protecția temporizărilor era instalată după înregistrarea mai multor actualizări. Acestea puteau continua să execute cod și cereri când pagina era ascunsă. Toate temporizările proprii trec acum printr-un ajutor definit în primul script. Sunt oprite callbackurile ascunse, inclusiv ceasul și animațiile hărților. Setarea actualizării automate este respectată la intervalele de cel puțin 10 secunde; temporizările bibliotecilor nu mai sunt modificate global.
 - Temperatura stației avea două actualizări periodice suprapuse, la 15 și 20 secunde. Rămâne cea la 15 secunde.
 - După schimbarea filmării, ambele elemente video păstrau o sursă. După pornirea noii filmări, sursa și ascultătorii celei vechi sunt eliminați, permițând browserului să elibereze resursele. Filmarea curentă rămâne în pauză când pagina este ascunsă și poate continua imediat la revenire. Trecerea la o fotografie eliberează ambele surse și anulează filmările în curs de încărcare.
-- Curățarea precipitațiilor folosește întregul bitmap în coordonate fizice, independent de transformarea contextului canvas. Proba de browser include opriri/porniri repetate și resetarea transformării la DPR fracționar, astfel încât ploaia să nu rămână desenată după oprire.
+- Curățarea precipitațiilor folosește întregul bitmap în coordonate fizice, independent de transformarea contextului canvas. La suspendarea unei animații desenate se resetează o singură dată și bufferul grafic, păstrând dimensiunile și scalarea pentru reluare. Nu se realocă la fiecare cadru sau atingere. Proba de browser include opriri/porniri repetate și resetarea transformării la DPR fracționar, astfel încât ploaia să nu rămână desenată după oprire.
 - Patru widgeturi aveau `updatePeriodMillis=1800000`, pe lângă WorkManager-ul comun la 20 minute. Acum toate cele cinci au această programare Android suplimentară dezactivată. Actualizarea la configurare, pornirea dispozitivului și actualizarea aplicației rămân disponibile.
 
 ## Măsurare comparativă

@@ -76,9 +76,20 @@
         ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
     }
     function stop(clear) {
+        var painted = !!last;
         if (frame) root.cancelAnimationFrame(frame);
         frame = 0; last = 0;
-        if (clear && ctx) clearPrecipitation();
+        if (clear && ctx) {
+            clearPrecipitation();
+            // Once per suspension, discard the drawn backing store as well.
+            // Some GPU paths retain its last frame after a visibility/media
+            // change. Keep dimensions and restore CSS-pixel coordinates.
+            if (painted && !enabled()) {
+                canvas.width = canvas.width;
+                var ratio = Math.min(root.devicePixelRatio || 1, 1.25);
+                ctx.setTransform(ratio,0,0,ratio,0,0);
+            }
+        }
     }
     function sync() {
         var on = enabled() && !!scene;
