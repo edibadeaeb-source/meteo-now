@@ -641,6 +641,3 @@ final class WeatherWidgetUpdater {
         return R.drawable.ic_w_nor;
     }
 }
-
-
-
