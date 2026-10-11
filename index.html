@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.11.3">
+    <meta name="application-version" content="2026.10.11.4">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -6090,6 +6090,8 @@ function abonamentPushJSON(sub) {
 }
 var _pushSaveChain = Promise.resolve();
 var _pushSaveVersion = 0;
+var _pushSyncTimer = null;
+var _pushSyncRetries = 0;
 function pushFetch(url, options) {
     var controller = new AbortController();
     var timer = setTimeout(function() { controller.abort(); }, 10000);
@@ -6135,18 +6137,30 @@ async function trimiteAbonament(sub) {
 async function actualizeazaLocatiaPush() {
     try {
         if (!('serviceWorker' in navigator) || !_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
+        if (navigator.onLine === false) return;
         if (esteAplicatiaAndroid()) {
             if (stareNotificariAndroid() !== 'granted') return;
         } else if (Notification.permission !== 'granted') return;
         var reg = await navigator.serviceWorker.ready;
         var sub = await reg.pushManager.getSubscription();
         if (sub) await trimiteAbonament(sub);
+        clearTimeout(_pushSyncTimer); _pushSyncTimer = null; _pushSyncRetries = 0;
     } catch (e) {
         pushNote(LANG === 'en' ? 'Location update pending. We will retry when you return.' : 'Locația notificărilor nu s-a sincronizat încă. Reîncercăm la revenire.', 'var(--amber)');
+        // A transient server failure must not leave alerts on the previous city.
+        // One bounded retry timer; do not poll while the page is in the background.
+        if (!_pushSyncTimer && _pushSyncRetries < 3 && !document.hidden) {
+            var delay = [15000, 60000, 180000][_pushSyncRetries++];
+            _pushSyncTimer = setTimeout(function() {
+                _pushSyncTimer = null;
+                if (!document.hidden) actualizeazaLocatiaPush();
+            }, delay);
+        }
     }
 }
 async function pushUnsubscribe() {
     localStorage.setItem('meteo-push-disabled', '1');
+    clearTimeout(_pushSyncTimer); _pushSyncTimer = null; _pushSyncRetries = 0;
     ++_pushSaveVersion;
     await _pushSaveChain.catch(function() {});
     try {
@@ -6885,7 +6899,7 @@ async function urmarimLocatiaAutomat() {
         if (!navigator.permissions || !navigator.permissions.query) return ales === '1';
         var perm = await navigator.permissions.query({ name: 'geolocation' });
         return perm && perm.state === 'granted';
-    } catch (e) { return false; }
+    } catch (e) { return ales === '1'; }
 }
 function distantaLocatiiKm(aLat, aLon, bLat, bLon) {
     var r = Math.PI / 180, dLat = (bLat - aLat) * r, dLon = (bLon - aLon) * r;
@@ -6895,6 +6909,16 @@ function distantaLocatiiKm(aLat, aLon, bLat, bLon) {
 }
 function numeLocatieDinPozitie(pos) {
     var lat = pos.coords.latitude, lon = pos.coords.longitude;
+    if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) {
+        return Promise.reject(new Error('coordonate invalide'));
+    }
+    try {
+        var saved = JSON.parse(localStorage.getItem('meteo-gps-location') || 'null');
+        if (saved && saved.nume && saved.tara && isFinite(saved.lat) && isFinite(saved.lon) &&
+            distantaLocatiiKm(saved.lat, saved.lon, lat, lon) < 0.1) {
+            return Promise.resolve(Object.assign({}, saved, {lat:lat, lon:lon}));
+        }
+    } catch (e) {}
     return pushFetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat +
         '&longitude=' + lon + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
         .then(function(r) { if (!r.ok) throw new Error('geocodare'); return r.json(); })
@@ -6905,14 +6929,14 @@ function numeLocatieDinPozitie(pos) {
         });
 }
 async function actualizeazaLocatieAutomat(fortat) {
-    if (_locAutoInCurs || !_locatiePregatita || !navigator.geolocation || document.hidden) return;
+    if (_locAutoInCurs || !_locatiePregatita || !navigator.geolocation || document.hidden || navigator.onLine === false) return;
     if (Date.now() - _locAutoUltima < (fortat ? 15000 : 120000)) return;
     _locAutoInCurs = true;
     var generation = _locAutoGeneration;
     try {
         if (!(await urmarimLocatiaAutomat())) return;
         _locAutoUltima = Date.now();
-        var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 30000 });
+        var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 0 });
         if (generation !== _locAutoGeneration || document.hidden) return;
         var lat = pos.coords.latitude, lon = pos.coords.longitude;
         var loc = await numeLocatieDinPozitie(pos);
@@ -6921,12 +6945,13 @@ async function actualizeazaLocatieAutomat(fortat) {
         localStorage.setItem('meteo-gps-location', JSON.stringify(loc));
         if (fortat || !_locManualPreview) {
             if (loc.nume !== LOC.nume || loc.tara !== LOC.tara || distantaLocatiiKm(LOC.lat, LOC.lon, lat, lon) >= 0.5) {
-                seteazaLocatie(loc, true, 'gps');
+                await seteazaLocatie(loc, true, 'gps');
             }
         }
         await actualizeazaLocatiaPush();
     } catch (e) {
         // Nu afișăm o eroare la revenirea în aplicație; butonul GPS o poate arăta explicit.
+        _locAutoUltima = 0; // A failed lookup must not block recovery when online again.
     } finally {
         _locAutoInCurs = false;
     }
@@ -7752,11 +7777,15 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
 })();
 document.addEventListener('visibilitychange', function() {
     if (!document.hidden) {
-        actualizeazaLocatieAutomat(true);
-        actualizeazaLocatiaPush();
+        actualizeazaLocatieAutomat(true).then(actualizeazaLocatiaPush);
     }
 });
 window.addEventListener('focus', function() { actualizeazaLocatieAutomat(true); });
+window.addEventListener('online', function() {
+    if (document.hidden) return;
+    _pushSyncRetries = 0;
+    actualizeazaLocatieAutomat(false).then(actualizeazaLocatiaPush);
+});
 setInterval(function() { actualizeazaLocatieAutomat(false); }, 120000);
 
 (function initNotificationTools() {
@@ -9052,6 +9081,8 @@ function mobSchimbaLocatie(loc, sursa) {
     var lat = +(loc.lat != null ? loc.lat : loc.latitude);
     var lon = +(loc.lon != null ? loc.lon : loc.longitude);
     if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) return;
+    // Cancel an older GPS request at the tap, before this city's forecast loads.
+    if (sursa === 'manual') seteazaModLocatieAutomata('manual');
     var tinta = Object.assign({},loc,{lat:lat,lon:lon}), serial = ++_mobLocSerial;
     var bara = document.getElementById('mjLoc');
     function ocupat(da) { if (bara) bara.setAttribute('aria-busy',da?'true':'false'); }

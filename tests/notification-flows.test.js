@@ -96,6 +96,77 @@ async function run() {
     await c.trimiteAbonament({});
   }
   // Compile each executable inline script and the worker to catch syntax errors.
+  // Recovery after a GPS/network failure is not suppressed by the 2-minute throttle.
+  {
+    let attempts = 0, synced = 0;
+    const c = context({_locAutoInCurs:false, _locatiePregatita:true, _locAutoUltima:0,
+      _locAutoGeneration:0, _locManualPreview:false, LOC_AUTO_KEY:'auto', navigator:{geolocation:{}},
+      urmarimLocatiaAutomat:async()=>true,
+      pozitieCuReincercare:async()=>{if(++attempts === 1) throw Error('offline'); return {coords:{latitude:45,longitude:26}};},
+      numeLocatieDinPozitie:async()=>({...c.LOC, nume:'București',lat:45,lon:26}),
+      distantaLocatiiKm:()=>10, seteazaLocatie:async()=>{}, actualizeazaLocatiaPush:async()=>synced++});
+    vm.runInContext(block('async function actualizeazaLocatieAutomat(', '/** Aplică locația:'), c);
+    await c.actualizeazaLocatieAutomat(true);
+    assert.strictEqual(c._locAutoUltima, 0);
+    await c.actualizeazaLocatieAutomat(true);
+    assert.strictEqual(attempts, 2);
+    assert.strictEqual(synced, 1);
+    assert.strictEqual(JSON.parse(c.localStorage.getItem('meteo-gps-location')).nume, 'București');
+  }
+  // Explicit opt-in still works on browsers whose Permissions API rejects geolocation.
+  // A manual tap cancels GPS before waiting for the next city's network response.
+  {
+    const c = context({_locAutoGeneration:0,_locManualPreview:false,LOC_AUTO_KEY:'auto',_mobLocSerial:0,
+      document:{hidden:false,getElementById:()=>null},
+      window:{MeteoForecastCache:true},MeteoForecastCache:{ready:new Promise(()=>{})}, mobDateDinCache:()=>null});
+    vm.runInContext(block('function seteazaModLocatieAutomata(', 'async function urmarimLocatiaAutomat()'),c);
+    vm.runInContext(block('function mobSchimbaLocatie(', 'function mobPrefetchVecini()'),c);
+    c.mobSchimbaLocatie({...c.LOC,nume:'București'},'manual');
+    assert.strictEqual(c._locAutoGeneration,1);
+    assert.strictEqual(c._locManualPreview,true);
+  }
+  // Explicit opt-in still works on browsers whose Permissions API rejects geolocation.
+  {
+    const c = context({LOC_AUTO_KEY:'auto', navigator:{permissions:{query:async()=>{throw Error('unsupported');}}}});
+    vm.runInContext(block('async function urmarimLocatiaAutomat()', 'function distantaLocatiiKm('), c);
+    assert.strictEqual(await c.urmarimLocatiaAutomat(), false);
+    c.localStorage.setItem('auto','1');
+    assert.strictEqual(await c.urmarimLocatiaAutomat(), true);
+    c.localStorage.setItem('auto','0');
+    assert.strictEqual(await c.urmarimLocatiaAutomat(), false);
+  }
+  // Staying within 100m reuses the confirmed locality; a different town is geocoded.
+  {
+    let geocodes = 0;
+    const c = context({pushFetch:async()=>{geocodes++;return {ok:true,json:async()=>({city:'București',countryCode:'RO'})};}});
+    vm.runInContext(block('function distantaLocatiiKm(', 'async function actualizeazaLocatieAutomat('), c);
+    c.localStorage.setItem('meteo-gps-location',JSON.stringify(c.LOC));
+    assert.strictEqual((await c.numeLocatieDinPozitie({coords:{latitude:44.9801,longitude:25.6401}})).nume,'Moreni');
+    assert.strictEqual(geocodes,0);
+    assert.strictEqual((await c.numeLocatieDinPozitie({coords:{latitude:44.43,longitude:26.1}})).nume,'București');
+    assert.strictEqual(geocodes,1);
+  }
+  // A transient sync retries using the latest GPS location, never an old captured city.
+  {
+    let retry, sends = 0; const places = [];
+    const c = context({_locatiePregatita:true,_pushSyncTimer:null,_pushSyncRetries:0,
+      navigator:{serviceWorker:{ready:Promise.resolve({pushManager:{getSubscription:async()=>({})}})}},
+      esteAplicatiaAndroid:()=>false, Notification:{permission:'granted'},
+      setTimeout:(fn)=>{retry=fn;return 123;},clearTimeout:()=>{},
+      trimiteAbonament:async()=>{places.push(c.LOC.nume);if(++sends === 1)throw Error('temporary 503');}});
+    vm.runInContext(block('async function actualizeazaLocatiaPush()', 'async function pushUnsubscribe()'),c);
+    await c.actualizeazaLocatiaPush();
+    assert.strictEqual(c._pushSyncTimer,123);
+    c.LOC = {...c.LOC,nume:'București'};
+    retry();
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.deepStrictEqual(places,['Moreni','București']);
+    assert.strictEqual(c._pushSyncTimer,null);
+    assert.strictEqual(c._pushSyncRetries,0);
+    c.localStorage.setItem('meteo-push-disabled','1');
+    await c.actualizeazaLocatiaPush();
+    assert.strictEqual(sends,2);
+  }
   for(const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
     if(!/application\/(?:ld\+)?json/.test(match[1])) new vm.Script(match[2]);
   }

@@ -9,12 +9,15 @@ meteo = fixtures.meteo
 
 class DeliveryTests(unittest.TestCase):
     def setUp(self):
+        clock = patch.object(meteo.time, 'time', return_value=meteo.datetime.fromisoformat('2026-09-22T16:22:00+00:00').timestamp())
+        clock.start()
+        self.addCleanup(clock.stop)
         self.sub = {'endpoint': 'https://fcm.googleapis.com/fcm/send/test-only',
                     'keys': {'auth': 'auth', 'p256dh': 'key'},
                     'lat': 44.9266, 'lon': 25.4566, 'nume': 'Moreni', 'tara': 'RO', 'admin': 'Dâmbovița'}
         self.storage = {'push_subs': {'a': self.sub}, 'push_weather_state': {}}
 
-    def fb(self, path, method='GET', payload=None):
+    def fb(self, path, method='GET', payload=None, **kwargs):
         if method == 'PUT':
             self.storage[path] = payload
             return payload

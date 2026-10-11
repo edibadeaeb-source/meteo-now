@@ -241,7 +241,9 @@ class NotificationCopyTests(unittest.TestCase):
     @staticmethod
     def forecast():
         return {
+            'current': {'time': '2026-09-22T19:22'},
             "daily": {
+                'time': ['2026-09-21', '2026-09-22', '2026-09-23'],
                 "temperature_2m_max": [14, 18, 20],
                 "temperature_2m_min": [5, 9, 11],
                 "weather_code": [2, 61, 80],
@@ -267,6 +269,8 @@ class NotificationCopyTests(unittest.TestCase):
         hours = ['2026-09-22T19:00', '2026-09-22T20:00', '2026-09-22T21:00',
                  '2026-09-22T22:00', '2026-09-22T23:00', '2026-09-23T00:00']
         return {
+            'timezone': 'Europe/Bucharest',
+            'weather_sources': {'stale': False, 'retrieved_at': '2026-09-22T16:22:00+00:00'},
             'current': {
                 'time': '2026-09-22T19:22', 'weather_code': current_code,
                 'precipitation': current_precipitation, 'rain': current_precipitation,

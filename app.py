@@ -33,6 +33,7 @@ ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
 from widget_weather import current_widget, condition as widget_condition
+from notification_weather import fresh_forecast, summary_indices, finite as notification_finite
 import tempfile as _weather_tempfile
 _weather_service = WeatherService(OPENWEATHER_API_KEY,
     cache_dir=os.path.join(_weather_tempfile.gettempdir(), 'meteo-now-met-cache'))
@@ -370,7 +371,7 @@ JUDET_MONITORIZAT = "DB"          # Dâmbovița
 _COD_NUME = {1: "cod galben", 2: "cod portocaliu", 3: "cod roșu"}
 
 
-def _fb(path, method='GET', payload=None):
+def _fb(path, method='GET', payload=None, *, unavailable=None):
     """Citire/scriere simplă în Firebase Realtime Database."""
     url = f"{PUSH_FIREBASE_URL}/{path}.json"
     try:
@@ -388,7 +389,7 @@ def _fb(path, method='GET', payload=None):
         return True if method == 'DELETE' else r.json()
     except Exception as e:
         print(f"⚠️  Firebase {method} unavailable ({type(e).__name__})")
-        return None
+        return unavailable
 
 
 def _sub_key(endpoint):
@@ -655,7 +656,9 @@ def _push_check_intern():
         return [unwrap(i) for i in (x if isinstance(x, list) else [x])]
 
     warns = as_list(data.get('avertizare'))
-    subs, states = _fb('push_subs') or {}, _fb('push_anm_state') or {}
+    subs, states = _fb('push_subs', unavailable=False), _fb('push_anm_state', unavailable=False)
+    # Firebase null means an empty branch; False means the read failed.
+    subs, states = {} if subs is None else subs, {} if states is None else states
     if not isinstance(subs, dict) or not isinstance(states, dict):
         return jsonify({'ok': False, 'error': 'storage_unavailable'})
     sent = duplicates = failed = 0
@@ -978,7 +981,7 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
     times = [_event_dt(x) for x in hourly.get('time') or []]
     if not times:
         return None
-    now = _event_dt(current.get('time'))
+    now = _event_dt((p.get('weather_sources') or {}).get('current_condition_time') or current.get('time'))
     if now is None or current.get('weather_code') is None:
         return None
     future = [i for i, value in enumerate(times)
@@ -1133,11 +1136,14 @@ def _weather_should_send(event, old, location_key, now_ts):
 
 
 def _push_weather_intern():
-    subs = _fb('push_subs') or {}
+    subs = _fb('push_subs', unavailable=False)
+    subs = {} if subs is None else subs
     if not isinstance(subs, dict):
-        return {'ok': True, 'abonati': 0, 'trimise': 0}
-    states = _fb('push_weather_state') or {}
-    states = states if isinstance(states, dict) else {}
+        return {'ok': False, 'error': 'storage_unavailable'}
+    states = _fb('push_weather_state', unavailable=False)
+    states = {} if states is None else states
+    if not isinstance(states, dict):
+        return {'ok': False, 'error': 'storage_unavailable'}
     groups = {}
     invalid = 0
     for key, sub in subs.items():
@@ -1165,11 +1171,11 @@ def _push_weather_intern():
         forecasts = dict(zip(groups, pool.map(fetch_group, groups)))
     for (lat, lon), entries in groups.items():
         forecast = forecasts[(lat, lon)]
-        if forecast is None:
+        if not isinstance(forecast, dict) or not fresh_forecast(forecast, now_ts):
             missing += len(entries)
             continue
         for key, sub in entries:
-            forecast_now = _event_dt((forecast.get('current') or {}).get('time'))
+            forecast_now = _event_dt((forecast.get('weather_sources') or {}).get('current_condition_time') or (forecast.get('current') or {}).get('time'))
             forecast_hours = [_event_dt(t) for t in (forecast.get('hourly') or {}).get('time') or []]
             if ((forecast.get('current') or {}).get('weather_code') is None
                     or forecast_now is None
@@ -1179,6 +1185,9 @@ def _push_weather_intern():
             location_key = f"{str(sub.get('tara') or '').upper()}:{str(sub.get('nume') or '').casefold()}"
             if not sub.get('nume'):
                 location_key = f"{lat:.2f},{lon:.2f}"
+            else:
+                # Distinguish towns sharing a name without re-alerting for GPS jitter.
+                location_key += ':' + str(sub.get('admin') or '').casefold()
             old = states.get(key) if isinstance(states.get(key), dict) else {}
             event = _compune_eveniment_meteo(
                 forecast, sub.get('limba', 'ro'), sub.get('unitate', 'C'), sub.get('nume'))
@@ -1319,7 +1328,7 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     en = limba == 'en'
     tabel = _WMO_EN if en else _WMO_RO
 
-    # past_days=1 → indicele 0 e ieri, 1 e azi, 2 e mâine
+    # Providers can include or omit yesterday; use the city's calendar dates.
     try:
         maxime = zi['temperature_2m_max']
         minime = zi['temperature_2m_min']
@@ -1331,12 +1340,16 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
         return None
 
     seara = moment == 'seara'
-    i = 2 if seara else 1                       # seara vorbim despre mâine
-    ref = 1 if seara else 0                     # comparăm cu azi, respectiv cu ieri
-    if len(maxime) <= i:
+    indices = summary_indices(p, seara)
+    if indices is None:
+        return None
+    i, ref = indices
+    if len(maxime) <= i or len(minime) <= i:
         return None
 
     maxi, mini = maxime[i], minime[i]
+    if not notification_finite(maxi) or not notification_finite(mini):
+        return None
     cod = coduri[i] if len(coduri) > i else None
     prob = probs[i] if len(probs) > i else None
     uv = uvs[i] if len(uvs) > i else None
@@ -1344,7 +1357,7 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     vreme = tabel.get(cod, '')
 
     dif = None
-    if len(maxime) > ref and maxime[ref] is not None and maxi is not None:
+    if ref is not None and len(maxime) > ref and notification_finite(maxime[ref]):
         dif = maxi - maxime[ref]
 
     loc = nume or ('your area' if en else 'zona ta')
@@ -1391,9 +1404,10 @@ def push_rezumat():
 
 
 def _rezumat_intern(moment):
-    subs = _fb('push_subs') or {}
+    subs = _fb('push_subs', unavailable=False)
+    subs = {} if subs is None else subs
     if not isinstance(subs, dict):
-        return jsonify({'ok': True, 'abonati': 0})
+        return jsonify({'ok': False, 'error': 'storage_unavailable'})
 
     # grupăm pe coordonate rotunjite (~1 km) ca să nu repetăm aceeași cerere
     grupuri = {}
@@ -1412,6 +1426,9 @@ def _rezumat_intern(moment):
     for (lat, lon), lista in grupuri.items():
         try:
             p = _prognoza_scurta(lat, lon)
+            if not isinstance(p, dict) or not fresh_forecast(p, time.time()):
+                fara_date += len(lista)
+                continue
         except Exception as e:
             print(f"⚠️  prognoză {lat},{lon}: {e}", flush=True)
             fara_date += len(lista)
@@ -1428,7 +1445,10 @@ def _rezumat_intern(moment):
                 day = daily_times[1] if len(daily_times) > 1 else now_ro().date().isoformat()
             summary_key = f'push_summary_state/{cheie}'
             fingerprint = f'{day}:{moment}:{lat},{lon}'
-            previous = _fb(summary_key) or {}
+            previous = _fb(summary_key, unavailable=False)
+            if previous is False:
+                fara_date += 1
+                continue
             if isinstance(previous, dict) and previous.get('fingerprint') == fingerprint:
                 continue
             titlu, corp = rez

@@ -1,5 +1,7 @@
 # Notificări — versiunea 1.0.19
 
+Actualizare curentă web/server **2026.10.11.4**, compatibilă cu APK **1.0.22**: [audit locație și notificări](NOTIFICATION-LOCATION-AUDIT-20261011.md). Documentul de mai jos descrie baza introdusă în 1.0.19; corecțiile și limitele actuale sunt în audit.
+
 Actualizare: 6 octombrie 2026. APK versionCode 20, target SDK 36.
 
 ## Comportament

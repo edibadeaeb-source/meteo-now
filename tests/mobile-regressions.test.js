@@ -16,7 +16,8 @@ function between(a, b) {
   ['mbOras','mbTara','mbTemp','mbStare','mbMm','mbBaraOras','mbBaraSub','mjLocText'].forEach(id => els[id] = { textContent: '', innerHTML: '' });
   var document = { getElementById: id => els[id] || null };
   var LOC = { nume: 'Târgoviște', admin: 'Dâmbovița' };
-  var MOBD = { current: { temperature_2m: 12.4, weather_code: 2 }, daily: { temperature_2m_max: [19], temperature_2m_min: [8] } };
+  var MOBD = { current: { temperature_2m: 12.4, weather_code: 2 }, daily: { time:['2026-09-16'], temperature_2m_max: [19], temperature_2m_min: [8] } };
+  var mobDataAzi = () => '2026-09-16', mobStareConexiune = () => {};
   var T = k => ({maxScurt:'Max',minScurt:'Min'}[k] || k);
   var wmoText = () => 'Parțial noros';
   var mobPuncte = () => {};
@@ -79,7 +80,7 @@ function between(a, b) {
 
 // Both cached and freshly fetched weather explicitly start climate analysis.
 {
-  const load = between('function mobIncarca()', '/* ── fundalul-cer');
+  const load = between('function mobIncarca(force)', '/* ── fundalul-cer');
   assert.strictEqual((load.match(/analizeazaZiua\(\)/g) || []).length, 3);
 }
 
