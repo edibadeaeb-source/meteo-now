@@ -97,13 +97,35 @@ const server=http.createServer(async(req,res)=>{
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('.weather-video')].filter(v=>v.hasAttribute('src')).length),0,'photographic scene cancels pending films and releases both sources');
    await select('clear-night');
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('.weather-video')].filter(v=>v.hasAttribute('src')).length),1,'film resumes after rapid transitions and a photograph');
-   await page.evaluate(()=>MeteoWeatherMotion.update({scene:'rain',clip:{still:true}}));
+   await page.evaluate(()=>{
+     // Weather refresh/resume was exercised above. For this subsystem probe,
+     // keep its injected rain scene from being replaced by the sunny fixture.
+     window.mobIncarca=function(){return Promise.resolve();};
+     window.MeteoAtmosphere.render=function(){return Promise.resolve(true);};
+     MeteoWeatherMotion.update({scene:'rain',clip:{still:true}});
+   });
    for(let n=0;n<6;n++){
      await page.emulateMedia({reducedMotion:'no-preference'});await page.waitForTimeout(80);
      await page.emulateMedia({reducedMotion:'reduce'});
      await page.waitForFunction(()=>document.getElementById('mobCer').getAttribute('data-motion')==='off');
      const bitmap=await page.evaluate(()=>{const c=document.querySelector('.weather-precipitation'),x=c.getContext('2d'),a=x.getImageData(0,0,c.width,c.height).data;let alpha=0;for(let i=3;i<a.length;i+=4)alpha+=a[i];return {alpha,width:c.width,height:c.height,transform:x.getTransform().toString()};});
      assert.equal(bitmap.alpha,0,JSON.stringify(bitmap));
+   }
+   await page.emulateMedia({reducedMotion:'no-preference'});
+   for(let n=0;n<6;n++){
+     try {
+       await page.waitForFunction(()=>{const c=document.querySelector('.weather-precipitation'),a=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return a.some((v,i)=>i%4===3&&v>0);},null,{timeout:5000,polling:50});
+     } catch(error) {
+       console.log('Rain suspension probe: '+JSON.stringify(await page.evaluate(n=>({cycle:n,hidden:document.hidden,reduced:matchMedia('(prefers-reduced-motion: reduce)').matches,checked:document.getElementById('setAnimations').checked,attributes:[...document.getElementById('mobCer').attributes].map(a=>[a.name,a.value])}),n)));
+       throw error;
+     }
+     await page.evaluate(()=>{
+       // Freeze during a gesture first: no dependence on a pending frame ID.
+       document.dispatchEvent(new Event('scroll'));
+       Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));
+     });
+     assert.equal(await page.evaluate(()=>{const c=document.querySelector('.weather-precipitation'),a=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let alpha=0;for(let i=3;i<a.length;i+=4)alpha+=a[i];return alpha;}),0,'hidden canvas must be empty even when scrolling had already stopped its frame');
+     await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
    }
    await page.emulateMedia({reducedMotion:'no-preference'});await page.waitForTimeout(80);
    const physicalClear=await page.evaluate(()=>{

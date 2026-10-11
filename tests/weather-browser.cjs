@@ -260,7 +260,12 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  assert.equal((await canvasDigest()).alpha,0);
  await page.waitForTimeout(250);assert.equal((await canvasDigest()).alpha,0);
  await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
- await page.waitForTimeout(250);assert.ok((await canvasDigest()).alpha>0);
+ // Returning refreshes the real fixture forecast. It can replace our injected
+ // rain with sunny/cloudy footage; do not require stale rain to keep falling.
+ // Fixed-scene particle resume is covered separately by performance-browser.
+ await page.waitForFunction(()=>document.getElementById('mobCer').getAttribute('data-motion')==='on'&&
+   ([...document.querySelectorAll('.weather-video.is-visible')].some(v=>!v.paused&&v.readyState>=3)||
+    (()=>{const c=document.querySelector('.weather-precipitation');return c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3&&v>0);})()),null,{timeout:5000});
  await page.evaluate(async()=>{MOBD.current.weather_code=1;await MeteoAtmosphere.render(MOBD,mobDinIso(MOBD.current.time),LOC);});
  const heroHeight=await page.locator('#mbHero').evaluate(el=>el.getBoundingClientRect().height);
  await page.mouse.wheel(0,1200);

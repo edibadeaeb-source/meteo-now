@@ -1,6 +1,6 @@
 # METEO NOW — activitate, trafic și widgeturi
 
-Web/server **2026.10.12.2**, Service Worker **v51**. Android **1.0.23 / versionCode 24**, targetSdk 36.
+Web/server **2026.10.12.3**, Service Worker **v52**. Android **1.0.23 / versionCode 24**, targetSdk 36.
 
 ## Probleme corectate
 

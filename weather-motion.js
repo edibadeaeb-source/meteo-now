@@ -6,7 +6,7 @@
     var mobile = root.matchMedia('(max-width: 900px), (max-height: 560px) and (pointer: coarse)');
     var reduced = root.matchMedia('(prefers-reduced-motion: reduce)');
     var control = document.getElementById('setAnimations');
-    var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
+    var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0, bitmapSuspended = false;
     var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
     var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
     var videoReady = false, playPending = false, rejectedHigh = Object.create(null), filmedPrecipitation = false;
@@ -76,16 +76,17 @@
         ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
     }
     function stop(clear) {
-        var painted = !!last;
         if (frame) root.cancelAnimationFrame(frame);
         frame = 0; last = 0;
         if (clear && ctx) {
             clearPrecipitation();
-            // Once per suspension, discard the drawn backing store as well.
-            // Some GPU paths retain its last frame after a visibility/media
-            // change. Keep dimensions and restore CSS-pixel coordinates.
-            if (painted && !enabled()) {
-                canvas.width = canvas.width;
+            // Once per suspension, discard the drawn backing store as well,
+            // even when scrolling already canceled its animation frame.
+            // Keep dimensions and restore CSS-pixel coordinates.
+            if (!enabled() && !bitmapSuspended) {
+                var bitmapWidth = canvas.width;
+                canvas.width = 0; canvas.width = bitmapWidth;
+                bitmapSuspended = true;
                 var ratio = Math.min(root.devicePixelRatio || 1, 1.25);
                 ctx.setTransform(ratio,0,0,ratio,0,0);
             }
@@ -93,6 +94,7 @@
     }
     function sync() {
         var on = enabled() && !!scene;
+        if (on) bitmapSuspended = false;
         el.setAttribute('data-motion', on ? 'on' : 'off');
         syncVideo(on);
         var overlay = precipitation() && !(scene === 'snow' && el.getAttribute('data-video') === 'playing');
