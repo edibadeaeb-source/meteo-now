@@ -1,0 +1,7 @@
+keystore.properties
+signingKey.keystore
+local.properties
+build/
+app/build/
+.gradle/
+.idea/

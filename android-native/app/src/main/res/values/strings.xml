@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Copyright 2021 Google Inc. All Rights Reserved.
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<resources>
+
+
+  <!--
+    The "fullscreen" and "fullscreen-sticky" TWA manifest values correspond to "immersive" and "sticky-immersive"
+    AndroidManifest values.
+  -->
+
+
+  <!--
+    This variable below expresses the relationship between the app and the site,
+    as documented in the TWA documentation at
+    https://developers.google.com/web/updates/2017/10/using-twa#set_up_digital_asset_links_in_an_android_app
+    and is injected into the AndroidManifest.xml
+  -->
+  <string name="assetStatements">
+    [{
+        \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+        \"target\": {
+            \"namespace\": \"web\",
+            \"site\": \"https://meteo-now.onrender.com\"
+        }
+    }]
+
+  </string>
+
+  <!-- Widgeturi METEO NOW pentru ecranul principal -->
+  <string name="widget_capsule_nume">METEO NOW · Mini 2×1</string>
+  <string name="widget_capsule_descriere">Pictogramă meteo mare, temperatură, oraș și minimă/maximă, într-o capsulă cu reflexii de sticlă.</string>
+  <string name="widget_capsule_preview_city">Orașul meu</string>
+  <string name="widget_capsule_preview_range">Max 24° · Min 16°</string>
+  <string name="widget_nume">METEO NOW · Prognoză</string>
+  <string name="widget_compact_nume">METEO NOW · Acum</string>
+  <string name="widget_details_nume">METEO NOW · Detalii</string>
+  <string name="widget_glass_nume">METEO NOW · Transparent</string>
+  <string name="widget_compact_descriere">Temperatura și starea vremii într-un widget compact.</string>
+  <string name="widget_details_descriere">Temperatura, resimțita, umiditatea și vântul.</string>
+  <string name="widget_forecast_descriere">Vremea curentă, avertizările ANM și prognoza pe trei zile.</string>
+  <string name="widget_glass_descriere">Vremea curentă și prognoza pe patru zile, într-un widget transparent.</string>
+  <string name="widget_descriere">Vremea curentă și prognoza METEO NOW.</string>
+  <string name="widget_config_title">Configurează widgetul</string>
+  <string name="widget_config_subtitle">Alege localitatea afișată. Fiecare widget poate folosi un oraș diferit.</string>
+  <string name="widget_config_city_label">Localitatea widgetului</string>
+  <string name="widget_config_hint">Caută un oraș…</string>
+  <string name="widget_config_search">Caută localitatea</string>
+  <string name="widget_config_saved_cities">Alege dintre orașele mele</string>
+  <string name="widget_config_choose_saved">Alege un oraș din listă sau caută unul nou.</string>
+  <string name="widget_config_no_saved">Nu ai încă orașe salvate în aplicație. Poți căuta manual primul oraș.</string>
+  <string name="widget_config_syncing">Sincronizez orașele salvate din aplicație…</string>
+  <string name="widget_config_choose_result">Atinge localitatea corectă, apoi apasă „Salvează și actualizează”.</string>
+  <string name="widget_config_refresh_info">Actualizare automată aproximativ la 20 de minute, în funcție de economisirea bateriei.</string>
+  <string name="widget_config_from_app">Din aplicație: %1$s</string>
+  <string name="widget_config_save">Salvează și actualizează</string>
+  <string name="widget_config_help">Poți reveni oricând atingând numele orașului din widget.</string>
+  <string name="widget_config_selected">Selectat: %1$s</string>
+  <string name="widget_config_search_help">Scrie minimum două caractere și apasă Caută.</string>
+  <string name="widget_config_searching">Caut localitatea…</string>
+  <string name="widget_config_no_results">Nu am găsit localitatea. Verifică denumirea și încearcă din nou.</string>
+  <string name="widget_config_network_error">Căutarea nu este disponibilă momentan. Verifică internetul și încearcă din nou.</string>
+</resources>

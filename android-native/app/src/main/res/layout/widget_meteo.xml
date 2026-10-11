@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/forecast_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_weather_day"
+    android:clipToOutline="true"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <TextView
+            android:id="@+id/forecast_oras"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:drawableStart="@drawable/ic_widget_location"
+            android:drawablePadding="5dp"
+            android:ellipsize="end"
+            android:fontFamily="sans-serif-condensed"
+            android:maxLines="1"
+            android:text="TÂRGOVIȘTE"
+            android:textColor="#FFFFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/forecast_actualizat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="5dp"
+            android:maxLines="1"
+            android:textColor="#E6FFFFFF"
+            android:textSize="9sp" />
+</LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="3dp"
+        android:paddingEnd="3dp">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/forecast_temp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-light"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="--°"
+                android:textColor="#FFFFFFFF"
+                android:textSize="64sp" />
+            <TextView
+                android:id="@+id/forecast_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Vremea acum"
+                android:textColor="#FFFFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/forecast_maxmin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Max --° · Min --°"
+                android:textColor="#E8FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+        <ImageView
+            android:id="@+id/forecast_icon"
+            android:layout_width="108dp"
+            android:layout_height="108dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="Starea vremii"
+            android:src="@drawable/ic_w_partial" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/forecast_warning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="5dp"
+        android:background="@drawable/widget_warning_yellow"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:paddingStart="9dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="9dp"
+        android:paddingBottom="4dp"
+        android:text="! COD GALBEN"
+        android:textColor="#27313B"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginBottom="6dp"
+        android:baselineAligned="false"
+        android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="3dp" android:layout_weight="1" android:background="@drawable/widget_glass" android:gravity="center" android:orientation="horizontal" android:paddingStart="5dp" android:paddingEnd="5dp">
+            <ImageView android:layout_width="14dp" android:layout_height="14dp" android:contentDescription="Temperatura resimțită" android:src="@drawable/ic_widget_thermo" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="RESIMȚITĂ" android:textColor="#CFFFFFFF" android:textSize="7sp" android:textStyle="bold" />
+                <TextView android:id="@+id/forecast_feels" android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="--°" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:layout_weight="1" android:background="@drawable/widget_glass" android:gravity="center" android:orientation="horizontal" android:paddingStart="5dp" android:paddingEnd="5dp">
+            <ImageView android:layout_width="14dp" android:layout_height="14dp" android:contentDescription="Umiditate" android:src="@drawable/ic_widget_drop" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="UMIDITATE" android:textColor="#CFFFFFFF" android:textSize="7sp" android:textStyle="bold" />
+                <TextView android:id="@+id/forecast_humidity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="--%" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="3dp" android:layout_weight="1" android:background="@drawable/widget_glass" android:gravity="center" android:orientation="horizontal" android:paddingStart="5dp" android:paddingEnd="5dp">
+            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:contentDescription="Vânt" android:src="@drawable/ic_widget_wind" />
+            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:orientation="vertical">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="VÂNT" android:textColor="#CFFFFFFF" android:textSize="7sp" android:textStyle="bold" />
+                <TextView android:id="@+id/forecast_wind" android:layout_width="wrap_content" android:layout_height="wrap_content" android:includeFontPadding="false" android:maxLines="1" android:text="-- km/h" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/forecast_section_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="3dp"
+        android:layout_marginBottom="4dp"
+        android:fontFamily="sans-serif-medium"
+        android:text="PROGNOZA PE 3 ZILE"
+        android:textColor="#EEFFFFFF"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:id="@+id/forecast_days"
+        android:layout_width="match_parent"
+        android:layout_height="78dp"
+        android:baselineAligned="false"
+        android:gravity="center"
+        android:orientation="horizontal">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginEnd="3dp" android:layout_weight="1" android:background="@drawable/widget_glass_strong" android:gravity="center" android:orientation="vertical" android:padding="4dp">
+            <TextView android:id="@+id/day1_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:text="MA" android:textColor="#F0FFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            <ImageView android:id="@+id/day1_icon" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginTop="1dp" android:contentDescription="Prognoză" android:src="@drawable/ic_w_partial" />
+            <TextView android:id="@+id/day1_temp" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:maxLines="1" android:text="--° / --°" android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="2dp" android:layout_marginEnd="2dp" android:layout_weight="1" android:background="@drawable/widget_glass_strong" android:gravity="center" android:orientation="vertical" android:padding="4dp">
+            <TextView android:id="@+id/day2_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:text="MI" android:textColor="#F0FFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            <ImageView android:id="@+id/day2_icon" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginTop="1dp" android:contentDescription="Prognoză" android:src="@drawable/ic_w_partial" />
+            <TextView android:id="@+id/day2_temp" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:maxLines="1" android:text="--° / --°" android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="3dp" android:layout_weight="1" android:background="@drawable/widget_glass_strong" android:gravity="center" android:orientation="vertical" android:padding="4dp">
+            <TextView android:id="@+id/day3_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:text="JO" android:textColor="#F0FFFFFF" android:textSize="12sp" android:textStyle="bold" />
+            <ImageView android:id="@+id/day3_icon" android:layout_width="38dp" android:layout_height="38dp" android:layout_marginTop="1dp" android:contentDescription="Prognoză" android:src="@drawable/ic_w_partial" />
+            <TextView android:id="@+id/day3_temp" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium" android:includeFontPadding="false" android:maxLines="1" android:text="--° / --°" android:textColor="#FFFFFFFF" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView android:id="@+id/forecast_no_days" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
+</LinearLayout>

@@ -1,0 +1,155 @@
+package com.onrender.meteo_targoviste.twa.widget;
+
+import android.app.Activity;
+import android.app.Instrumentation;
+import android.appwidget.AppWidgetManager;
+import android.appwidget.AppWidgetProviderInfo;
+import android.content.Context;
+import android.content.Intent;
+import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.os.Bundle;
+import android.text.Layout;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.RemoteViews;
+import android.widget.TextView;
+import com.onrender.meteo_targoviste.twa.R;
+import org.json.JSONObject;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Exercises actual RemoteViews on Android without external requests or test libraries. */
+public final class WidgetRenderingInstrumentation extends Instrumentation {
+    private int checks;
+    private final List<Bitmap> samples = new ArrayList<>();
+
+    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
+    @Override public void onStart() {
+        Bundle result = new Bundle();
+        try {
+            java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+            runOnMainSync(() -> {
+                try { verify(); } catch (Throwable error) { failure.set(error); }
+            });
+            if (failure.get() != null) throw failure.get();
+            result.putString("stream", "PASS: " + checks + " Android widget checks; preview saved.\n");
+            finish(Activity.RESULT_OK, result);
+        } catch (Throwable error) {
+            result.putString("stream", "FAIL: " + android.util.Log.getStackTraceString(error));
+            finish(Activity.RESULT_CANCELED, result);
+        }
+    }
+
+    private void require(boolean value, String message) {
+        if (!value) throw new AssertionError(message);
+        checks++;
+    }
+
+    private void verify() throws Exception {
+        Context base = getTargetContext();
+        AppWidgetProviderInfo provider = null;
+        for (AppWidgetProviderInfo info : AppWidgetManager.getInstance(base).getInstalledProviders()) {
+            if (info.provider.getClassName().endsWith("MeteoCapsuleWidget")) provider = info;
+        }
+        require(provider != null, "2x1 provider must be discoverable by launcher");
+        require(provider.targetCellWidth == 2 && provider.targetCellHeight == 1, "grid size");
+        require(provider.updatePeriodMillis == 0, "single shared scheduler, no second timer");
+        require(provider.configure.getClassName().endsWith("WidgetConfigActivity"), "native city selector");
+        Method build = WeatherWidgetUpdater.class.getDeclaredMethod("buildCapsule", Context.class,
+                JSONObject.class, int.class, WidgetPreferences.Location.class);
+        build.setAccessible(true);
+        Method layout = WeatherWidgetUpdater.class.getDeclaredMethod("capsuleLayout", Context.class,
+                JSONObject.class, int.class, WidgetPreferences.Location.class, int.class);
+        layout.setAccessible(true);
+        WidgetPreferences.Location city = new WidgetPreferences.Location("New York City", "New York", "US", 40.71, -74.01);
+        String[] themes = {"zi", "noapte", "apus", "noros", "ploaie", "furtuna", "ninsoare", "ceata"};
+        int[][] sizes = {{110,40}, {130,72}, {130,78}, {160,100}, {180,86}, {269,51}, {300,120}};
+        for (float font : new float[]{1f, 1.3f, 2f}) {
+            Configuration config = new Configuration(base.getResources().getConfiguration());
+            config.fontScale = font;
+            Context context = base.createConfigurationContext(config);
+            for (String theme : themes) {
+                String icon = theme.equals("ploaie") ? "ploaie" : theme.equals("furtuna") ? "furtuna"
+                        : theme.equals("ninsoare") ? "ninsoare" : theme.equals("ceata") ? "ceata" : "partial";
+                JSONObject data = new JSONObject().put("oras", city.city).put("tempText", "-19°")
+                        .put("fundal", theme).put("icon", icon).put("descriere", "Parțial noros")
+                        .put("minAzi", -24).put("maxAzi", -12);
+                // Also build the responsive wrapper itself: both children must support every action.
+                RemoteViews responsive = (RemoteViews) build.invoke(null, context, data, 991, city);
+                require(responsive != null, "responsive views");
+                for (int[] size : sizes) {
+                    boolean shortRow = size[1] < 72;
+                    RemoteViews views = (RemoteViews) layout.invoke(null, context, data, 991, city,
+                            shortRow ? R.layout.widget_capsule_short : R.layout.widget_capsule);
+                    FrameLayout parent = new FrameLayout(context);
+                    View view = views.apply(context, parent);
+                    view.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+                    float density = context.getResources().getDisplayMetrics().density;
+                    int width = Math.round(size[0] * density), height = Math.round(size[1] * density);
+                    // TextView autosizing requests another layout, as in a real attached host.
+                    for (int pass = 0; pass < 3; pass++) {
+                        view.forceLayout();
+                        view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+                        view.layout(0, 0, width, height);
+                    }
+                    TextView temp = view.findViewById(R.id.capsule_temp);
+                    TextView name = view.findViewById(R.id.capsule_oras);
+                    require("-19°".contentEquals(temp.getText()), "actual temperature including minus");
+                    require(city.city.contentEquals(name.getText()), "correct city, not default city");
+                    require(name.getCompoundDrawablesRelative()[0] != null, "location pin");
+                    Layout text = temp.getLayout();
+                    require(text != null && text.getEllipsisCount(0) == 0
+                            && text.getLineWidth(0) <= temp.getWidth(), "temperature must fit " + size[0] + "x" + size[1]);
+                    require(temp.getHeight() >= text.getHeight(), "temperature height must fit " + size[0] + "x" + size[1]
+                            + ", font " + font + ": " + temp.getHeight() + " < " + text.getHeight());
+                    require(view.hasOnClickListeners() && name.hasOnClickListeners(), "open-city and configure actions");
+                    if (size[0] >= 160 && size[1] >= 100) {
+                        Layout lines = name.getLayout();
+                        require(lines.getEllipsisCount(lines.getLineCount() - 1) == 0, "full New York City in spacious widget");
+                    }
+                    if (font == 1f && size[0] == 180 && (theme.equals("zi") || theme.equals("noapte") || theme.equals("ploaie"))) {
+                        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                        view.draw(new Canvas(bitmap));
+                        samples.add(bitmap);
+                    }
+                }
+            }
+        }
+        RemoteViews offline = (RemoteViews) layout.invoke(null, base, null, 991, city, R.layout.widget_capsule);
+        View empty = offline.apply(base, new FrameLayout(base));
+        require("--°".contentEquals(((TextView) empty.findViewById(R.id.capsule_temp)).getText()), "missing data is not zero degrees");
+        require(empty.getContentDescription().toString().contains("Fără conexiune"), "offline accessible status");
+        JSONObject data = new JSONObject().put("oras", city.city).put("tempText", "19°")
+                .put("icon", "partial").put("fundal", "noapte").put("minAzi", 16).put("maxAzi", 24);
+        Method iconMethod = WeatherWidgetUpdater.class.getDeclaredMethod("iconForCurrent", JSONObject.class);
+        iconMethod.setAccessible(true);
+        require((Integer) iconMethod.invoke(null, data) == R.drawable.ic_w_moon_cloud, "night uses moon and clouds");
+        String[] builders = {"buildCompact", "buildDetails", "buildForecast", "buildGlass"};
+        int[] cityIds = {R.id.compact_oras, R.id.details_oras, R.id.forecast_oras, R.id.glass_oras};
+        for (int i = 0; i < builders.length; i++) {
+            Method existing = WeatherWidgetUpdater.class.getDeclaredMethod(builders[i], Context.class,
+                    JSONObject.class, int.class, WidgetPreferences.Location.class);
+            existing.setAccessible(true);
+            RemoteViews views = (RemoteViews) existing.invoke(null, base, data, 992 + i, city);
+            View oldWidget = views.apply(base, new FrameLayout(base));
+            require("NEW YORK CITY".contentEquals(((TextView) oldWidget.findViewById(cityIds[i])).getText()),
+                    "existing widget still renders its own city: " + builders[i]);
+        }
+        Bitmap preview = Bitmap.createBitmap(samples.get(0).getWidth() + 80, samples.get(0).getHeight() * 3 + 160,
+                Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(preview);
+        canvas.drawColor(Color.rgb(15, 23, 42));
+        int y = 40;
+        for (Bitmap sample : samples) { canvas.drawBitmap(sample, 40, y, null); y += sample.getHeight() + 40; }
+        try (FileOutputStream out = new FileOutputStream(new File(base.getExternalFilesDir(null), "widget-2x1-preview.png"))) {
+            preview.compress(Bitmap.CompressFormat.PNG, 100, out);
+        }
+    }
+}
