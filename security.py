@@ -14,6 +14,7 @@ import secrets
 from pathlib import PurePosixPath
 import sqlite3
 import tempfile
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -124,13 +125,41 @@ class BudgetStore:
             os.environ.get('METEO_SECURITY_STATE_DIR', tempfile.gettempdir()),
             'meteo-now-security-v1.sqlite3')
         self.clock = clock
+        self._ready = False
+        self._init_lock = threading.Lock()
+        self._transaction_lock = threading.Lock()
+
+    def _connect(self):
+        # Initialize once per process; WAL prevents a reader from delaying each
+        # small quota commit. All workers still reserve inside one transaction.
+        if not self._ready:
+            with self._init_lock:
+                if not self._ready:
+                    os.makedirs(os.path.dirname(os.path.abspath(self.filename)), exist_ok=True)
+                    for attempt in range(5):
+                        try:
+                            with closing(sqlite3.connect(self.filename, timeout=5)) as db, db:
+                                if db.execute('PRAGMA journal_mode').fetchone()[0] != 'wal':
+                                    db.execute('PRAGMA journal_mode=WAL')
+                                db.execute('CREATE TABLE IF NOT EXISTS budget (key TEXT, window INTEGER, '
+                                           'expires INTEGER, count INTEGER, PRIMARY KEY(key, window))')
+                                db.execute('CREATE INDEX IF NOT EXISTS budget_expiry ON budget(expires)')
+                                db.execute('CREATE TABLE IF NOT EXISTS ai_leases (token TEXT PRIMARY KEY, expires REAL)')
+                            break
+                        except sqlite3.OperationalError as error:
+                            # Two fresh workers can race while switching journal
+                            # mode. SQLITE_BUSY here may bypass busy_timeout.
+                            if (getattr(error, 'sqlite_errorcode', 0) & 255) not in (5, 6) or attempt == 4:
+                                raise
+                            time.sleep(.025 * 2 ** attempt)
+                    self._ready = True
+        db = sqlite3.connect(self.filename, timeout=5)
+        db.execute('PRAGMA synchronous=NORMAL')
+        return db
 
     def reserve(self, rules):
         now = self.clock()
-        os.makedirs(os.path.dirname(os.path.abspath(self.filename)), exist_ok=True)
-        with closing(sqlite3.connect(self.filename, timeout=2)) as db, db:
-            db.execute('CREATE TABLE IF NOT EXISTS budget (key TEXT, window INTEGER, '
-                       'expires INTEGER, count INTEGER, PRIMARY KEY(key, window))')
+        with self._transaction_lock, closing(self._connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             db.execute('DELETE FROM budget WHERE expires <= ?', (now,))
             if db.execute('SELECT count(*) FROM budget').fetchone()[0] > 10000:
@@ -152,8 +181,7 @@ class BudgetStore:
 
     def acquire_ai(self):
         now = self.clock()
-        with closing(sqlite3.connect(self.filename, timeout=2)) as db, db:
-            db.execute('CREATE TABLE IF NOT EXISTS ai_leases (token TEXT PRIMARY KEY, expires REAL)')
+        with self._transaction_lock, closing(self._connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             db.execute('DELETE FROM ai_leases WHERE expires <= ?', (now,))
             if db.execute('SELECT count(*) FROM ai_leases').fetchone()[0] >= 2:
@@ -163,7 +191,7 @@ class BudgetStore:
             return token
 
     def release_ai(self, token):
-        with closing(sqlite3.connect(self.filename, timeout=2)) as db, db:
+        with self._transaction_lock, closing(self._connect()) as db, db:
             db.execute('DELETE FROM ai_leases WHERE token=?', (token,))
 
 

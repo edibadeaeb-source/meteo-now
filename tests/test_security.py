@@ -163,6 +163,18 @@ class SecurityMiddlewareTests(unittest.TestCase):
 
 
 class BudgetStoreTests(unittest.TestCase):
+    def test_many_parallel_reservations_keep_exact_shared_limit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            filename = os.path.join(folder, 'state.sqlite3')
+            stores = [BudgetStore(filename, lambda: 125) for _ in range(2)]
+            with ThreadPoolExecutor(max_workers=64) as pool:
+                results = list(pool.map(lambda i: stores[i % 2].reserve([('global', 120, 60)]), range(200)))
+            self.assertEqual(results.count(0), 120)
+            self.assertEqual(results.count(55), 80)
+            with sqlite3.connect(filename) as db:
+                self.assertEqual(db.execute('PRAGMA journal_mode').fetchone()[0], 'wal')
+            db.close()
+
     def test_workers_share_atomic_quota_and_windows_expire(self):
         with tempfile.TemporaryDirectory() as folder:
             filename = os.path.join(folder, 'state.sqlite3')

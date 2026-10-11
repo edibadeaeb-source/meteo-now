@@ -39,7 +39,8 @@ const checks=String.raw`
  await restored.route('**/api/weather/forecast?**',()=>{throw Error('Fresh disk entries must not request a forecast');});
  assert.equal(await restored.evaluate(c=>MeteoForecastCache.request(c).then(d=>d.current.temperature_2m),c),21);
  await restored.evaluate(c=>MeteoForecastCache.entry(c).t-=31*60000,c);
- assert.equal(await restored.evaluate(c=>MeteoForecastCache.peek(c),c),null,'old data never masquerades as current weather');
+ assert.ok(await restored.evaluate(c=>MeteoForecastCache.peek(c),c),'saved data remains available offline');
+ assert.equal(await restored.evaluate(c=>MeteoForecastCache.state(c).saved,c),true,'old data is explicitly marked saved');
  const e={lat:47.55,lon:27.55};let shared=0;
  await restored.unroute('**/api/weather/forecast?**');await restored.route('**/api/weather/forecast?**',async route=>{shared++;await new Promise(r=>setTimeout(r,100));await route.fulfill({json:forecast});});
  await restored.evaluate(e=>Promise.all([MeteoForecastCache.request(e),MeteoForecastCache.request(e)]),e);assert.equal(shared,1,'prefetch and selection share a single request');

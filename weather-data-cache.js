@@ -2,7 +2,9 @@
 (function(root) {
     'use strict';
     var entries = Object.create(null), pending = Object.create(null), rainPending = Object.create(null), rainRetry = Object.create(null), db = null;
-    var freshFor = 5 * 60000, visibleFor = 30 * 60000, limit = 16;
+    var freshFor = 5 * 60000, visibleFor = 24 * 60 * 60000, limit = 16;
+    var failures = Object.create(null), controllers = Object.create(null);
+    function offline() { return root.navigator && root.navigator.onLine === false; }
     function key(loc) { return (+loc.lat).toFixed(3) + ',' + (+loc.lon).toFixed(3); }
     function valid(d) { return d && d.current && d.hourly && d.daily && Array.isArray(d.hourly.time) && d.hourly.time.length && Array.isArray(d.daily.time) && d.daily.time.length && typeof d.current.temperature_2m==='number' && isFinite(d.current.temperature_2m); }
     function usable(x) { var age = x && Date.now() - x.t; return x && age >= 0 && age < visibleFor && valid(x.d); }
@@ -10,8 +12,33 @@
         var keys = Object.keys(entries).sort(function(a,b) { return entries[b].t - entries[a].t; });
         keys.forEach(function(k,i) { if (i >= limit || !usable(entries[k])) delete entries[k]; });
     }
-    function peek(loc) { var x = entries[key(loc)]; return usable(x) ? x.d : null; }
+    function peek(loc) {
+        var x=entries[key(loc)];if(!usable(x))return null;
+        // A saved forecast can cross midnight. Yesterday must never become
+        // "Today" or supply today's min/max simply because it is array slot 0.
+        if(Date.now()-x.t>=freshFor) {
+            var d=x.d, parts={}, today;
+            try{new Intl.DateTimeFormat('en-CA',{timeZone:d.timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(Date.now())).forEach(function(p){parts[p.type]=p.value;});today=parts.year+'-'+parts.month+'-'+parts.day;}
+            catch(e){today=new Date(Date.now()+(d.utc_offset_seconds||0)*1000).toISOString().slice(0,10);}
+            var indices=d.daily.time.map(function(t,i){return t>=today?i:-1;}).filter(function(i){return i>=0;});
+            if(!indices.length)return null;
+            if(indices.length!==d.daily.time.length) {
+                Object.keys(d.daily).forEach(function(k){if(Array.isArray(d.daily[k]))d.daily[k]=indices.map(function(i){return d.daily[k][i];});});
+                var sources=d.weather_sources || {}, probability=sources.precipitation_probability || {};
+                if(Array.isArray(sources.daily))sources.daily=indices.map(function(i){return sources.daily[i];});
+                if(Array.isArray(probability.daily))probability.daily=indices.map(function(i){return probability.daily[i];});
+            }
+        }
+        return x.d;
+    }
     function fresh(loc) { var x = entries[key(loc)]; return usable(x) && Date.now() - x.t < freshFor; }
+    function state(loc) {
+        var k=key(loc), x=entries[k], source=x && x.d.weather_sources || {};
+        var retrieved=Date.parse(source.retrieved_at);
+        var updated=x ? (isFinite(retrieved) ? Math.min(x.t,retrieved) : x.t) : 0;
+        return {updatedAt:updated, saved:!!(x && valid(x.d) && (offline() || !fresh(loc) || source.stale || failures[k])),
+            offline:!!offline(), pending:!!pending[k], failed:!!failures[k]};
+    }
     var ready = new Promise(function(resolve) {
         if (!root.indexedDB) { resolve(); return; }
         var settled = false, request;
@@ -56,30 +83,51 @@
         }); return d;
     }
     async function network(loc) {
+        if(offline()) throw new Error('Offline');
+        var k=key(loc);
         for(var attempt=0;attempt<3;attempt++) {
             var controller=typeof AbortController!=='undefined'?new AbortController():null;
+            if(controller)controllers[k]=controller;
             var timer=setTimeout(function(){if(controller)controller.abort();},12000);
             try {
                 var r=await fetch('/api/weather/forecast?latitude='+loc.lat+'&longitude='+loc.lon,
                     controller?{signal:controller.signal}:{});
-                if(!r.ok) { var e=new Error('meteo: '+r.status);e.status=r.status;throw e; }
-                var d=await r.json();return put(loc,d);
+                if(!r.ok) { var e=new Error('meteo: '+r.status);e.status=r.status;
+                    var retry=r.headers && r.headers.get('Retry-After'), seconds=Number(retry);
+                    if(retry)e.retryAt=Date.now()+Math.min(15*60000,Math.max(10000,isFinite(seconds)?seconds*1000:Date.parse(retry)-Date.now()));
+                    throw e; }
+                var d=await r.json();delete failures[k];return put(loc,d);
             } catch(e) {
                 if(attempt===2 || (e.status && e.status<500)) {
                     if(root.MeteoDiagnostics)root.MeteoDiagnostics.report('weather_unavailable','weather','forecast',e,{status:e.status||0});
                     throw e;
                 }
                 if(root.navigator && root.navigator.onLine===false) throw e;
-            } finally {clearTimeout(timer);}
+            } finally {clearTimeout(timer);if(controllers[k]===controller)delete controllers[k];}
             await new Promise(function(resolve){setTimeout(resolve,attempt?3000:1000);});
         }
     }
-    function request(loc) {
+    function request(loc,options) {
         var k=key(loc);
         if(pending[k])return pending[k];
-        pending[k]=ready.then(function(){return fresh(loc)?peek(loc):network(loc);})
+        if(options && options.force)delete failures[k];
+        pending[k]=ready.then(function(){
+            if(fresh(loc) && !(options && options.force))return peek(loc);
+            if(failures[k] && Date.now()<failures[k].until)throw failures[k].error;
+            return network(loc);
+        }).catch(function(e){
+            if(!failures[k] || Date.now()>=failures[k].until)failures[k]={error:e,until:e.retryAt||Date.now()+30000};
+            throw e;
+        })
             .finally(function(){delete pending[k];});
         return pending[k];
+    }
+    if(root.addEventListener) {
+        root.addEventListener('offline',function(){Object.keys(controllers).forEach(function(k){controllers[k].abort();});});
+        root.addEventListener('online',function(){failures=Object.create(null);});
+    }
+    function reconnect() {
+        return Promise.allSettled(Object.keys(pending).map(function(k){return pending[k];})).then(function(){failures=Object.create(null);});
     }
     function hourStamp(iso,d) {
         if (/[Zz]$|[+-]\d\d:\d\d$/.test(iso)) return Date.parse(iso)/1000;
@@ -97,7 +145,7 @@
         } catch(e) {return utc/1000-(d.utc_offset_seconds||0);}
     }
     function enrich(loc,d) {
-        if(!valid(d))return Promise.resolve(false);
+        if(!valid(d) || offline() || !fresh(loc))return Promise.resolve(false);
         var times=d.hourly.time, values=d.hourly.precipitation_probability||[];
         var now=Date.now()/1000;
         var missing=times.some(function(t,i){var stamp=hourStamp(t,d);return stamp>=now-3600&&stamp<now+25*3600&&values[i]==null;});
@@ -148,5 +196,5 @@
             .finally(function(){clearTimeout(timer);delete rainPending[k];rainRetry[k]=Date.now()+60000;});
         return rainPending[k];
     }
-    root.MeteoForecastCache = {ready:ready,peek:peek,fresh:fresh,put:put,request:request,enrich:enrich,key:key,entry:function(loc) { return entries[key(loc)] || null; }};
+    root.MeteoForecastCache = {ready:ready,peek:peek,fresh:fresh,put:put,request:request,enrich:enrich,state:state,reconnect:reconnect,key:key,entry:function(loc) { return entries[key(loc)] || null; }};
 })(window);

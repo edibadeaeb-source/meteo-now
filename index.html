@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.11.1">
+    <meta name="application-version" content="2026.10.11.2">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3026,6 +3026,7 @@ function actualizeazaContext(partial) {
 function calculeazaSfaturi() {
     var data=sfatDateMobile();
     if(typeof esteMobil==='function' && esteMobil() && !data)return [];
+    if(data && window.MeteoForecastCache && MeteoForecastCache.state(LOC).saved)return [];
     actualizeazaOraSfat(data);
     var c = CTX, out = [];
     if (c.temp === undefined || c.temp === null) return out;
@@ -3701,7 +3702,7 @@ function getAppWeatherSnapshot() {
 
     var c = d.current, zi = d.daily, o = d.hourly;
     var cache = window.MeteoForecastCache ? MeteoForecastCache.entry(LOC) : _mobCache[mobCheieLoc(LOC)];
-    baza.stare_date = 'disponibile';
+    baza.stare_date = window.MeteoForecastCache && MeteoForecastCache.state(LOC).saved ? 'date salvate; nu confirma vremea actuală fără actualizare' : 'disponibile';
     baza.sursa = d.weather_sources || 'Date meteo afișate în aplicație';
     baza.actualizat_in_aplicatie = cache && cache.t ? new Date(cache.t).toISOString() : new Date().toISOString();
     baza.moment_date_curente = c.time || null;
@@ -7741,7 +7742,11 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
     // Pe un profil nou nu trimitem localitatea implicită înainte ca omul să aleagă.
     var welcomeVizibil = document.getElementById('welcome').classList.contains('show');
     if (!welcomeVizibil) {
-        setTimeout(function() { sincronizeazaOraseWidget(oraseSalvate()); }, 250);
+        setTimeout(function() {
+            function sync(){if(typeof sincronizeazaOraseWidget==='function')sincronizeazaOraseWidget(oraseSalvate());}
+            if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync,{once:true});
+            else sync();
+        }, 250);
         if (!dinWidget) setTimeout(function() { actualizeazaLocatieAutomat(true); }, 800);
     }
 })();
@@ -8689,7 +8694,7 @@ input, textarea, select, [contenteditable="true"] {
 }
 </style>
 
-<link rel="stylesheet" href="weather-glass.css?v=12">
+<link rel="stylesheet" href="weather-glass.css?v=13">
 <link rel="stylesheet" href="weather-ai.css?v=2">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
@@ -8708,6 +8713,14 @@ input, textarea, select, [contenteditable="true"] {
         <div class="mb-mm" id="mbMm">—</div>
     </div>
 
+    <div id="mbConnection" role="status" aria-live="polite" hidden>
+        <svg id="mbConnectionIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <g class="connection-off"><path d="M2 2l20 20M3 8.5a15 15 0 0 1 2.8-1.8M9.3 5.2A15 15 0 0 1 22 8.5M6 12a10 10 0 0 1 3.3-1.6M13.5 10.1A10 10 0 0 1 18 12M9 15.5a5 5 0 0 1 5.8-.2"/><circle cx="12" cy="19" r=".6" fill="currentColor" stroke="none"/></g>
+            <g class="connection-clock"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v5l3 2"/></g>
+        </svg>
+        <span id="mbConnectionTitle"></span><small id="mbConnectionDetail"></small>
+        <button type="button" id="mbConnectionRetry" onclick="mobIncarca(true)"></button>
+    </div>
     <div id="mbContinut"></div>
 
     <div id="mobJos">
@@ -8781,7 +8794,7 @@ input, textarea, select, [contenteditable="true"] {
 
 <script src="weather-geography.js?v=1"></script>
 <script src="weather-library.js?v=6"></script>
-<script src="weather-data-cache.js?v=5"></script>
+<script src="weather-data-cache.js?v=6"></script>
 <script src="weather-romania.js?v=3"></script>
 <script src="weather-motion.js?v=5"></script>
 <script src="weather-atmosphere.js?v=8"></script>
@@ -9020,8 +9033,8 @@ function mobPuneCache(loc, d) {
         _mobCache[mobCheieLoc(loc)] = { t: Date.now(), d: d };
     }
 }
-function mobCerereLoc(loc) {
-    if (window.MeteoForecastCache) return MeteoForecastCache.request(loc);
+function mobCerereLoc(loc, force) {
+    if (window.MeteoForecastCache) return MeteoForecastCache.request(loc,{force:force===true});
     return fetch(mobUrl(loc)).then(function(r) {
         if (!r.ok) throw new Error('meteo: ' + r.status);
         return r.json();
@@ -9064,7 +9077,7 @@ function mobSchimbaLocatie(loc, sursa) {
 }
 function mobPrefetchVecini() {
     var conex = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if ((conex && conex.saveData) || _mobPrefetchInCurs) return;
+    if (navigator.onLine===false || (conex && (conex.saveData || /(^|-)2g$/.test(conex.effectiveType) || conex.downlink<0.5)) || _mobPrefetchInCurs) return;
     var l = oraseSalvate(), i = indexOrasCurent();
     if (i < 0) return;
     // Neighbours first, then the remaining saved cities; at most two requests at once.
@@ -9118,7 +9131,7 @@ function mobCompleteazaPloaie(loc, d) {
         mobLeaga(true);
     });
 }
-function mobIncarca() {
+function mobIncarca(force) {
     if (!esteMobil()) return Promise.resolve(null);
     var locCeruta = {
         nume: LOC.nume, tara: LOC.tara, admin: LOC.admin,
@@ -9139,7 +9152,7 @@ function mobIncarca() {
         try { analizeazaZiua(); } catch (e) {}
         mobPrefetchVecini();
         mobAnmSecundar();
-        if (window.MeteoForecastCache ? MeteoForecastCache.fresh(locCeruta) : Date.now()-_mobCache[cheie].t<5*60000) return Promise.resolve(dinCache);
+        if (force!==true && (window.MeteoForecastCache ? MeteoForecastCache.fresh(locCeruta) : Date.now()-_mobCache[cheie].t<5*60000)) return Promise.resolve(dinCache);
     }
 
     var pregatit = window.MeteoForecastCache ? MeteoForecastCache.ready : Promise.resolve();
@@ -9154,7 +9167,8 @@ function mobIncarca() {
             try { analizeazaZiua(); } catch(e) {}
             mobPrefetchVecini(); mobAnmSecundar();
         }
-        return mobCerereLoc(locCeruta);
+        mobStareConexiune(true);
+        return mobCerereLoc(locCeruta,force);
     }).then(function(d) {
         if (idCerere !== _mobCerereId || cheie !== mobCheieLoc(LOC)) return d;
         MOBD = d;
@@ -9170,7 +9184,7 @@ function mobIncarca() {
         mobAnmSecundar();
         return d;
     }).catch(function(e) {
-        if (!e || e.name !== 'AbortError') console.error('mobil:', e);
+        if (idCerere===_mobCerereId && cheie===mobCheieLoc(LOC)) mobStareConexiune(false,true);
         if (idCerere===_mobCerereId && cheie===mobCheieLoc(LOC) && !mobDatePentruLoc(LOC)) {
             mobEroarePornire(); hideSplash(true);
         }
@@ -9379,7 +9393,7 @@ function mobAcumLocal() {
     return new Date(d.getTime() + off * 1000 + d.getTimezoneOffset() * 60000);
 }
 function mobZiScurt(iso, i) {
-    if (i === 0) return T('azi2');
+    if (iso.slice(0,10) === mobDataAzi()) return T('azi2');
     var d = mobDinIso(iso);
     if (!d) return '';
     var n = d.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'ro-RO', { weekday: 'short' });
@@ -9394,13 +9408,15 @@ function mobAntet() {
     document.getElementById('mbTara').textContent = (LOC.admin || LOC.tara || '').toUpperCase();
     document.getElementById('mbTemp').innerHTML = Math.round(cv(c.temperature_2m)) + '<sup>°</sup>';
     document.getElementById('mbStare').textContent = wmoText(c.weather_code);
-    document.getElementById('mbMm').textContent =
-        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[0], 0, true) + ' · ' +
-        T('minScurt') + ': ' + fT(zi.temperature_2m_min[0], 0, true);
+    var ziIndex=zi.time.indexOf(mobDataAzi());
+    document.getElementById('mbMm').textContent = ziIndex<0 ? '—' :
+        T('maxScurt') + ': ' + fT(zi.temperature_2m_max[ziIndex], 0, true) + ' · ' +
+        T('minScurt') + ': ' + fT(zi.temperature_2m_min[ziIndex], 0, true);
     document.getElementById('mbBaraOras').textContent = LOC.nume || '';
     document.getElementById('mbBaraSub').textContent = Math.round(cv(c.temperature_2m)) + '° | ' + wmoText(c.weather_code);
     document.getElementById('mjLocText').textContent = LOC.nume || '';
     mobPuncte();
+    mobStareConexiune();
 }
 
 /* ══ BANDA PE ORE ══ */
@@ -9438,7 +9454,7 @@ function mobCardOre() {
 
     for (var k = start; k < Math.min(start + 25, o.time.length); k++) {
         var t = mobDinIso(o.time[k]), urm = mobDinIso(o.time[Math.min(k+1, o.time.length-1)]);
-        var etOra = (k === start) ? T('acum') : mobOra(o.time[k]);
+        var etOra = (k === start) ? (window.MeteoForecastCache && MeteoForecastCache.state(LOC).saved ? (LANG==='en'?'Saved':'Salvat') : T('acum')) : mobOra(o.time[k]);
         var val, sub = '';
         var esteAcum = k === start;
         if (_mobOraMod === 'temp') { val = Math.round(cv(esteAcum ? MOBD.current.temperature_2m : o.temperature_2m[k])) + '°'; sub = o.precipitation_probability[k] >= 15 ? o.precipitation_probability[k] + '%' : ''; }
@@ -11317,7 +11333,34 @@ function mobEroarePornire() {
     b.textContent=LANG==='en'?'Retry':'Reîncearcă';b.onclick=function(){mobIncarca();};
     card.appendChild(mesaj);card.appendChild(b);c.appendChild(card);
 }
-window.addEventListener('online',function(){if(esteMobil())mobIncarca();});
+function mobDataAzi() {
+    var d=mobAcumLocal();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function mobStareConexiune(refreshing,failed) {
+    var box=document.getElementById('mbConnection');if(!box)return;
+    var s=window.MeteoForecastCache ? MeteoForecastCache.state(LOC) : {offline:navigator.onLine===false};
+    var saved=!!mobDatePentruLoc(LOC), en=LANG==='en';
+    box.setAttribute('data-offline',s.offline?'true':'false');
+    box.hidden=!(s.offline || s.saved || failed || (refreshing && saved));
+    if(box.hidden)return;
+    document.getElementById('mbConnectionTitle').textContent=s.offline ? (en?'No connection':'Fără conexiune') :
+        refreshing ? (en?'Updating weather…':'Actualizăm vremea…') :
+        saved ? (en?'Saved weather':'Vreme salvată') : (en?'Weather unavailable':'Vreme indisponibilă');
+    var detail=saved && s.updatedAt ? (en?'Last update: ':'Ultima actualizare: ')+
+        new Date(s.updatedAt).toLocaleString(en?'en-GB':'ro-RO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:LOC.tz||undefined}) :
+        (en?'Connect to load the forecast.':'Conectează-te pentru a încărca prognoza.');
+    if(!s.offline && !refreshing)detail+=(en?' · Update pending':' · Actualizare în așteptare');
+    document.getElementById('mbConnectionDetail').textContent=detail;
+    var b=document.getElementById('mbConnectionRetry');b.textContent=en?'Retry':'Reîncearcă';b.hidden=s.offline || refreshing;
+}
+window.addEventListener('offline',function(){mobStareConexiune();try{inchideToast();}catch(e){}});
+window.addEventListener('online',function(){
+    if(!esteMobil())return;mobStareConexiune(true);
+    var ready=window.MeteoForecastCache ? MeteoForecastCache.reconnect() : Promise.resolve();
+    ready.then(function(){if(navigator.onLine!==false)mobIncarca(true);});
+});
+setInterval(function(){if(esteMobil() && !document.hidden)mobStareConexiune();},60000);
 </script>
 </body>
 </html>

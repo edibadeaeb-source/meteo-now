@@ -260,3 +260,16 @@ body.mob-orase-deschise #chatFab { display: none !important; }
         #mobCer .weather-haze, #mobCer .weather-precipitation, #mobCer .weather-video { display: none; }
     }
 }
+#mbConnection {
+  position:relative;z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:5px 12px;
+  margin:0 20px 18px;padding:13px 16px;border-radius:22px;
+  border:1px solid rgba(255,255,255,.3);background:rgba(25,38,60,.25);
+  -webkit-backdrop-filter:blur(18px) saturate(130%);backdrop-filter:blur(18px) saturate(130%);
+  color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.13);
+}
+#mbConnection[hidden],#mbConnection button[hidden]{display:none}
+#mbConnectionIcon{width:20px;height:20px;flex:0 0 20px;opacity:.9}
+#mbConnection[data-offline="true"] .connection-clock,#mbConnection:not([data-offline="true"]) .connection-off{display:none}
+#mbConnectionTitle{font-size:.86rem;font-weight:700;flex:1 1 auto}
+#mbConnectionDetail{font-size:.72rem;line-height:1.45;opacity:.88;flex:1 1 100%;order:2}
+#mbConnectionRetry{font:inherit;font-size:.76rem;color:inherit;border:1px solid rgba(255,255,255,.25);border-radius:14px;background:rgba(255,255,255,.1);padding:6px 10px}
