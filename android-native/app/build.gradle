@@ -77,8 +77,8 @@ android {
         minSdkVersion 23
         targetSdkVersion 36
         testInstrumentationRunner "com.onrender.meteo_targoviste.twa.widget.WidgetRenderingInstrumentation"
-        versionCode 23
-        versionName "1.0.22"
+        versionCode 24
+        versionName "1.0.23"
 
         // The name for the application
         resValue "string", "appName", twaManifest.name

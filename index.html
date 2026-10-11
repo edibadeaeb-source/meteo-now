@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.11.5">
+    <meta name="application-version" content="2026.10.12.1">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -10,6 +10,16 @@
         html[data-theme="light"] { color-scheme: light; }
     </style>
     <script>
+    // App timers are visibility-aware from the first script, including clocks
+    // and map animation. Leave browser/vendor timers untouched.
+    function meteoInterval(callback, delay) {
+        var args = Array.prototype.slice.call(arguments, 2);
+        return window.setInterval(function () {
+            if (document.hidden) return;
+            if (delay >= 10000 && typeof AUTO_REFRESH !== 'undefined' && !AUTO_REFRESH) return;
+            callback.apply(window, args);
+        }, delay);
+    }
     // ── Variabile globale definite DEVREME ──
     // Sunt folosite de mai multe blocuri de script; dacă lipsesc la momentul
     // rulării, blocul respectiv se oprește (și odată cu el, asistentul AI).
@@ -2435,7 +2445,7 @@ loraRef.on('value', function(snap) {
 });
 
 // Verifica periodic daca LoRaWAN nu mai trimite (fiecare 30s)
-setInterval(function() {
+meteoInterval(function() {
     if (!lastLoraTs) return;
     var ageMin = Math.floor((Date.now() - lastLoraTs) / 60000);
     var badge = document.getElementById('loraBadge');
@@ -2446,7 +2456,7 @@ setInterval(function() {
 }, 30000);
 
 // Verifica si ESP periodic (fiecare 60s)
-setInterval(function() {
+meteoInterval(function() {
     var espBadge = document.getElementById('espBadge');
     var espTemp = document.getElementById('tempVal').innerText;
     if (espTemp === '--' || !espBadge) return;
@@ -3168,7 +3178,7 @@ function updateSunArc() {
     var glow = document.getElementById('sunGlowDot');
     if (glow) { glow.setAttribute('cx', sx); glow.setAttribute('cy', sy); glow.setAttribute('opacity', up ? '1' : '0.25'); }
 }
-setInterval(updateSunArc, 60000);
+meteoInterval(updateSunArc, 60000);
 
 // ═══════════════════════════════════════
 //  FAZA LUNII (calcul sinodic)
@@ -3864,7 +3874,7 @@ chatSuggestions.addEventListener('click', function(e) {
 
 // Notificare cand IAQ > 200
 var lastIaqAlert = 0;
-setInterval(function() {
+meteoInterval(function() {
     var iaq = parseInt(document.getElementById('iaqVal').innerText);
     if (iaq > 200 && Date.now() - lastIaqAlert > 600000 && !chatWindow.classList.contains('open')) {
         chatFab.classList.add('has-notification');
@@ -4125,7 +4135,7 @@ function loadSpaceWeather() {
         }).catch(function() {});
 }
 loadSpaceWeather();
-setInterval(loadSpaceWeather, 15 * 60000);
+meteoInterval(loadSpaceWeather, 15 * 60000);
 
 // ── FETCH ANM cu o singură cerere și rezervă locală ──
 var _anmCereri = Object.create(null);
@@ -4351,7 +4361,7 @@ function initRadar() {
     document.getElementById('radarPlay').addEventListener('click', function() {
         if (radarTimer) { clearInterval(radarTimer); radarTimer = null; this.innerText = '▶ Redă'; return; }
         this.innerText = '⏸ Pauză';
-        radarTimer = setInterval(function() {
+        radarTimer = meteoInterval(function() {
             var sl = document.getElementById('radarSlider');
             var next = (parseInt(sl.value) + 1) % radarFrames.length;
             sl.value = next; showRadarFrame(next);
@@ -5299,7 +5309,7 @@ function initAnimSat() {
         if (animSatTimer) { clearInterval(animSatTimer); animSatTimer = null; btn.innerText = '▶ Redă'; return; }
         btn.innerText = '⏸ Pauză';
         var run = function() {
-            animSatTimer = setInterval(function() {
+            animSatTimer = meteoInterval(function() {
                 if (!satFrames.length) return;
                 animSatIdx = (animSatIdx + 1) % satFrames.length;
                 if (animSatLayer) animSatMapL.removeLayer(animSatLayer);
@@ -5334,7 +5344,6 @@ function updateHeroTemp() {
                 (typeof T === 'function' && LANG === 'en' ? 'measured by our own station' : 'măsurat de stația proprie') + '</b>';
     }
 }
-setInterval(updateHeroTemp, 20000);
 
 // ── „ÎN ACEASTĂ ZI" — arhivă climatică (Open-Meteo Archive) ──
 document.getElementById('onThisDayBtn').addEventListener('click', function() {
@@ -5377,7 +5386,7 @@ function initAnimRadar() {
         if (animRadarTimer) { clearInterval(animRadarTimer); animRadarTimer = null; this.innerText = '▶ Redă'; return; }
         this.innerText = '⏸ Pauză';
         var run = function(frames, host) {
-            animRadarTimer = setInterval(function() {
+            animRadarTimer = meteoInterval(function() {
                 animRadarIdx = (animRadarIdx + 1) % frames.length;
                 if (animRadarLayer) animRadarMapL.removeLayer(animRadarLayer);
                 animRadarLayer = L.tileLayer(host + frames[animRadarIdx].path + '/256/{z}/{x}/{y}/2/1_1.png', { opacity: 0.8, maxNativeZoom: 9, maxZoom: 9 }).addTo(animRadarMapL);
@@ -5591,15 +5600,15 @@ function refreshRadarFrames() {
     }).catch(function() {});
 }
 liveClock();
-setInterval(liveClock, 1000);                                    // ceas — în fiecare secundă
-setInterval(function() { try { fetchWeather(); } catch (e) {} }, 5 * 60000);        // vremea curentă la 5 min
-setInterval(function() { try { loadSynopStations(); } catch (e) {} }, 10 * 60000);  // stații ANM la 10 min
-setInterval(function() { try { refreshWarnings(); } catch (e) {} }, 10 * 60000);    // avertizări ANM la 10 min
-setInterval(function() { try { loadFlood(); } catch (e) {} }, 30 * 60000);          // hidro la 30 min
-setInterval(function() { try { loadPrecip(); } catch (e) {} }, 20 * 60000);         // precipitații la 20 min
-setInterval(function() { try { loadTenDay(); } catch (e) {} }, 30 * 60000);         // prognoză 10 zile la 30 min
-setInterval(refreshRadarFrames, 6 * 60000);                     // cadre radar/satelit la 6 min
-setInterval(function() { try { updateHeroTemp(); } catch (e) {} }, 15000);          // temperatura proprie la 15 s
+meteoInterval(liveClock, 1000);                                    // ceas — în fiecare secundă
+meteoInterval(function() { try { fetchWeather(); } catch (e) {} }, 5 * 60000);        // vremea curentă la 5 min
+meteoInterval(function() { try { loadSynopStations(); } catch (e) {} }, 10 * 60000);  // stații ANM la 10 min
+meteoInterval(function() { try { refreshWarnings(); } catch (e) {} }, 10 * 60000);    // avertizări ANM la 10 min
+meteoInterval(function() { try { loadFlood(); } catch (e) {} }, 30 * 60000);          // hidro la 30 min
+meteoInterval(function() { try { loadPrecip(); } catch (e) {} }, 20 * 60000);         // precipitații la 20 min
+meteoInterval(function() { try { loadTenDay(); } catch (e) {} }, 30 * 60000);         // prognoză 10 zile la 30 min
+meteoInterval(refreshRadarFrames, 6 * 60000);                     // cadre radar/satelit la 6 min
+meteoInterval(function() { try { updateHeroTemp(); } catch (e) {} }, 15000);          // temperatura proprie la 15 s
 </script>
 
 <script>
@@ -5785,18 +5794,6 @@ bindSwitch('setChatVisible', 'chatvisible', function(on) {
     if (f) f.style.display = on ? 'flex' : 'none';
     if (!on) { var w = document.getElementById('chatWindow'); if (w) w.classList.remove('open'); }
 });
-
-// Actualizarea automată respectă setarea și se oprește când aplicația e în fundal
-// (economisește baterie și date pe telefon).
-(function() {
-    var _si = window.setInterval;
-    window.setInterval = function(fn, ms) {
-        if (typeof fn === 'function' && ms >= 10000) {
-            return _si(function() { if (AUTO_REFRESH && !document.hidden) fn(); }, ms);
-        }
-        return _si.apply(window, arguments);
-    };
-})();
 
 // La revenirea în aplicație, împrospătează imediat datele principale
 document.addEventListener('visibilitychange', function() {
@@ -6235,7 +6232,7 @@ function startLocalAlerts() {
         }).catch(function() {});
     };
     verifica();
-    _localAlertTimer = setInterval(verifica, 10 * 60000);   // la 10 minute
+    _localAlertTimer = meteoInterval(verifica, 10 * 60000);   // la 10 minute
 }
 function stopLocalAlerts() {
     if (_localAlertTimer) { clearInterval(_localAlertTimer); _localAlertTimer = null; }
@@ -7786,7 +7783,7 @@ window.addEventListener('online', function() {
     _pushSyncRetries = 0;
     actualizeazaLocatieAutomat(false).then(actualizeazaLocatiaPush);
 });
-setInterval(function() { actualizeazaLocatieAutomat(false); }, 120000);
+meteoInterval(function() { actualizeazaLocatieAutomat(false); }, 120000);
 
 (function initNotificationTools() {
     var auto = document.getElementById('setAutoLocation');
@@ -8825,7 +8822,7 @@ input, textarea, select, [contenteditable="true"] {
 <script src="weather-library.js?v=6"></script>
 <script src="weather-data-cache.js?v=6"></script>
 <script src="weather-romania.js?v=3"></script>
-<script src="weather-motion.js?v=5"></script>
+<script src="weather-motion.js?v=6"></script>
 <script src="weather-atmosphere.js?v=8"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════
@@ -11334,7 +11331,7 @@ function mobHartaAnm(id) {
 // pornim, și reîncărcăm când se schimbă locația sau unitatea
 if (esteMobil()) {
     setTimeout(mobIncarca, 300);
-    setInterval(mobIncarca, 5 * 60 * 1000);
+    meteoInterval(mobIncarca, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden) mobIncarca();
     });
@@ -11391,7 +11388,7 @@ window.addEventListener('online',function(){
     var ready=window.MeteoForecastCache ? MeteoForecastCache.reconnect() : Promise.resolve();
     ready.then(function(){if(navigator.onLine!==false)mobIncarca(true);});
 });
-setInterval(function(){if(esteMobil() && !document.hidden)mobStareConexiune();},60000);
+meteoInterval(function(){if(esteMobil() && !document.hidden)mobStareConexiune();},60000);
 </script>
 </body>
 </html>

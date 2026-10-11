@@ -102,7 +102,10 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  assert.equal(await neutral(),true);await quietTap();
  for(const [endX,city]of [[30,second.nume],[390,loc.nume]]){
    await touch('touchStart');await touch('touchMove',endX,120);await page.waitForTimeout(60);await touch('touchEnd');
-   await page.waitForFunction(city=>LOC.nume===city,city,{timeout:10000});await page.waitForTimeout(800);
+   await page.waitForFunction(city=>LOC.nume===city,city,{timeout:10000});
+   // Decoder-heavy checks can delay queued transition cleanup. Wait for the
+   // actual finished state instead of sampling during a fixed 800 ms pause.
+   await page.waitForFunction(()=>mobPartiSlide().every(el=>!el.classList.contains('gliseaza')&&!el.classList.contains('lin')&&!el.style.transform&&!el.style.opacity),null,{timeout:3000});
    assert.equal(await neutral(),true,JSON.stringify(await page.evaluate(()=>({parts:mobPartiSlide().map(el=>({className:el.className,style:el.getAttribute('style')})),changes:tapChanges.slice(-10)}))));await quietTap();
  }
  // Even a single saved city should remain visually idle on touch.
@@ -113,9 +116,17 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  await page.evaluate(()=>{window.MeteoRomania=null;});
  const scenes=[['clear-day',0,12,1],['partly-cloudy',2,12,1],['overcast',3,12,1],['rain',63,12,1],['storm',95,12,1],['snow',85,12,1],['fog',45,12,1],['clear-night',0,23,0],['twilight',1,19,1]]
    .filter(s=>!process.env.METEO_WEATHER_SCENE||s[0]===process.env.METEO_WEATHER_SCENE);
- const canvasDigest=()=>page.locator('.weather-precipitation').evaluate(el=>{
+ const canvasDigest=()=>page.locator('.weather-precipitation').evaluate(async el=>{
+   // Let the compositor flush video/canvas commands before reading pixels.
+   await new Promise(resolve=>requestAnimationFrame(resolve));
    const pixels=el.getContext('2d').getImageData(0,0,el.width,el.height).data;
-   let alpha=0,hash=0;for(let i=3;i<pixels.length;i+=4){alpha+=pixels[i];hash=(Math.imul(hash,31)+pixels[i])|0;}return {alpha,hash};
+   let alpha=0,hash=0;for(let i=3;i<pixels.length;i+=4){alpha+=pixels[i];hash=(Math.imul(hash,31)+pixels[i])|0;}
+   if(alpha&&document.getElementById('mobCer').getAttribute('data-motion')==='off'){
+     const bounds={left:el.width,top:el.height,right:0,bottom:0};let count=0;
+     for(let i=3;i<pixels.length;i+=4)if(pixels[i]){const p=(i-3)/4,x=p%el.width,y=Math.floor(p/el.width);count++;bounds.left=Math.min(bounds.left,x);bounds.right=Math.max(bounds.right,x);bounds.top=Math.min(bounds.top,y);bounds.bottom=Math.max(bounds.bottom,y);}
+     return {alpha,hash,bounds,count,bitmap:[el.width,el.height],transform:el.getContext('2d').getTransform().toString()};
+   }
+   return {alpha,hash};
  });
  for(const [scene,wmo,hour,day] of scenes){
    console.log('Checking scene: '+scene);
@@ -232,7 +243,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  assert.ok((await canvasDigest()).alpha>0);
  await page.evaluate(()=>{const c=document.getElementById('setAnimations');c.checked=false;c.dispatchEvent(new Event('change'));});
  assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'off');
- assert.equal((await canvasDigest()).alpha,0);
+ {const digest=await canvasDigest();assert.equal(digest.alpha,0,JSON.stringify(digest));}
  assert.equal(await page.locator('.weather-video').evaluateAll(vs=>vs.every(v=>v.paused)),true);
  const paused=await page.locator('.weather-photo.is-visible').evaluate(el=>getComputedStyle(el).transform);
  await page.waitForTimeout(250);
@@ -240,7 +251,7 @@ const firebaseStub=`(()=>{const snap={val:()=>null,forEach:()=>{},exists:()=>fal
  await page.evaluate(()=>{const c=document.getElementById('setAnimations');c.checked=true;c.dispatchEvent(new Event('change'));});
  await page.emulateMedia({reducedMotion:'reduce'});
  assert.equal(await page.locator('#mobCer').getAttribute('data-motion'),'off');
- assert.equal((await canvasDigest()).alpha,0);
+ {const digest=await canvasDigest();assert.equal(digest.alpha,0,JSON.stringify(digest));}
  await page.emulateMedia({reducedMotion:'no-preference'});
  await page.waitForTimeout(250);assert.ok((await canvasDigest()).alpha>0);
  // Simulate the visibility signal delivered when Android backgrounds the TWA.

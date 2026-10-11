@@ -56,10 +56,17 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
     private void verify() throws Exception {
         Context base = getTargetContext();
         AppWidgetProviderInfo provider = null;
+        int meteoProviders = 0;
         for (AppWidgetProviderInfo info : AppWidgetManager.getInstance(base).getInstalledProviders()) {
+            if (info.provider.getPackageName().equals(base.getPackageName())) {
+                meteoProviders++;
+                require(info.updatePeriodMillis == 0,
+                        "no duplicate Android timer for " + info.provider.getClassName());
+            }
             if (info.provider.getPackageName().equals(base.getPackageName())
                     && info.provider.getClassName().endsWith("MeteoCapsuleWidget")) provider = info;
         }
+        require(meteoProviders == 5, "all five providers use the shared scheduler only");
         require(provider != null, "2x1 provider must be discoverable by launcher");
         require(provider.targetCellWidth == 2 && provider.targetCellHeight == 1, "grid size");
         require(provider.updatePeriodMillis == 0, "single shared scheduler, no second timer");

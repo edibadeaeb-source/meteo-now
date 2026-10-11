@@ -6,7 +6,7 @@
     android:minHeight="180dp"
     android:targetCellWidth="4"
     android:targetCellHeight="3"
-    android:updatePeriodMillis="1800000"
+    android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_meteo"
     android:previewImage="@drawable/widget_previzualizare"
     android:previewLayout="@layout/widget_meteo"

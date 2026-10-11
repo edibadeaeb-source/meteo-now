@@ -7,7 +7,7 @@
     var reduced = root.matchMedia('(prefers-reduced-motion: reduce)');
     var control = document.getElementById('setAnimations');
     var canvas, ctx, sprite, particles = [], scene = '', frame = 0, last = 0;
-    var width = 0, height = 0, pixelRatio = 1, scrollTimer = 0, resizeTimer = 0, scrolling = false;
+    var width = 0, height = 0, scrollTimer = 0, resizeTimer = 0, scrolling = false;
     var videos = [], videoActive = -1, videoSerial = 0, videoUrl = '', videoPending = '', desiredVideo = '';
     var videoReady = false, playPending = false, rejectedHigh = Object.create(null), filmedPrecipitation = false;
     var movies = {'clear-day':'clear-day','clear-night':'clear-night','partly-cloudy':'partly-cloudy',
@@ -54,7 +54,7 @@
         if (!canvas || !ctx) return;
         width = el.clientWidth; height = el.clientHeight;
         // CSS pixels keep trajectories consistent across screen sizes; cap bitmap cost.
-        var ratio = pixelRatio = Math.min(root.devicePixelRatio || 1, 1.25);
+        var ratio = Math.min(root.devicePixelRatio || 1, 1.25);
         canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
         ctx.setTransform(ratio,0,0,ratio,0,0);
         seed();
@@ -70,9 +70,10 @@
         }
     }
     function clearPrecipitation() {
-        // The capped fractional DPR can round the bitmap past its CSS bounds.
-        // Clear physical pixels too, so the final row cannot retain rain/snow.
-        ctx.clearRect(0,0,Math.ceil(canvas.width/pixelRatio),Math.ceil(canvas.height/pixelRatio));
+        // Clear the entire physical bitmap independently of its current transform.
+        // Fractional DPR or a restored context must not leave old rain/snow pixels.
+        ctx.save(); ctx.setTransform(1,0,0,1,0,0);
+        ctx.clearRect(0,0,canvas.width,canvas.height); ctx.restore();
     }
     function stop(clear) {
         if (frame) root.cancelAnimationFrame(frame);
@@ -137,6 +138,12 @@
         videos.forEach(function(v) { v.pause(); v.classList.remove('is-visible'); });
         el.setAttribute('data-video', 'fallback');
     }
+    function releaseVideo(v) {
+        // Remove handlers first: load() emits events for the discarded source.
+        v.onloadeddata = v.onplaying = v.onerror = null;
+        v.pause(); v.classList.remove('is-visible');
+        if (v.hasAttribute('src')) { v.removeAttribute('src'); v.preload = 'none'; v.load(); }
+    }
     function loadVideo() {
         if (!desiredVideo || !enabled()) return;
         if (videoPending === desiredVideo || (videoUrl === desiredVideo && videoReady)) return;
@@ -161,6 +168,9 @@
         v.onplaying = function() {
             if (ticket !== videoSerial || url !== desiredVideo || !enabled()) { v.pause(); return; }
             v.classList.add('is-visible'); el.setAttribute('data-video','playing');
+            // Keep the double buffer for transitions, then release the old
+            // decoder. Cached films can be revisited without downloading again.
+            videos.forEach(function(other) { if (other !== v) releaseVideo(other); });
             if (filmedPrecipitation) stop(true);
         };
         v.onerror = function() {
@@ -183,7 +193,13 @@
         });
     }
     function syncVideo(on) {
-        if (!on || !desiredVideo) { hideVideo(); return; }
+        if (!on || !desiredVideo) {
+            hideVideo();
+            // Retain the current film while backgrounded for instant resume.
+            // A photographic scene no longer needs either video buffer.
+            if (!desiredVideo) { videos.forEach(releaseVideo); videoActive = -1; videoUrl = ''; }
+            return;
+        }
         if (videoUrl !== desiredVideo || !videoReady) { loadVideo(); return; }
         var v = videos[videoActive];
         if (!v) return;
