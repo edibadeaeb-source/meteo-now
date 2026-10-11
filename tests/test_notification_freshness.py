@@ -1,6 +1,6 @@
 import copy
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import test_ai_context as fixtures
@@ -54,6 +54,18 @@ class NotificationFreshnessTests(unittest.TestCase):
         self.assertEqual(event['kind'], 'rain_end')
         # First dry forecast is 20:00, within the next hour from condition time.
         self.assertIn('în următoarea oră', event['body'])
+
+    def test_live_provider_mixed_offset_hours_are_compared_in_city_timezone(self):
+        for zone, offset in [('Europe/Bucharest', '+03:00'), ('America/New_York', '-04:00')]:
+            with self.subTest(zone=zone):
+                p = self.forecast()
+                p['timezone'] = zone
+                expected = meteo._compune_eveniment_meteo(p, nume='Oraș test')
+                p['hourly']['time'] = [value + offset for value in p['hourly']['time']]
+                self.assertEqual(meteo._compune_eveniment_meteo(p, nume='Oraș test'), expected)
+                # The same hours in UTC must give the same local wording.
+                p['hourly']['time'] = [datetime.fromisoformat(value).astimezone(timezone.utc).isoformat() for value in p['hourly']['time']]
+                self.assertEqual(meteo._compune_eveniment_meteo(p, nume='Oraș test'), expected)
 
     def test_stale_data_cannot_send_or_rearm_an_episode(self):
         p = self.forecast()
@@ -113,6 +125,14 @@ class NotificationFreshnessTests(unittest.TestCase):
             get.return_value.json.return_value = {'avertizare': []}
             self.assertFalse(meteo._push_check_intern().get_json()['ok'])
         send.assert_not_called()
+
+    def test_missing_probability_never_makes_wet_summary_sound_calm(self):
+        for code in (61, 63, 71, 56, 66):
+            with self.subTest(code=code):
+                for language in ('ro', 'en'):
+                    advice = meteo._sfat_zi(20, None, None, 10, code, language)
+                    self.assertNotIn('liniștită', advice)
+                    self.assertNotIn('calm', advice)
 
     def test_newly_retrieved_stale_summary_is_not_sent(self):
         p = fixtures.NotificationCopyTests.forecast()

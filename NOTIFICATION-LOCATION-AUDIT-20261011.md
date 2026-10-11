@@ -1,6 +1,6 @@
 # Locație și notificări — 11 octombrie 2026
 
-Versiune web/server: **2026.10.11.4**, Service Worker v48. APK nativ neschimbat: **1.0.22 / versionCode 23**. Nu este necesară reinstalarea pentru aceste corecții.
+Versiune web/server: **2026.10.11.5**, Service Worker v49. APK nativ neschimbat: **1.0.22 / versionCode 23**. Nu este necesară reinstalarea pentru aceste corecții.
 
 ## Corecții
 
@@ -10,6 +10,8 @@ Versiune web/server: **2026.10.11.4**, Service Worker v48. APK nativ neschimbat:
 - Sincronizarea notificărilor se reia după reconectare și după erori temporare, cu cel mult trei reîncercări la 15/60/180 secunde. Nu face reîncercări cât pagina este ascunsă și nu reactivează notificările dezactivate de utilizator.
 - Nu trimitem noi alerte meteo sau rezumate din rezerva `stale`, fără proveniență temporală validă, din date descărcate cu peste 30 minute în urmă ori cu o stare curentă mai veche de 90 minute. Datele salvate rămân disponibile în aplicație; nu sunt prezentate în alerte ca și cum ar fi noi.
 - Evenimentele se raportează la ora stării cerului, dacă este disponibilă, separat de ora unei observații mai vechi de temperatură.
+- Orele cu offset explicit (de exemplu `+03:00` sau `-04:00`) și orele fără offset sunt convertite în fusul localității înainte de comparare. Verificarea cu date reale a reprodus și corectat eroarea Python de comparare a celor două formate, care putea opri alertele pe prognozele furnizorului de rezervă.
+- Un rezumat cu ploaie/ninsoare/polei nu se încheie cu sfatul generic „Zi liniștită” când probabilitatea numerică lipsește; sfatul ține cont și de codul meteo.
 - Rezumatul alege azi/mâine din datele calendaristice ale orașului, inclusiv la furnizorii care nu includ ieri. O temperatură lipsă sau nevalidă nu produce un rezumat incomplet.
 - O citire nereușită a istoricului Firebase nu este echivalentă cu un istoric gol. Se amână notificările meteo, ANM și rezumatele afectate. Deduplicarea pe localitate include și regiunea, fără retrimitere doar pentru mici schimbări GPS în același oraș.
 

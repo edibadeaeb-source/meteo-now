@@ -4,6 +4,24 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
+def forecast_time(value, data):
+    """Interpret naive provider hours in the city, preserving explicit offsets."""
+    try:
+        moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        try:
+            tz = ZoneInfo(data['timezone'])
+        except (KeyError, ValueError):
+            if 'utc_offset_seconds' in data:
+                tz = timezone(timedelta(seconds=float(data['utc_offset_seconds'])))
+            elif moment.tzinfo is not None:
+                tz = moment.tzinfo
+            else:
+                return None
+        return moment.replace(tzinfo=tz) if moment.tzinfo is None else moment.astimezone(tz)
+    except (AttributeError, KeyError, TypeError, ValueError, OverflowError):
+        return None
+
+
 def fresh_forecast(data, now):
     sources = data.get('weather_sources') or {}
     if sources.get('stale') is not False:
@@ -13,14 +31,8 @@ def fresh_forecast(data, now):
         if retrieved.tzinfo is None or not -300 <= now - retrieved.timestamp() <= 1800:
             return False
         current = data.get('current') or {}
-        condition = datetime.fromisoformat(sources.get('current_condition_time') or current['time'])
-        if condition.tzinfo is None:
-            try:
-                tz = ZoneInfo(data['timezone'])
-            except (KeyError, ValueError):
-                tz = timezone(timedelta(seconds=float(data['utc_offset_seconds'])))
-            condition = condition.replace(tzinfo=tz)
-        return -300 <= now - condition.timestamp() <= 5400
+        condition = forecast_time(sources.get('current_condition_time') or current['time'], data)
+        return condition is not None and -300 <= now - condition.timestamp() <= 5400
     except (KeyError, TypeError, ValueError, OverflowError):
         return False
 

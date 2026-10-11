@@ -33,7 +33,7 @@ ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
 from widget_weather import current_widget, condition as widget_condition
-from notification_weather import fresh_forecast, summary_indices, finite as notification_finite
+from notification_weather import fresh_forecast, forecast_time, summary_indices, finite as notification_finite
 import tempfile as _weather_tempfile
 _weather_service = WeatherService(OPENWEATHER_API_KEY,
     cache_dir=os.path.join(_weather_tempfile.gettempdir(), 'meteo-now-met-cache'))
@@ -978,10 +978,10 @@ def _moment_eveniment(target, now, limba):
 def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
     """Alege cea mai relevantă schimbare și scrie o propoziție completă."""
     current, hourly = p.get('current') or {}, p.get('hourly') or {}
-    times = [_event_dt(x) for x in hourly.get('time') or []]
+    times = [forecast_time(x, p) for x in hourly.get('time') or []]
     if not times:
         return None
-    now = _event_dt((p.get('weather_sources') or {}).get('current_condition_time') or current.get('time'))
+    now = forecast_time((p.get('weather_sources') or {}).get('current_condition_time') or current.get('time'), p)
     if now is None or current.get('weather_code') is None:
         return None
     future = [i for i, value in enumerate(times)
@@ -1175,8 +1175,8 @@ def _push_weather_intern():
             missing += len(entries)
             continue
         for key, sub in entries:
-            forecast_now = _event_dt((forecast.get('weather_sources') or {}).get('current_condition_time') or (forecast.get('current') or {}).get('time'))
-            forecast_hours = [_event_dt(t) for t in (forecast.get('hourly') or {}).get('time') or []]
+            forecast_now = forecast_time((forecast.get('weather_sources') or {}).get('current_condition_time') or (forecast.get('current') or {}).get('time'), forecast)
+            forecast_hours = [forecast_time(t, forecast) for t in (forecast.get('hourly') or {}).get('time') or []]
             if ((forecast.get('current') or {}).get('weather_code') is None
                     or forecast_now is None
                     or not any(t and forecast_now < t <= forecast_now + timedelta(hours=8) for t in forecast_hours)):
@@ -1307,9 +1307,18 @@ def _sfat_zi(maxi, uv, prob, rafale, cod, limba):
     if cod in (95, 96, 99):
         return ('Se anunță furtună. Ține-te departe de copaci și de câmp deschis.'
                 if not en else 'Thunderstorms expected. Stay away from trees and open fields.')
+    if cod in (56, 57, 66, 67):
+        return ('Sunt posibile precipitații care îngheață. Ai grijă la polei.'
+                if not en else 'Freezing precipitation is possible. Watch for icy surfaces.')
+    if cod in _SNOW_WMO or cod in (68, 69):
+        return ('Se anunță ninsoare sau lapoviță. Îmbracă-te călduros și ai grijă pe drum.'
+                if not en else 'Snow or sleet is expected. Dress warmly and take care on the road.')
     if prob is not None and prob >= 60:
         return (f'{round(prob)}% șanse de ploaie — ia umbrela cu tine.'
                 if not en else f'{round(prob)}% chance of rain — take an umbrella.')
+    if cod in _PRECIP_WMO:
+        return ('Sunt posibile ploi. Ia umbrela cu tine.'
+                if not en else 'Rain is possible. Take an umbrella.')
     if rafale is not None and rafale >= 60:
         return (f'Rafale de {round(rafale)} km/h. Ține-ți pălăria și strânge ce e pe balcon.'
                 if not en else f'Gusts up to {round(rafale)} km/h. Secure loose things outside.')
