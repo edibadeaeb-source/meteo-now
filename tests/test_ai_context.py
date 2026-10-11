@@ -117,7 +117,9 @@ class WidgetApiTests(unittest.TestCase):
                 "weather_code": [0, 1, 2, 3, 61, 0],
             }
         }
-        forecast.return_value = dict(daily.json.return_value, weather_sources={'today':'2026-09-22'})
+        forecast.return_value = dict(daily.json.return_value,
+            current={'temperature_2m': 14.2, 'weather_code': 2, 'is_day': 1},
+            timezone='America/New_York', weather_sources={'today':'2026-09-22'})
         get.return_value = current
         meteo._widget_cache.clear()
 

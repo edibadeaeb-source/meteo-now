@@ -43,7 +43,7 @@
   <!-- Widgeturi METEO NOW pentru ecranul principal -->
   <string name="widget_capsule_nume">METEO NOW · Mini 2×1</string>
   <string name="widget_capsule_descriere">Pictogramă meteo mare, temperatură, oraș și minimă/maximă, într-o capsulă cu reflexii de sticlă.</string>
-  <string name="widget_capsule_preview_city">Orașul meu</string>
+  <string name="widget_preview_city">Vremea mea</string>
   <string name="widget_capsule_preview_range">Max 24° · Min 16°</string>
   <string name="widget_nume">METEO NOW · Prognoză</string>
   <string name="widget_compact_nume">METEO NOW · Acum</string>

@@ -32,6 +32,7 @@ ANTHROPIC_API_KEY   = _load_key("ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY")
 ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
+from widget_weather import current_widget, condition as widget_condition
 import tempfile as _weather_tempfile
 _weather_service = WeatherService(OPENWEATHER_API_KEY,
     cache_dir=os.path.join(_weather_tempfile.gettempdir(), 'meteo-now-met-cache'))
@@ -1543,8 +1544,7 @@ def widget_data():
     now = now_ro()
     cache_key = (round(lat, 4), round(lon, 4), oras.casefold(), admin.casefold(), country)
     cached = _widget_cache.get(cache_key)
-    if cached and (now - cached[0]).total_seconds() < 300:
-        return jsonify(cached[1])
+    warnings_fresh = cached and (now - cached[0]).total_seconds() < 300
 
     out = {
         'oras': oras,
@@ -1569,89 +1569,21 @@ def widget_data():
         'actualizat': now.strftime('%H:%M')
     }
 
-    # 1) Vremea curentă pentru coordonatele alese în configurarea widgetului.
-    try:
-        r = requests.get('https://api.openweathermap.org/data/2.5/weather', params={
-            'lat': lat, 'lon': lon, 'units': 'metric', 'lang': 'ro',
-            'appid': OPENWEATHER_API_KEY
-        }, timeout=12)
-        r.raise_for_status()
-        d = r.json()
-        t = d.get('main', {}).get('temp')
-        if t is not None:
-            out['temp'] = round(t, 1)
-            out['tempText'] = f"{round(t)}°"
-        rs = d.get('main', {}).get('feels_like')
-        if rs is not None:
-            out['resimtit'] = round(rs)
-        w0 = (d.get('weather') or [{}])[0]
-        desc = (w0.get('description') or '').strip()
-        out['descriere'] = desc[:1].upper() + desc[1:] if desc else ''
-        out['umiditate'] = d.get('main', {}).get('humidity')
-        vant = d.get('wind', {}).get('speed')
-        if vant is not None:
-            out['vant'] = round(vant * 3.6)
-
-        timezone_offset = d.get('timezone')
-        if isinstance(timezone_offset, (int, float)):
-            out['actualizat'] = (datetime.utcnow() + timedelta(seconds=timezone_offset)).strftime('%H:%M')
-
-        oid = w0.get('id', 800)
-        weather_icon = w0.get('icon') or ''
-        noapte = weather_icon.endswith('n')
-        if 200 <= oid < 300:   out['icon'] = 'furtuna'
-        elif 300 <= oid < 400: out['icon'] = 'burnita'
-        elif 500 <= oid < 600: out['icon'] = 'ploaie'
-        elif 600 <= oid < 700: out['icon'] = 'ninsoare'
-        elif 700 <= oid < 800: out['icon'] = 'ceata'
-        elif oid == 800:       out['icon'] = 'luna' if noapte else 'soare'
-        elif oid in (801, 802): out['icon'] = 'partial'
-        else:                  out['icon'] = 'nor'
-
-        now_unix = int(time.time())
-        sunrise = d.get('sys', {}).get('sunrise')
-        sunset = d.get('sys', {}).get('sunset')
-        near_horizon = ((isinstance(sunrise, (int, float)) and abs(now_unix - sunrise) <= 4500)
-                        or (isinstance(sunset, (int, float)) and abs(now_unix - sunset) <= 4500))
-        if near_horizon:
-            out['fundal'] = 'apus'
-        elif 200 <= oid < 300:
-            out['fundal'] = 'furtuna'
-        elif 300 <= oid < 600:
-            out['fundal'] = 'ploaie'
-        elif 600 <= oid < 700:
-            out['fundal'] = 'ninsoare'
-        elif 700 <= oid < 800:
-            out['fundal'] = 'ceata'
-        elif noapte:
-            out['fundal'] = 'noapte'
-        elif oid >= 803:
-            out['fundal'] = 'noros'
-        else:
-            out['fundal'] = 'zi'
-    except Exception as e:
-        print(f"⚠️  widget/vreme {oras}: {e}")
-
-    # 1b) Prognoza pe 4 zile + max/min azi, în fusul local al orașului.
+    # Aceeași prognoză normalizată ca în aplicație, inclusiv condiția curentă.
+    # Serviciul comun gestionează furnizorii de rezervă și cache-ul pe coordonate.
     try:
         forecast = _weather_service.forecast(lat, lon)
+        out.update(current_widget(forecast, time.time()))
+    except Exception:
+        # Nu salvăm un răspuns gol peste prognoza validă din telefon.
+        return jsonify({'error': 'Datele meteo nu sunt disponibile momentan'}), 502
+
+    # Prognoza zilnică rămâne din același instantaneu și din fusul orașului.
+    try:
         raw_daily = forecast['daily']
         indices = [i for i, date in enumerate(raw_daily['time']) if date >= forecast['weather_sources']['today']]
         dz = {k: [values[i] for i in indices] for k, values in raw_daily.items() if isinstance(values, list)}
-        out['weatherSources'] = forecast['weather_sources']
         zile_ro = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du']
-
-        def icon_wmo(c):
-            if c == 0:   return 'soare'
-            if c <= 2:   return 'partial'
-            if c == 3:   return 'nor'
-            if c <= 48:  return 'ceata'
-            if c <= 57:  return 'burnita'
-            if c <= 67:  return 'ploaie'
-            if c <= 77:  return 'ninsoare'
-            if c <= 82:  return 'ploaie'
-            if c <= 86:  return 'ninsoare'
-            return 'furtuna'
 
         times = dz.get('time') or []
         maxs = dz.get('temperature_2m_max') or []
@@ -1670,87 +1602,18 @@ def widget_data():
                     'zi': zile_ro[d_.weekday()],
                     'max': round(maxs[i]),
                     'min': round(mins[i]),
-                    'icon': icon_wmo(codes[i] if i < len(codes) else 3)
+                    'icon': widget_condition(codes[i] if i < len(codes) else None)[0]
                 })
             except Exception:
                 pass
         out['zile'] = zile
-    except Exception as e:
-        print(f"⚠️  widget/prognoză {oras}: {e}")
+    except (KeyError, TypeError, ValueError, IndexError):
+        pass
 
-    # OpenWeather 5 day / 3 hour este rezerva când Open-Meteo nu răspunde.
-    if not out['zile']:
-        try:
-            r = requests.get('https://api.openweathermap.org/data/2.5/forecast', params={
-                'lat': lat, 'lon': lon, 'units': 'metric', 'lang': 'ro',
-                'appid': OPENWEATHER_API_KEY
-            }, timeout=12)
-            r.raise_for_status()
-            forecast_data = r.json()
-            timezone_offset = int(forecast_data.get('city', {}).get('timezone') or 0)
-            grouped = {}
-            for item in forecast_data.get('list') or []:
-                timestamp = item.get('dt')
-                if not isinstance(timestamp, (int, float)):
-                    continue
-                local_dt = datetime.utcfromtimestamp(timestamp + timezone_offset)
-                day_key = local_dt.strftime('%Y-%m-%d')
-                bucket = grouped.setdefault(day_key, {
-                    'date': local_dt, 'mins': [], 'maxs': [],
-                    'icon': 'nor', 'icon_distance': 99
-                })
-                main = item.get('main') or {}
-                low = main.get('temp_min', main.get('temp'))
-                high = main.get('temp_max', main.get('temp'))
-                if isinstance(low, (int, float)):
-                    bucket['mins'].append(low)
-                if isinstance(high, (int, float)):
-                    bucket['maxs'].append(high)
-
-                distance = abs(local_dt.hour - 12)
-                if distance < bucket['icon_distance']:
-                    weather = (item.get('weather') or [{}])[0]
-                    oid = weather.get('id', 800)
-                    if 200 <= oid < 300:   icon = 'furtuna'
-                    elif 300 <= oid < 400: icon = 'burnita'
-                    elif 500 <= oid < 600: icon = 'ploaie'
-                    elif 600 <= oid < 700: icon = 'ninsoare'
-                    elif 700 <= oid < 800: icon = 'ceata'
-                    elif oid == 800:       icon = 'soare'
-                    elif oid in (801, 802): icon = 'partial'
-                    else:                  icon = 'nor'
-                    bucket['icon'] = icon
-                    bucket['icon_distance'] = distance
-
-            local_today = datetime.utcfromtimestamp(time.time() + timezone_offset).strftime('%Y-%m-%d')
-            today_bucket = grouped.get(local_today)
-            if today_bucket:
-                if out['maxAzi'] is None and today_bucket['maxs']:
-                    out['maxAzi'] = round(max(today_bucket['maxs']))
-                if out['minAzi'] is None and today_bucket['mins']:
-                    out['minAzi'] = round(min(today_bucket['mins']))
-
-            zile_ro = ['Lu', 'Ma', 'Mi', 'Jo', 'Vi', 'Sâ', 'Du']
-            fallback_days = []
-            for day_key in sorted(grouped):
-                if day_key <= local_today:
-                    continue
-                bucket = grouped[day_key]
-                if not bucket['mins'] or not bucket['maxs']:
-                    continue
-                fallback_days.append({
-                    'zi': zile_ro[bucket['date'].weekday()],
-                    'max': round(max(bucket['maxs'])),
-                    'min': round(min(bucket['mins'])),
-                    'icon': bucket['icon']
-                })
-                if len(fallback_days) == 4:
-                    break
-            out['zile'] = fallback_days
-        except Exception as e:
-            print(f"⚠️  widget/prognoză rezervă {oras}: {e}")
     # 2) Avertizarea ANM este afișată numai pentru județul orașului selectat.
-    if county_code:
+    if warnings_fresh:
+        out.update(cached[1])
+    elif county_code:
         try:
             r = requests.get('https://www.meteoromania.ro/wp-json/meteoapi/v2/avertizari-generale',
                              timeout=15, headers={'User-Agent': 'METEO-NOW-Widget/3.0'})
@@ -1793,7 +1656,8 @@ def widget_data():
     if len(_widget_cache) >= _WIDGET_CACHE_MAX and cache_key not in _widget_cache:
         oldest = min(_widget_cache, key=lambda key: _widget_cache[key][0])
         _widget_cache.pop(oldest, None)
-    _widget_cache[cache_key] = (now, out)
+    if not warnings_fresh:
+        _widget_cache[cache_key] = (now, {key: out[key] for key in ('codAvertizare', 'codText', 'avertizare')})
     return jsonify(out)
 
 # ═══════════════════════════════════════════════════════════════
@@ -1932,7 +1796,7 @@ DOAR PENTRU TARGOVISTE (Romania):
 - Valorile statiilor proprii sunt date separate; sursa temperaturii principale este precizata de snapshot
 - Mentionezi asta doar daca utilizatorul e in Targoviste sau intreaba explicit. NU insista pe detalii tehnice.
 
-SURSE DE DATE: Open-Meteo (conditii curente pe mobil, prognoze, arhiva climatica, hidro), OpenWeatherMap (vremea curenta pe desktop si widgeturi), RainViewer (radar si satelit), NOAA SWPC (vreme spatiala), DWD (analiza sinoptica), ANM/meteoromania.ro (avertizari oficiale Romania), statii proprii (Targoviste).
+SURSE DE DATE: MET Norway, Open-Meteo si OpenWeatherMap prin acelasi serviciu normalizat pentru vremea mobila si widgeturi; Open-Meteo pentru arhiva climatica si hidro, RainViewer (radar si satelit), NOAA SWPC (vreme spatiala), DWD (analiza sinoptica), ANM/meteoromania.ro (avertizari oficiale Romania), statii proprii (Targoviste).
 
 STIL DE COMUNICARE:
 - Raspunzi in LIMBA indicata in context (ro = romana, en = engleza). Daca e engleza, raspunzi natural in engleza, nu traduceri stangace.

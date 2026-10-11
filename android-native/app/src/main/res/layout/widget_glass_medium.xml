@@ -27,7 +27,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif-condensed"
             android:maxLines="1"
-            android:text="ORAȘUL TĂU"
+            android:text="@string/widget_preview_city"
             android:textColor="#FFFFFFFF"
             android:textSize="13sp"
             android:textStyle="bold" />

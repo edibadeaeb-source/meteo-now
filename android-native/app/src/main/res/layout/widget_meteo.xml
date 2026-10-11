@@ -23,7 +23,7 @@
             android:ellipsize="end"
             android:fontFamily="sans-serif-condensed"
             android:maxLines="1"
-            android:text="TÂRGOVIȘTE"
+            android:text="@string/widget_preview_city"
             android:textColor="#FFFFFFFF"
             android:textSize="14sp"
             android:textStyle="bold" />

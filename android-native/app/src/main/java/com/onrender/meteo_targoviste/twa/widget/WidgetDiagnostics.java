@@ -43,7 +43,7 @@ final class WidgetDiagnostics {
             event.put("code", "widget_unavailable");
             event.put("component", "widgets");
             event.put("operation", "widget");
-            event.put("release", "1.0.21");
+            event.put("release", "1.0.22");
             event.put("platform", "android");
             event.put("error", "Other");
             event.put("script", "native");

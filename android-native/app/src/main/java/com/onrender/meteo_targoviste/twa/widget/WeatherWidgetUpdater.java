@@ -27,9 +27,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Calendar;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -572,37 +570,16 @@ final class WeatherWidgetUpdater {
 
     private static int backgroundFor(JSONObject data) {
         if (data == null) return R.drawable.widget_weather_night;
-
-        String theme = data.optString("fundal", "").toLowerCase(Locale.ROOT);
-        if ("noapte".equals(theme)) return R.drawable.widget_weather_night;
-        if ("apus".equals(theme)) return R.drawable.widget_weather_sunset;
-        if ("noros".equals(theme)) return R.drawable.widget_weather_cloudy;
-        if ("ploaie".equals(theme)) return R.drawable.widget_weather_rain;
-        if ("furtuna".equals(theme)) return R.drawable.widget_weather_storm;
-        if ("ninsoare".equals(theme)) return R.drawable.widget_weather_snow;
-        if ("ceata".equals(theme)) return R.drawable.widget_weather_fog;
-        if ("zi".equals(theme)) return R.drawable.widget_weather_day;
-
-        String icon = data.optString("icon", "nor").toLowerCase(Locale.ROOT);
-
-        // API-ul actual trimite starea meteo, iar momentul zilei este calculat local.
-        // Intervalul de apus/rasarit urmeaza aceeasi fereastra de 75 min ca aplicatia.
-        Calendar now = Calendar.getInstance(TimeZone.getTimeZone("Europe/Bucharest"));
-        int month = now.get(Calendar.MONTH);
-        int minute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE);
-        int[] sunrise = {480, 450, 405, 375, 345, 330, 345, 375, 405, 445, 480, 495};
-        int[] sunset = {1010, 1060, 1110, 1200, 1245, 1270, 1260, 1210, 1140, 1070, 1010, 990};
-        boolean nearHorizon = Math.abs(minute - sunrise[month]) <= 75
-                || Math.abs(minute - sunset[month]) <= 75;
-        boolean daylight = minute >= sunrise[month] && minute <= sunset[month];
-
-        if (nearHorizon) return R.drawable.widget_weather_sunset;
+        String icon = currentIconName(data);
+        // A sky tint must never hide the actual precipitation or fog.
         if ("ploaie".equals(icon) || "burnita".equals(icon)) return R.drawable.widget_weather_rain;
         if ("furtuna".equals(icon)) return R.drawable.widget_weather_storm;
-        if ("ninsoare".equals(icon)) return R.drawable.widget_weather_snow;
+        if ("ninsoare".equals(icon) || "lapovita".equals(icon)) return R.drawable.widget_weather_snow;
         if ("ceata".equals(icon)) return R.drawable.widget_weather_fog;
-        if (!daylight || "luna".equals(icon)) return R.drawable.widget_weather_night;
+        String theme = data.optString("fundal", "").toLowerCase(Locale.ROOT);
+        if (isNight(data)) return R.drawable.widget_weather_night;
         if ("nor".equals(icon)) return R.drawable.widget_weather_cloudy;
+        if ("apus".equals(theme)) return R.drawable.widget_weather_sunset;
         return R.drawable.widget_weather_day;
     }
 
@@ -671,17 +648,39 @@ final class WeatherWidgetUpdater {
         views.setOnClickPendingIntent(cityId,
                 PendingIntent.getActivity(context, requestBase + 2, configure, flags));
     }
+    private static boolean isNight(JSONObject data) {
+        int day = data.optInt("isDay", -1);
+        if (day == 0 || day == 1) return day == 0;
+        return "noapte".equalsIgnoreCase(data.optString("fundal", ""))
+                || "luna".equalsIgnoreCase(data.optString("icon", ""));
+    }
+
+    private static String currentIconName(JSONObject data) {
+        // Prefer the same WMO code as the app; old cached JSON still has icon.
+        int code = data.optInt("weatherCode", -1);
+        if (code == 0) return isNight(data) ? "luna" : "soare";
+        if (code == 1 || code == 2) return "partial";
+        if (code == 3) return "nor";
+        if (code == 45 || code == 48) return "ceata";
+        if (code == 51 || code == 53 || code == 55 || code == 56 || code == 57) return "burnita";
+        if (code == 61 || code == 63 || code == 65 || code == 66 || code == 67
+                || code == 80 || code == 81 || code == 82) return "ploaie";
+        if (code == 68 || code == 69) return "lapovita";
+        if (code == 71 || code == 73 || code == 75 || code == 77 || code == 85 || code == 86) return "ninsoare";
+        if (code == 95 || code == 96 || code == 99) return "furtuna";
+        return data.optString("icon", "nor").toLowerCase(Locale.ROOT);
+    }
+
     private static int iconForCurrent(JSONObject data) {
+        String icon = currentIconName(data);
+        if ("ploaie".equals(icon) || "burnita".equals(icon) || "ninsoare".equals(icon)
+                || "lapovita".equals(icon) || "furtuna".equals(icon) || "ceata".equals(icon)
+                || "nor".equals(icon)) return iconFor(icon);
         String theme = data.optString("fundal", "").toLowerCase(Locale.ROOT);
-        String icon = data.optString("icon", "nor").toLowerCase(Locale.ROOT);
         if ("apus".equals(theme)) return R.drawable.ic_w_sunset;
-        if ("noapte".equals(theme)) {
-            if ("nor".equals(icon) || "partial".equals(icon)) {
-                return R.drawable.ic_w_moon_cloud;
-            }
-            if ("soare".equals(icon) || "luna".equals(icon)) {
-                return R.drawable.ic_w_luna;
-            }
+        if (isNight(data)) {
+            if ("partial".equals(icon)) return R.drawable.ic_w_moon_cloud;
+            if ("soare".equals(icon) || "luna".equals(icon)) return R.drawable.ic_w_luna;
         }
         return iconFor(icon);
     }
@@ -692,6 +691,7 @@ final class WeatherWidgetUpdater {
         if ("partial".equals(name)) return R.drawable.ic_w_partial;
         if ("ploaie".equals(name) || "burnita".equals(name)) return R.drawable.ic_w_ploaie;
         if ("ninsoare".equals(name)) return R.drawable.ic_w_ninsoare;
+        if ("lapovita".equals(name)) return R.drawable.ic_w_lapovita;
         if ("furtuna".equals(name)) return R.drawable.ic_w_furtuna;
         if ("ceata".equals(name)) return R.drawable.ic_w_ceata;
         return R.drawable.ic_w_nor;

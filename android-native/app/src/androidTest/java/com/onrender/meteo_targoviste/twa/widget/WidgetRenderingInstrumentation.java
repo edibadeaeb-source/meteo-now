@@ -10,12 +10,14 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.Layout;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.RemoteViews;
 import android.widget.TextView;
+import android.widget.ImageView;
 import com.onrender.meteo_targoviste.twa.R;
 import org.json.JSONObject;
 import java.io.File;
@@ -55,12 +57,22 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
         Context base = getTargetContext();
         AppWidgetProviderInfo provider = null;
         for (AppWidgetProviderInfo info : AppWidgetManager.getInstance(base).getInstalledProviders()) {
-            if (info.provider.getClassName().endsWith("MeteoCapsuleWidget")) provider = info;
+            if (info.provider.getPackageName().equals(base.getPackageName())
+                    && info.provider.getClassName().endsWith("MeteoCapsuleWidget")) provider = info;
         }
         require(provider != null, "2x1 provider must be discoverable by launcher");
         require(provider.targetCellWidth == 2 && provider.targetCellHeight == 1, "grid size");
         require(provider.updatePeriodMillis == 0, "single shared scheduler, no second timer");
         require(provider.configure.getClassName().endsWith("WidgetConfigActivity"), "native city selector");
+        int[] previews = {R.layout.widget_compact, R.layout.widget_details, R.layout.widget_meteo,
+                R.layout.widget_glass_medium, R.layout.widget_capsule, R.layout.widget_capsule_short};
+        int[] previewNames = {R.id.compact_oras, R.id.details_oras, R.id.forecast_oras,
+                R.id.glass_oras, R.id.capsule_oras, R.id.capsule_oras};
+        for (int i = 0; i < previews.length; i++) {
+            View preview = new RemoteViews(base.getPackageName(), previews[i]).apply(base, new FrameLayout(base));
+            require("Vremea mea".contentEquals(((TextView) preview.findViewById(previewNames[i])).getText()),
+                    "all widget previews must say Vremea mea");
+        }
         Method build = WeatherWidgetUpdater.class.getDeclaredMethod("buildCapsule", Context.class,
                 JSONObject.class, int.class, WidgetPreferences.Location.class);
         build.setAccessible(true);
@@ -131,16 +143,68 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
         Method iconMethod = WeatherWidgetUpdater.class.getDeclaredMethod("iconForCurrent", JSONObject.class);
         iconMethod.setAccessible(true);
         require((Integer) iconMethod.invoke(null, data) == R.drawable.ic_w_moon_cloud, "night uses moon and clouds");
-        String[] builders = {"buildCompact", "buildDetails", "buildForecast", "buildGlass"};
-        int[] cityIds = {R.id.compact_oras, R.id.details_oras, R.id.forecast_oras, R.id.glass_oras};
+        Method background = WeatherWidgetUpdater.class.getDeclaredMethod("backgroundFor", JSONObject.class);
+        background.setAccessible(true);
+        int[][] wet = {{51, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {53, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {55, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {56, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {57, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {61, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {63, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {65, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {66, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {67, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {68, R.drawable.ic_w_lapovita, R.drawable.widget_weather_snow},
+                {69, R.drawable.ic_w_lapovita, R.drawable.widget_weather_snow},
+                {71, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {73, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {75, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {77, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {80, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {81, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {82, R.drawable.ic_w_ploaie, R.drawable.widget_weather_rain},
+                {85, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {86, R.drawable.ic_w_ninsoare, R.drawable.widget_weather_snow},
+                {95, R.drawable.ic_w_furtuna, R.drawable.widget_weather_storm},
+                {96, R.drawable.ic_w_furtuna, R.drawable.widget_weather_storm},
+                {99, R.drawable.ic_w_furtuna, R.drawable.widget_weather_storm},
+                {45, R.drawable.ic_w_ceata, R.drawable.widget_weather_fog},
+                {48, R.drawable.ic_w_ceata, R.drawable.widget_weather_fog}};
+        for (int[] weather : wet) {
+            for (String theme : themes) {
+                for (int day : new int[]{0, 1}) {
+                    JSONObject current = new JSONObject().put("weatherCode", weather[0])
+                            .put("isDay", day).put("fundal", theme).put("icon", "partial");
+                    require((Integer) iconMethod.invoke(null, current) == weather[1],
+                            "condition must override conflicting night/sunset icon: " + weather[0]);
+                    require((Integer) background.invoke(null, current) == weather[2],
+                            "condition must override conflicting night/sunset background: " + weather[0]);
+                }
+            }
+        }
+        for (String theme : themes) {
+            require((Integer) iconMethod.invoke(null, new JSONObject().put("weatherCode", 3)
+                    .put("isDay", 0).put("fundal", theme).put("icon", "partial")) == R.drawable.ic_w_nor,
+                    "overcast does not show a moon or sun");
+        }
+        require((Integer) iconMethod.invoke(null, new JSONObject().put("icon", "ploaie")
+                .put("fundal", "apus")) == R.drawable.ic_w_ploaie, "older cached rainy payload at sunset");
+        String[] builders = {"buildCompact", "buildDetails", "buildForecast", "buildGlass", "buildCapsule"};
+        int[] cityIds = {R.id.compact_oras, R.id.details_oras, R.id.forecast_oras, R.id.glass_oras, R.id.capsule_oras};
+        int[] iconIds = {R.id.compact_icon, R.id.details_icon, R.id.forecast_icon, R.id.glass_icon, R.id.capsule_icon};
+        data.put("weatherCode", 63).put("isDay", 0); // Moreni repro: previous icon was partly cloudy.
         for (int i = 0; i < builders.length; i++) {
             Method existing = WeatherWidgetUpdater.class.getDeclaredMethod(builders[i], Context.class,
                     JSONObject.class, int.class, WidgetPreferences.Location.class);
             existing.setAccessible(true);
             RemoteViews views = (RemoteViews) existing.invoke(null, base, data, 992 + i, city);
             View oldWidget = views.apply(base, new FrameLayout(base));
-            require("NEW YORK CITY".contentEquals(((TextView) oldWidget.findViewById(cityIds[i])).getText()),
+            require((i == 4 ? "New York City" : "NEW YORK CITY").contentEquals(((TextView) oldWidget.findViewById(cityIds[i])).getText()),
                     "existing widget still renders its own city: " + builders[i]);
+            Drawable actual = ((ImageView) oldWidget.findViewById(iconIds[i])).getDrawable();
+            require(renderIcon(actual).sameAs(renderIcon(base.getDrawable(R.drawable.ic_w_ploaie))),
+                    "rain must render in all five widgets: " + builders[i]);
         }
         Bitmap preview = Bitmap.createBitmap(samples.get(0).getWidth() + 80, samples.get(0).getHeight() * 3 + 160,
                 Bitmap.Config.ARGB_8888);
@@ -151,5 +215,12 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
         try (FileOutputStream out = new FileOutputStream(new File(base.getExternalFilesDir(null), "widget-2x1-preview.png"))) {
             preview.compress(Bitmap.CompressFormat.PNG, 100, out);
         }
+    }
+
+    private Bitmap renderIcon(Drawable icon) {
+        Bitmap bitmap = Bitmap.createBitmap(96, 96, Bitmap.Config.ARGB_8888);
+        icon.setBounds(0, 0, 96, 96);
+        icon.draw(new Canvas(bitmap));
+        return bitmap;
     }
 }

@@ -22,7 +22,7 @@
             android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.15"
             android:gravity="center_vertical" android:includeFontPadding="false"
             android:drawableStart="@drawable/ic_capsule_location" android:drawablePadding="3dp"
-            android:fontFamily="sans-serif-medium" android:text="@string/widget_capsule_preview_city"
+            android:fontFamily="sans-serif-medium" android:text="@string/widget_preview_city"
             android:maxLines="2" android:ellipsize="end" android:textColor="#FFFFFFFF"
             android:textSize="13sp" android:autoSizeTextType="uniform"
             android:autoSizeMinTextSize="4sp" android:autoSizeMaxTextSize="13sp"

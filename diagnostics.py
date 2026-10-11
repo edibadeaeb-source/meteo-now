@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from flask import jsonify, request
 
-VERSION = '2026.10.11.2'
+VERSION = '2026.10.11.3'
 CODES = {'runtime_error', 'unhandled_rejection', 'resource_error', 'request_failed',
          'http_error', 'weather_unavailable', 'ai_unavailable', 'widget_unavailable', 'server_exception', 'self_test'}
 COMPONENTS = {'app', 'weather', 'ai', 'maps', 'notifications', 'widgets', 'media', 'server'}
