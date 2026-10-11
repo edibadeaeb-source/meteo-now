@@ -104,6 +104,8 @@ def start_tunnel():
 _IS_HOSTED = bool(os.environ.get('PORT'))
 from security import install_security, public_file, cron_authorized, valid_push_endpoint, valid_push_keys
 install_security(app, _IS_HOSTED, lambda: _load_key('METEO_ADMIN_TOKEN', 'METEO_ADMIN_TOKEN'))
+from diagnostics import install_diagnostics
+install_diagnostics(app, _IS_HOSTED)
 if not _IS_HOSTED and os.path.exists(os.path.join(BASE_DIR, 'cloudflared.exe')):
     threading.Thread(target=start_tunnel, daemon=True).start()
 

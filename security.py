@@ -23,7 +23,7 @@ from flask_cors import CORS
 
 PUBLIC_FILES = frozenset({
     'index.html', 'privacy.html', 'weather-credits.html', 'simulator.html',
-    'manifest.webmanifest', 'sw.js', 'assetlinks.json', 'ai-conversations.js',
+    'manifest.webmanifest', 'sw.js', 'assetlinks.json', 'ai-conversations.js', 'diagnostics.js',
     'weather-ai.css', 'weather-atmosphere.js', 'weather-data-cache.js',
     'weather-geography.js', 'weather-glass.css', 'weather-library.js',
     'weather-motion.js', 'weather-romania.js', 'apple-icon.png',
@@ -222,6 +222,9 @@ def install_security(app, hosted, admin_secret):
             rules += [('ai:minute:' + ip, 6, 60), ('ai:day:' + ip, 30, 86400),
                       ('ai:minute:global', 20, 60),
                       ('ai:day:global', _positive_env('METEO_AI_DAILY_REQUESTS', 200, 10000), 86400)]
+        elif path == '/api/diagnostics':
+            rules += [('diagnostics:ip:' + ip, 6, 60), ('diagnostics:minute', 30, 60),
+                      ('diagnostics:day', 1000, 86400)]
         elif path == '/api/clima':
             rules += [('climate:' + ip, 12, 60), ('climate:global', 60, 60)]
         elif path == '/api/push/subscribe':

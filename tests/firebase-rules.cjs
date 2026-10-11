@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const base='http://127.0.0.1:9100';
 const namespace='demo-meteo-security-20261011-default-rtdb';
-const privateBranches=['push_subs','push_android_status','push_state','push_anm_state','push_weather_state','push_summary_state','push_test_state','widget_cities_e2e'];
+const privateBranches=['push_subs','push_android_status','push_state','push_anm_state','push_weather_state','push_summary_state','push_test_state','widget_cities_e2e','diagnostics_v1'];
 async function request(path,method='GET',data,admin=false){
  return fetch(base+'/'+path+'.json?ns='+namespace,{method,headers:{'Content-Type':'application/json',...(admin?{Authorization:'Bearer owner'}:{})},body:data===undefined?undefined:JSON.stringify(data),signal:AbortSignal.timeout(10000)});
 }

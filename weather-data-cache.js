@@ -65,7 +65,10 @@
                 if(!r.ok) { var e=new Error('meteo: '+r.status);e.status=r.status;throw e; }
                 var d=await r.json();return put(loc,d);
             } catch(e) {
-                if(attempt===2 || (e.status && e.status<500)) throw e;
+                if(attempt===2 || (e.status && e.status<500)) {
+                    if(root.MeteoDiagnostics)root.MeteoDiagnostics.report('weather_unavailable','weather','forecast',e,{status:e.status||0});
+                    throw e;
+                }
                 if(root.navigator && root.navigator.onLine===false) throw e;
             } finally {clearTimeout(timer);}
             await new Promise(function(resolve){setTimeout(resolve,attempt?3000:1000);});

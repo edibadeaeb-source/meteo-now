@@ -10,6 +10,16 @@ let prefix=fs.readFileSync(fixture,'utf8').split(' // A tap used to')[0]
  .replace('const server=http.createServer((req,res)=>{', 'const server=http.createServer((req,res)=>{Object.entries('+JSON.stringify(headers)+').forEach(([k,v])=>res.setHeader(k,v));')
  .replace("await page.goto(base,", "await page.addInitScript(()=>{window.securityViolations=[];document.addEventListener('securitypolicyviolation',e=>securityViolations.push({directive:e.effectiveDirective,resource:e.blockedURI}));});await page.emulateMedia({reducedMotion:'reduce'});await page.goto(base,");
 const checks=String.raw`
+ const diagnostics=[];
+ await page.route('**/api/diagnostics',async route=>{diagnostics.push(route.request().postDataJSON());await route.fulfill({status:202,body:''});});
+ assert.ok(await page.evaluate(()=>!!MeteoDiagnostics));
+ await page.evaluate(()=>window.dispatchEvent(new ErrorEvent('error',{error:new TypeError('PRIVATE QUESTION AND CITY'),filename:location.origin+'/index.html?latitude=44.123456&token=SECRET',lineno:197171,colno:4})));
+ await page.waitForFunction(()=>!!MeteoDiagnostics);
+ await new Promise(resolve=>setTimeout(resolve,150));
+ assert.ok(diagnostics.some(e=>e.code==='runtime_error'&&e.line===197171));
+ assert.ok(!JSON.stringify(diagnostics).includes('PRIVATE QUESTION'));
+ assert.ok(!JSON.stringify(diagnostics).includes('44.123456'));
+ assert.ok(!JSON.stringify(diagnostics).includes('SECRET'));
  await page.waitForFunction(()=>getComputedStyle(document.getElementById('splash')).visibility==='hidden');
  assert.ok(await page.locator('#mbCardOre').count());assert.ok(await page.locator('.mb-uv-card').count());
  await page.evaluate(()=>mobDeschideFoaie('orase'));assert.ok(await page.locator('#mobFoaie.deschis').count());
@@ -29,6 +39,7 @@ const checks=String.raw`
  await page.unroute('**/ask');await page.route('**/ask',route=>route.fulfill({status:429,json:{error:'Rate limited'},headers:{'Retry-After':'60'}}));
  await page.locator('#chatInput').fill('Altă întrebare');await page.locator('#chatSend').click();
  await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('limită temporară de utilizare'));
+ assert.ok(diagnostics.some(e=>e.code==='http_error'&&e.component==='ai'&&e.status===429));
  assert.deepEqual(await page.evaluate(()=>securityViolations),[],'CSP must preserve scripts, fonts, textures and weather media');
  assert.deepEqual(errors,[]);await context.close();
  console.log('PASS: actual security headers preserve mobile startup, forecast, UV, city picker and weather media; city and AI HTML injection cannot execute');
