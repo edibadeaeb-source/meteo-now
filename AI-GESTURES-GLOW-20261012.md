@@ -1,14 +1,15 @@
 # METEO NOW — gesturi și glow în AI
 
-Versiune web/server **2026.10.12.6**, Service Worker **v55**, `weather-ai.css?v=5`.
+Versiune web/server **2026.10.12.7**, Service Worker **v56**, `weather-ai.css?v=6`.
 
 ## Comportament
 
 - Gesturile și rotița mouse-ului din AI nu mai ajung la pagina meteo. Derularea nativă a conversației și editarea textului sunt păstrate.
 - Reîmprospătarea verifică panourile deschise la începutul, mișcarea și încheierea gestului. Deschiderea AI anulează imediat și un gest început în fundal. Gesturile întrerupte și cele cu mai multe degete sunt anulate.
-- Un reflex alb discret traversează întreaga fereastră AI de la stânga la dreapta, inclusiv antetul, butoanele și conversațiile. Caseta „Întreabă-mă” are aceeași trecere albă, puțin mai vizibilă. Nu mai sunt reflexii animate mov/albastru.
-- Efectul rulează cât timp nu există text în editor, inclusiv pe o conversație sau în istoric. Se estompează la primul caracter scris și se oprește complet la închidere. Editorul ascuns din istoric nu are propria animație.
-- Animațiile folosesc numai transformări și opacitate. Preferința pentru mișcare redusă dezactivează reflexiile în mișcare. Panoul permite derularea pe ambele axe unde există conținut, fără zoom al paginii.
+- O lumină albă urmărește doar conturul rotunjit al ferestrei AI, inspirată de Samsung Edge Lighting. Cele trei trasee SVG au interiorul transparent (`fill:none`); niciun luciu nu traversează mijlocul, butoanele sau mesajele.
+- Textul de invitație „Întreabă-mă” pulsează discret cu o strălucire albă cât timp editorul este gol. Animația este aplicată editorului gol și moștenită de placeholder; la primul caracter se oprește, fără efect pe mesajul scris.
+- Conturul se oprește de asemenea în timpul scrierii și după închidere. Poziția luminii este proporțională cu perimetrul, inclusiv pe colțurile rotunjite și la redimensionare.
+- Conturul animă numai poziția trăsăturilor SVG, iar textul animă umbra textului. Preferința pentru mișcare redusă dezactivează ambele efecte. Panoul permite derularea pe ambele axe unde există conținut, fără zoom al paginii.
 
 ## Verificări
 

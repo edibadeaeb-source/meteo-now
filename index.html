@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.6">
+    <meta name="application-version" content="2026.10.12.7">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3903,7 +3903,11 @@ meteoInterval(function() {
     <button class="chat-fab" id="chatFab" title="Chat AI" aria-controls="chatWindow" aria-expanded="false">🤖</button>
     <div id="chatBackdrop" hidden aria-hidden="true"></div>
     <div class="chat-window" id="chatWindow" role="dialog" aria-modal="true" aria-labelledby="aiDialogTitle" aria-hidden="true" data-mode="home">
-        <div class="ai-ambient-glow" aria-hidden="true"></div>
+        <div class="ai-ambient-glow" aria-hidden="true"><svg class="ai-edge-light" width="100%" height="100%" aria-hidden="true" focusable="false">
+            <rect class="ai-edge-halo" x="2" y="2" rx="26" pathLength="100"/>
+            <rect class="ai-edge-trail" x="2" y="2" rx="26" pathLength="100"/>
+            <rect class="ai-edge-head" x="2" y="2" rx="26" pathLength="100"/>
+        </svg></div>
         <div class="chat-header">
             <div>
                 <div class="chat-header-title" id="aiDialogTitle"><span data-i18n="chatTitlu">Asistent AI Meteo</span></div>
@@ -8749,7 +8753,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=5">
+<link rel="stylesheet" href="weather-ai.css?v=6">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>

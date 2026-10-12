@@ -42,12 +42,12 @@ const checks=String.raw`
  assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'0','reduced motion hides moving reflections');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'true');
 
- assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','reduced motion keeps glow static');
+ assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e.querySelector('rect')).animationName),'none','reduced motion disables edge lighting');
  await page.locator('#chatInput').fill(' ');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false','glow fades with the first typed character');
  assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'0');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'false');
- assert.equal(await page.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').opacity),'0');
+ assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none');
  assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e,'::placeholder').textShadow),'none');
  await page.locator('#chatInput').fill('');assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true');
  // A real upward swipe must still scroll a long chat, without moving the page.
@@ -130,30 +130,28 @@ const checks=String.raw`
  const motionPage=await context.newPage();await motionPage.goto(base+'/cache-test');await motionPage.emulateMedia({reducedMotion:'no-preference'});
  const realButtonHandlers=fs.readFileSync(path.join(root,'index.html'),'utf8').split('var pressedChatButton=null;')[1].split('function addMessage(text, isUser)')[0];
  const markup=await page.locator('#chatWindow').evaluate(e=>e.outerHTML);
- await motionPage.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#18243e;font-family:Inter,system-ui,sans-serif}#chatWindow{height:880px;max-height:none;display:flex;flex-direction:column;margin:12px}.chat-messages{display:flex;flex-direction:column}</style><link rel="stylesheet" href="'+base+'/weather-ai.css">'+markup);
+ await motionPage.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{background:#18243e;font-family:Inter,system-ui,sans-serif}#chatWindow{position:fixed;overflow:hidden;height:880px;max-height:none;display:flex;flex-direction:column;margin:12px}.chat-messages{display:flex;flex-direction:column}</style><link rel="stylesheet" href="'+base+'/weather-ai.css">'+markup);
  await motionPage.addScriptTag({content:"var chatWindow=document.getElementById('chatWindow');var pressedChatButton=null;"+realButtonHandlers});
  const glass=await motionPage.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),sweep:getComputedStyle(e,'::before').animationName,glow:getComputedStyle(e,'::after').animationName};});
  assert.equal(glass.pressed,true);assert.equal(glass.pulse,true);assert.equal(glass.sweep,'aiGlassSweep');assert.equal(glass.glow,'aiGlassGlow');
- const ambient=await motionPage.locator('.ai-ambient-glow').evaluate(e=>({name:getComputedStyle(e,'::before').animationName,pointer:getComputedStyle(e).pointerEvents}));
- assert.equal(ambient.name,'aiWhiteSweep');assert.equal(ambient.pointer,'none');
- const reflection=await motionPage.locator('.ai-ambient-glow').evaluate(e=>{const s=getComputedStyle(e,'::before'),r=e.getBoundingClientRect(),panel=e.parentElement.getBoundingClientRect();return{background:s.backgroundImage,z:getComputedStyle(e).zIndex,width:r.width,height:r.height,panelWidth:panel.width,panelHeight:panel.height};});
- assert.ok(reflection.background.includes('255, 255, 255'),'reflection is white');
- assert.ok(+reflection.z>0&&reflection.width>=reflection.panelWidth-3&&reflection.height>=reflection.panelHeight-3,'reflection covers controls and the whole panel');
- await motionPage.locator('.ai-ambient-glow').evaluate(e=>e.getAnimations({subtree:true}).forEach(a=>{a.pause();a.currentTime=2400;}));
- await motionPage.locator('.ai-composer').evaluate(e=>e.getAnimations({subtree:true}).filter(a=>a.animationName==='aiWhiteSweep').forEach(a=>{a.pause();a.currentTime=2400;}));
- await motionPage.screenshot({path:path.join(shots,'ai-white-reflection-412.png')});
 
- assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'aiWhiteSweep');
+ const edge=await motionPage.locator('.ai-edge-light').evaluate(e=>({count:e.querySelectorAll('rect').length,fill:getComputedStyle(e.querySelector('rect')).fill,animation:getComputedStyle(e.querySelector('rect')).animationName,pointer:getComputedStyle(e.parentElement).pointerEvents}));
+ assert.equal(edge.count,3);assert.equal(edge.fill,'none','edge lighting never fills the panel');assert.equal(edge.animation,'aiEdgeCircuit');assert.equal(edge.pointer,'none');
+ assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'aiPromptGlow');
+ const phases=await motionPage.locator('.ai-edge-head').evaluate(e=>{const a=e.getAnimations()[0];a.pause();return[0,1500,3000,4500].map(t=>{a.currentTime=t;return parseFloat(getComputedStyle(e).strokeDashoffset);});});
+ assert.deepEqual(phases,[0,-25,-50,-75],'light travels around the perimeter');
+ const prompt=await motionPage.locator('#chatInput').evaluate(e=>{const a=e.getAnimations()[0];a.pause();return[0,1400].map(t=>{a.currentTime=t;return getComputedStyle(e,'::placeholder').textShadow;});});
+ assert.notEqual(prompt[0],prompt[1],'placeholder itself pulses while waiting for text');
+ await motionPage.screenshot({path:path.join(shots,'ai-edge-lighting-412.png')});
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='false');
- assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'none');
+ assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='true');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.idle='false');
- assert.equal(await motionPage.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','typing stops idle animation entirely');
+ assert.equal(await motionPage.locator('.ai-edge-head').evaluate(e=>getComputedStyle(e).animationName),'none','typing stops edge lighting');
  await motionPage.locator('#chatWindow').evaluate(e=>{e.dataset.idle='true';e.classList.remove('open');});
- assert.equal(await motionPage.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','closed AI consumes no glow animation');
- assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','closed composer consumes no animation');
+ assert.equal(await motionPage.locator('.ai-edge-head').evaluate(e=>getComputedStyle(e).animationName),'none','closed AI consumes no edge animation');
+ assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none','closed composer consumes no prompt animation');
  await motionPage.locator('#chatWindow').evaluate(e=>e.classList.add('open'));
-
  await motionPage.screenshot({path:path.join(shots,'ai-glass-press-412.png')});await motionPage.evaluate(()=>window.dispatchEvent(new PointerEvent('pointerup')));await motionPage.waitForTimeout(600);
  assert.equal(await motionPage.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false);await motionPage.close();await page.bringToFront();if(await page.locator('#chatWindow').getAttribute('aria-hidden')==='true')await show();
  await page.evaluate(()=>{window.realChatViewport=window.visualViewport;Object.defineProperty(window,'visualViewport',{configurable:true,value:{height:350,offsetTop:0}});window.dispatchEvent(new Event('resize'));});
