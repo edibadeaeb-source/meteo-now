@@ -1,14 +1,14 @@
 # METEO NOW — gesturi și glow în AI
 
-Versiune web/server **2026.10.12.4**, Service Worker **v53**, `weather-ai.css?v=3`.
+Versiune web/server **2026.10.12.5**, Service Worker **v54**, `weather-ai.css?v=4`.
 
 ## Comportament
 
 - Gesturile și rotița mouse-ului din AI nu mai ajung la pagina meteo. Derularea nativă a conversației și editarea textului sunt păstrate.
 - Reîmprospătarea verifică panourile deschise la începutul, mișcarea și încheierea gestului. Deschiderea AI anulează imediat și un gest început în fundal. Gesturile întrerupte și cele cu mai multe degete sunt anulate.
-- Ecranul de început are două reflexii discrete mov/albastru. Acestea se estompează la primul caracter scris și nu rulează în istoric, conversație sau cu AI închis.
-- Caseta „Întreabă-mă” are un halo și o strălucire fină pe textul de invitație. Revine când caseta este goală, inclusiv într-o conversație. Se oprește în timpul scrierii, în istoric și după închidere.
-- Animațiile folosesc numai transformări și opacitate. Preferința pentru mișcare redusă păstrează efectele statice. Panoul permite derularea pe ambele axe unde există conținut, fără zoom al paginii.
+- Un reflex alb discret traversează întreaga fereastră AI de la stânga la dreapta, inclusiv antetul, butoanele și conversațiile. Caseta „Întreabă-mă” are aceeași trecere albă, puțin mai vizibilă. Nu mai sunt reflexii animate mov/albastru.
+- Efectul rulează cât timp nu există text în editor, inclusiv pe o conversație sau în istoric. Se estompează la primul caracter scris și se oprește complet la închidere. Editorul ascuns din istoric nu are propria animație.
+- Animațiile folosesc numai transformări și opacitate. Preferința pentru mișcare redusă dezactivează reflexiile în mișcare. Panoul permite derularea pe ambele axe unde există conținut, fără zoom al paginii.
 
 ## Verificări
 

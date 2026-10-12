@@ -39,9 +39,9 @@ const checks=String.raw`
  assert.ok((await page.locator('#pullRefresh').getAttribute('style')).includes('-60px'),'refresh indicator stays hidden');
  assert.equal(await page.locator('#chatWindow').evaluate(e=>getComputedStyle(e).touchAction),'pan-x pan-y','panel allows internal scrolling without page pinch zoom');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true');
- assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'1');
+ assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e).opacity),'0','reduced motion hides moving reflections');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'true');
- assert.notEqual(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e,'::placeholder').textShadow),'none','empty composer invitation glows');
+
  assert.equal(await page.locator('.ai-ambient-glow').evaluate(e=>getComputedStyle(e,'::before').animationName),'none','reduced motion keeps glow static');
  await page.locator('#chatInput').fill(' ');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false','glow fades with the first typed character');
@@ -62,7 +62,7 @@ const checks=String.raw`
  await page.evaluate(()=>{document.getElementById('aiScrollProbe').remove();chatMain.scrollTop=0;});
  await page.locator('#chatHistoryTab').click();await page.evaluate(()=>aiPull(document.getElementById('chatArchive')));
  assert.deepEqual(await page.evaluate(()=>aiRefreshCalls),[]);
- assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false','history has no idle animation');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true','white reflection covers history too when not drafting');
  await page.locator('#chatTalkTab').click();await page.locator('#chatClose').click();
  // Opening and closing AI midway through a weather pull must cancel the gesture.
  await page.evaluate(()=>{aiTouch(window,'touchstart',150);aiTouch(window,'touchmove',310);});
@@ -79,7 +79,7 @@ const checks=String.raw`
  const send=async q=>{await page.locator('#chatInput').fill(q);await page.locator('#chatSend').click();};
  await send('Plouă azi?');await page.waitForFunction(()=>document.getElementById('chatMessages').textContent.includes('Răspuns pentru Plouă azi?'));
  console.log('First AI answer received');
- assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'false');
+ assert.equal(await page.locator('#chatWindow').getAttribute('data-idle'),'true','white reflection covers ongoing conversations');
  assert.equal(await page.locator('#chatWindow').getAttribute('data-composer-idle'),'true','empty composer glows in an ongoing conversation too');
  assert.equal(requests.length,1);assert.equal(requests[0].locatie.nume,loc.nume);assert.equal(requests[0].vremea.curent.temperatura_c,28);
  const background=async()=>{await page.evaluate(()=>{Object.defineProperty(document,'visibilityState',{configurable:true,value:'hidden'});document.dispatchEvent(new Event('visibilitychange'));});await page.waitForTimeout(50);assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true');assert.equal(await page.evaluate(()=>MeteoConversations.active()),null);assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),false);await page.evaluate(()=>{delete document.visibilityState;document.dispatchEvent(new Event('visibilitychange'));});assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'true','resume stays on weather');};
@@ -135,8 +135,15 @@ const checks=String.raw`
  const glass=await motionPage.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),sweep:getComputedStyle(e,'::before').animationName,glow:getComputedStyle(e,'::after').animationName};});
  assert.equal(glass.pressed,true);assert.equal(glass.pulse,true);assert.equal(glass.sweep,'aiGlassSweep');assert.equal(glass.glow,'aiGlassGlow');
  const ambient=await motionPage.locator('.ai-ambient-glow').evaluate(e=>({name:getComputedStyle(e,'::before').animationName,pointer:getComputedStyle(e).pointerEvents}));
- assert.equal(ambient.name,'aiAmbientFloat');assert.equal(ambient.pointer,'none');
- assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'aiComposerGlow');
+ assert.equal(ambient.name,'aiWhiteSweep');assert.equal(ambient.pointer,'none');
+ const reflection=await motionPage.locator('.ai-ambient-glow').evaluate(e=>{const s=getComputedStyle(e,'::before'),r=e.getBoundingClientRect(),panel=e.parentElement.getBoundingClientRect();return{background:s.backgroundImage,z:getComputedStyle(e).zIndex,width:r.width,height:r.height,panelWidth:panel.width,panelHeight:panel.height};});
+ assert.ok(reflection.background.includes('255, 255, 255'),'reflection is white');
+ assert.ok(+reflection.z>0&&reflection.width>=reflection.panelWidth-3&&reflection.height>=reflection.panelHeight-3,'reflection covers controls and the whole panel');
+ await motionPage.locator('.ai-ambient-glow').evaluate(e=>e.getAnimations({subtree:true}).forEach(a=>{a.pause();a.currentTime=2400;}));
+ await motionPage.locator('.ai-composer').evaluate(e=>e.getAnimations({subtree:true}).filter(a=>a.animationName==='aiWhiteSweep').forEach(a=>{a.pause();a.currentTime=2400;}));
+ await motionPage.screenshot({path:path.join(shots,'ai-white-reflection-412.png')});
+
+ assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'aiWhiteSweep');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='false');
  assert.equal(await motionPage.locator('.ai-composer').evaluate(e=>getComputedStyle(e,'::before').animationName),'none');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='true');

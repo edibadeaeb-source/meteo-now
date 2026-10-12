@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.4">
+    <meta name="application-version" content="2026.10.12.5">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3514,7 +3514,7 @@ function enChat(){return typeof LANG!=='undefined' && LANG==='en';}
 function activeId(){var c=conversations.active();return c?c.id:null;}
 function syncChatGlow(){
     var empty=!chatInput.value.length;
-    chatWindow.dataset.idle=String(chatMode==='home'&&empty);
+    chatWindow.dataset.idle=String(empty);
     chatWindow.dataset.composerIdle=String(chatMode!=='history'&&empty);
 }
 function buttonState(){chatSend.disabled=!chatInput.value.trim()||!!pendingChats[activeId()];syncChatGlow();}
@@ -8749,7 +8749,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=3">
+<link rel="stylesheet" href="weather-ai.css?v=4">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
