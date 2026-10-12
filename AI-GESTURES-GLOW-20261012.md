@@ -1,6 +1,6 @@
 # METEO NOW — gesturi și glow în AI
 
-Versiune web/server **2026.10.12.5**, Service Worker **v54**, `weather-ai.css?v=4`.
+Versiune web/server **2026.10.12.6**, Service Worker **v55**, `weather-ai.css?v=5`.
 
 ## Comportament
 

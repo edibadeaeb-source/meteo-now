@@ -11,7 +11,7 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow {overscroll-behavior:none;touch-action:pan-x pan-y;}
 #chatWindow .ai-ambient-glow {position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:5;opacity:0;transition:opacity .3s ease;}
 #chatWindow.open[data-idle="true"] .ai-ambient-glow {opacity:1;}
-#chatWindow .ai-ambient-glow::before {content:'';position:absolute;left:-70%;top:-10%;width:65%;height:120%;pointer-events:none;background:linear-gradient(110deg,transparent 22%,#ffffff06 38%,#ffffff1c 50%,#ffffff06 62%,transparent 78%);transform:translate3d(0,0,0);opacity:0;animation:none;}
+#chatWindow .ai-ambient-glow::before {content:'';position:absolute;left:-70%;top:-10%;width:65%;height:120%;pointer-events:none;background:linear-gradient(90deg,transparent 22%,#ffffff06 38%,#ffffff1c 50%,#ffffff06 62%,transparent 78%);transform:translate3d(0,0,0);opacity:0;animation:none;}
 #chatWindow.open[data-idle="true"] .ai-ambient-glow::before {animation:aiWhiteSweep 6.4s ease-in-out infinite;}
 @keyframes aiWhiteSweep {0%,8%{transform:translate3d(0,0,0);opacity:0;}14%{opacity:1;}50%{opacity:1;}62%,100%{transform:translate3d(300%,0,0);opacity:0;}}
 #chatWindow .chat-header {flex-shrink:0;gap:8px;padding:18px 18px 12px;background:transparent!important;border:0!important;}
@@ -42,7 +42,7 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .chat-input-area {display:block;flex-shrink:0;padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));border:0!important;background:transparent!important;}
 #chatWindow .ai-composer {padding:1.5px;border-radius:25px;background:linear-gradient(115deg,#bca0f4aa,#d4c1ff55 45%,#90d9ffbb);box-shadow:0 3px 20px #b0acff0b;}
 #chatWindow .ai-composer {position:relative;isolation:isolate;overflow:hidden;}
-#chatWindow .ai-composer::before {content:'';position:absolute;left:-70%;top:0;width:65%;height:100%;pointer-events:none;z-index:1;opacity:0;background:linear-gradient(110deg,transparent 22%,#ffffff09 38%,#ffffff24 50%,#ffffff09 62%,transparent 78%);transform:translate3d(0,0,0);transition:opacity .3s ease;}
+#chatWindow .ai-composer::before {content:'';position:absolute;left:-70%;top:0;width:65%;height:100%;pointer-events:none;z-index:1;opacity:0;background:linear-gradient(90deg,transparent 22%,#ffffff09 38%,#ffffff24 50%,#ffffff09 62%,transparent 78%);transform:translate3d(0,0,0);transition:opacity .3s ease;}
 #chatWindow.open[data-composer-idle="true"] .ai-composer::before {animation:aiWhiteSweep 6.4s ease-in-out infinite;}
 #chatWindow .ai-composer-inner {border-radius:23.5px;background:rgba(9,18,39,.85);padding:15px 14px 10px;}
 #chatWindow #chatInput {display:block;box-sizing:border-box;width:100%;height:64px;min-height:64px;max-height:140px;resize:none;overflow-y:auto;padding:6px 4px 4px;background:transparent!important;border:0!important;outline:0;font:400 16px/1.55 Inter,system-ui,sans-serif;color:#f5f7ff!important;caret-color:#c5ddff;touch-action:pan-y;}
