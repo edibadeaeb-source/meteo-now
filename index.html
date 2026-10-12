@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.7">
+    <meta name="application-version" content="2026.10.12.8">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3633,17 +3633,20 @@ window.MeteoChat={hasMessages:function(){var c=conversations.active();return !!(
 renderConversation();
 
 var pressedChatButton=null;
-function pulseButton(button,e){
-    if(!button||button.disabled||!button.isConnected)return;
-    if(e&&e.clientX!=null){var r=button.getBoundingClientRect();button.style.setProperty('--ai-press-x',(e.clientX-r.left)+'px');button.style.setProperty('--ai-press-y',(e.clientY-r.top)+'px');}
-    if(button.classList.contains('ai-glass-pulse'))return;
-    button.classList.add('ai-glass-pulse');setTimeout(function(){button.classList.remove('ai-glass-pulse');},520);
-}
 function releaseChatButton(){if(pressedChatButton)pressedChatButton.classList.remove('ai-touch-down');pressedChatButton=null;}
-chatWindow.addEventListener('pointerdown',function(e){var button=e.target.closest('button');if(!button||button.disabled)return;releaseChatButton();pressedChatButton=button;button.classList.add('ai-touch-down');pulseButton(button,e);});
+chatWindow.addEventListener('pointerdown',function(e){
+    var button=e.target.closest('button');
+    if(!button||button.disabled)return;
+    releaseChatButton();pressedChatButton=button;button.classList.add('ai-touch-down');
+});
 window.addEventListener('pointerup',releaseChatButton);window.addEventListener('pointercancel',releaseChatButton);
+window.addEventListener('pointermove',function(e){
+    if(!pressedChatButton)return;
+    var r=pressedChatButton.getBoundingClientRect();
+    if(e.clientX<r.left-10||e.clientX>r.right+10||e.clientY<r.top-10||e.clientY>r.bottom+10)releaseChatButton();
+},{passive:true});
 window.addEventListener('blur',releaseChatButton);chatWindow.addEventListener('scroll',releaseChatButton,{capture:true,passive:true});
-chatWindow.addEventListener('click',function(e){pulseButton(e.target.closest('button'));});
+chatWindow.addEventListener('contextmenu',function(e){if(e.target.closest('button'))e.preventDefault();});
 
 function addMessage(text, isUser) {
     var div = document.createElement('div');
@@ -8753,7 +8756,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=6">
+<link rel="stylesheet" href="weather-ai.css?v=7">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>

@@ -71,16 +71,13 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .ai-storage-note {margin:0;padding:0 20px 10px;font-size:.72rem;line-height:1.45;color:#ffddc0;flex-shrink:0;}
 #chatWindow button:focus-visible {outline:2px solid #b2dfff;outline-offset:3px;}
 #chatWindow .ai-composer:focus-within {box-shadow:0 0 0 2px #b4c6ff35;}
-#chatWindow button {position:relative;isolation:isolate;overflow:hidden;transition:transform .24s cubic-bezier(.2,1.35,.35,1),border-color .2s;box-shadow:inset 0 1px 0 #ffffff17,inset 0 -1px 0 #ffffff07;}
+/* Keep the glass/backdrop surface stable during a sustained press. */
+#chatWindow button {position:relative;overflow:hidden;transform:none!important;filter:none!important;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;transition:border-color .16s ease;box-shadow:inset 0 1px 0 #ffffff17,inset 0 -1px 0 #ffffff07;}
 #chatWindow .ai-history-open {border-radius:16px;}
-#chatWindow button::before,#chatWindow button::after {content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;opacity:0;}
-#chatWindow button::before {background:linear-gradient(115deg,transparent 20%,#ffffff08 38%,#ffffff36 50%,#ffffff08 62%,transparent 80%);transform:translateX(-120%);}
-#chatWindow button::after {background:radial-gradient(circle at var(--ai-press-x,50%) var(--ai-press-y,50%),#e6efff55,transparent 70%);}
-#chatWindow button.ai-glass-pulse::before {animation:aiGlassSweep .5s cubic-bezier(.2,.65,.3,1);}
-#chatWindow button.ai-glass-pulse::after {animation:aiGlassGlow .46s ease-out;}
-#chatWindow button.ai-touch-down,#chatWindow button:not(:disabled):active {transform:scale(.96) translateY(.5px);border-color:#e0eaff75;}
-@keyframes aiGlassSweep {0%{transform:translateX(-120%);opacity:0;}15%{opacity:.9;}85%{opacity:.65;}100%{transform:translateX(120%);opacity:0;}}
-@keyframes aiGlassGlow {0%{transform:scale(.75);opacity:0;}25%{opacity:.65;}100%{transform:scale(1.08);opacity:0;}}
+#chatWindow button::before {content:none!important;animation:none!important;}
+#chatWindow button::after {content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(140deg,#ffffff20,#ffffff08);opacity:0;transform:none!important;animation:none!important;transition:opacity .14s ease;}
+#chatWindow button.ai-touch-down {border-color:#e0eaff75;}
+#chatWindow button.ai-touch-down::after {opacity:1;}
 #chatWindow[data-keyboard="true"] .chat-suggestions, #chatWindow[data-keyboard="true"] .ai-home {display:none!important;}
 @media (max-width:380px),(max-height:700px) {
     #chatWindow .chat-suggestions {flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:10px;touch-action:pan-x;scrollbar-width:none;}
