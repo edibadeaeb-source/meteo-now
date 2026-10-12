@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.9">
+    <meta name="application-version" content="2026.10.12.10">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3561,6 +3561,7 @@ function updateLabels(){
     chatFab.setAttribute('aria-label',en?'Open weather assistant':'Deschide asistentul meteo');
     document.getElementById('chatHomeTitle').textContent=en?'What would you like to know?':'Ce vrei să afli despre vreme?';
     chatInput.placeholder=en?'Ask about the weather, rain or your plans…':'Întreabă-mă despre vreme, ploaie sau planurile tale…';
+    document.getElementById('chatPromptGlow').textContent=chatInput.placeholder;
     chatInput.setAttribute('aria-label',en?'Your question':'Întrebarea ta');chatSend.setAttribute('aria-label',en?'Send question':'Trimite întrebarea');
     document.getElementById('chatContextLabel').textContent=(en?'Weather in ':'Vremea din ')+(LOC.nume||'METEO NOW');
     if(chatMode==='history')renderHistory();storageNote();
@@ -3585,9 +3586,10 @@ function syncOpen(){
     if(open){
         restoreFocus=document.activeElement;chatFab.classList.remove('has-notification');
         Array.prototype.forEach.call(document.body.children,function(el){if(el===chatWindow||el===chatBackdrop||['SCRIPT','STYLE','LINK'].indexOf(el.tagName)>=0)return;backgroundState.push({el:el,inert:el.hasAttribute('inert')});el.setAttribute('inert','');});
-        viewportChat();renderConversation();
+        viewportChat();renderConversation();if(window.MeteoAIGlass)MeteoAIGlass.capture(chatWindow);
         if(window.innerWidth>900)chatInput.focus({preventScroll:true});else chatClose.focus({preventScroll:true});
     }else{
+        releaseChatButton();chatTouchButtons=false;if(window.MeteoAIGlass)MeteoAIGlass.release(chatWindow);
         backgroundState.forEach(function(s){if(s.el.isConnected&&!s.inert)s.el.removeAttribute('inert');});backgroundState=[];
         if(restoreFocus&&restoreFocus.isConnected&&!restoreFocus.closest('[inert]'))restoreFocus.focus({preventScroll:true});
     }
@@ -3633,23 +3635,56 @@ window.MeteoChat={hasMessages:function(){var c=conversations.active();return !!(
 renderConversation();
 
 var pressedChatButton=null;
-var chatPressX=0,chatPressY=0;
+var chatTouchButtons=false;
 function releaseChatButton(){if(pressedChatButton)pressedChatButton.classList.remove('ai-touch-down');pressedChatButton=null;}
+function shineChatButton(button,x,y){
+    if(!button||button.disabled||!chatWindow.classList.contains('open')||!chatWindow.contains(button)){releaseChatButton();return;}
+    if(pressedChatButton!==button){
+        releaseChatButton();pressedChatButton=button;button.classList.add('ai-touch-down');
+        if(!button.classList.contains('ai-glass-pulse')){
+            button.classList.add('ai-glass-pulse');
+            setTimeout(function(){button.classList.remove('ai-glass-pulse');},520);
+        }
+    }
+    var r=button.getBoundingClientRect();
+    button.style.setProperty('--ai-press-x',Math.max(0,Math.min(r.width,x-r.left))+'px');
+    button.style.setProperty('--ai-press-y',Math.max(0,Math.min(r.height,y-r.top))+'px');
+}
+function shineChatPoint(x,y){
+    var hit=document.elementFromPoint(x,y);
+    shineChatButton(hit&&hit.closest('button'),x,y);
+}
 chatWindow.addEventListener('pointerdown',function(e){
+    chatTouchButtons=e.pointerType==='touch'&&!e.target.closest('input,textarea,[contenteditable="true"]');
     var button=e.target.closest('button');
     if(!button||button.disabled)return;
-    releaseChatButton();pressedChatButton=button;chatPressX=e.clientX;chatPressY=e.clientY;button.classList.add('ai-touch-down');
+    shineChatButton(button,e.clientX,e.clientY);
 });
-window.addEventListener('pointerup',releaseChatButton);window.addEventListener('pointercancel',releaseChatButton);
 window.addEventListener('pointermove',function(e){
-    if(!pressedChatButton)return;
-    // A swipe cancels feedback immediately, even while still inside a wide button.
-    if(Math.hypot(e.clientX-chatPressX,e.clientY-chatPressY)>6){releaseChatButton();return;}
-    var r=pressedChatButton.getBoundingClientRect();
-    if(e.clientX<r.left-10||e.clientX>r.right+10||e.clientY<r.top-10||e.clientY>r.bottom+10)releaseChatButton();
+    if(!chatWindow.classList.contains('open'))return;
+    if(e.pointerType==='mouse'||e.pointerType==='pen'||chatTouchButtons)shineChatPoint(e.clientX,e.clientY);
 },{passive:true});
-window.addEventListener('blur',releaseChatButton);chatWindow.addEventListener('scroll',releaseChatButton,{capture:true,passive:true});
+window.addEventListener('pointerup',releaseChatButton);
+// Android may cancel Pointer Events before/after the same native touchmove.
+// This is not a lifted finger: Touch Events continue the local reflection.
+window.addEventListener('pointercancel',function(e){if(e.pointerType!=='touch'||!chatTouchButtons)releaseChatButton();});
+// Native scrolling cancels Pointer Events; Touch Events still follow the finger.
+chatWindow.addEventListener('touchmove',function(e){
+    if(chatTouchButtons&&e.touches.length===1)shineChatPoint(e.touches[0].clientX,e.touches[0].clientY);
+},{passive:true});
+function endChatTouch(){chatTouchButtons=false;releaseChatButton();}
+chatWindow.addEventListener('touchend',endChatTouch,{passive:true});
+chatWindow.addEventListener('touchcancel',endChatTouch,{passive:true});
+window.addEventListener('touchend',endChatTouch,{passive:true});
+window.addEventListener('touchcancel',endChatTouch,{passive:true});
+window.addEventListener('blur',endChatTouch);
+chatWindow.addEventListener('pointerleave',function(){if(!chatTouchButtons)releaseChatButton();},{passive:true});
+chatWindow.addEventListener('scroll',function(){if(!chatTouchButtons)releaseChatButton();},{capture:true,passive:true});
 chatWindow.addEventListener('contextmenu',function(e){if(e.target.closest('button'))e.preventDefault();});
+chatWindow.addEventListener('click',function(e){
+    if(e.detail!==0)return;var button=e.target.closest('button');
+    if(button&&!button.disabled){var r=button.getBoundingClientRect();shineChatButton(button,r.left+r.width/2,r.top+r.height/2);releaseChatButton();}
+});
 
 function addMessage(text, isUser) {
     var div = document.createElement('div');
@@ -3940,7 +3975,7 @@ meteoInterval(function() {
         <div class="chat-suggestions" id="chatSuggestions"></div>
         <div class="chat-input-area">
             <div class="ai-composer"><div class="ai-composer-inner">
-                <textarea class="chat-input" id="chatInput" rows="2" maxlength="2000" placeholder="Întreabă-mă despre vreme, ploaie sau planurile tale…" aria-label="Întrebarea ta" autocomplete="off" enterkeyhint="send"></textarea>
+                <div class="ai-prompt-slot"><textarea class="chat-input" id="chatInput" rows="2" maxlength="2000" placeholder="Întreabă-mă despre vreme, ploaie sau planurile tale…" aria-label="Întrebarea ta" autocomplete="off" enterkeyhint="send"></textarea><div class="ai-prompt-glow" id="chatPromptGlow" aria-hidden="true"></div></div>
                 <div class="ai-composer-footer"><span class="ai-composer-context" id="chatContextLabel">Datele meteo din aplicație</span><button class="chat-send" id="chatSend" aria-label="Trimite întrebarea"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div>
             </div></div>
         </div>
@@ -8759,7 +8794,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=8">
+<link rel="stylesheet" href="weather-ai.css?v=9">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -8861,6 +8896,7 @@ input, textarea, select, [contenteditable="true"] {
 <script src="weather-data-cache.js?v=6"></script>
 <script src="weather-romania.js?v=3"></script>
 <script src="weather-motion.js?v=9"></script>
+<script src="ai-glass.js?v=1"></script>
 <script src="weather-atmosphere.js?v=8"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════

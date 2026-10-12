@@ -125,13 +125,14 @@ const checks=String.raw`
  await page.setViewportSize({width:412,height:915});
  const typography=await page.locator('#chatInput').evaluate(e=>{const s=getComputedStyle(e);return{placeholder:e.placeholder,top:parseFloat(s.paddingTop),left:parseFloat(s.paddingLeft),line:parseFloat(s.lineHeight)};});
  assert.ok(typography.placeholder.startsWith('Întreabă-mă'));assert.ok(typography.top>=6&&typography.left>=4&&typography.line>=24,'diacritics have space inside the textarea');
- const suggestionPress=await page.locator('.chat-suggestion').first().evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));return{pressed:e.classList.contains('ai-touch-down'),old:e.classList.contains('presat')};});assert.equal(suggestionPress.pressed,true);assert.equal(suggestionPress.old,false,'AI suggestions use one press animation');await page.evaluate(()=>document.getElementById('chatMain').dispatchEvent(new Event('scroll')));assert.equal(await page.locator('.chat-suggestion').first().evaluate(e=>e.classList.contains('ai-touch-down')),false,'scroll releases button');
+ const suggestionPress=await page.locator('.chat-suggestion').first().evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'mouse'}));return{pressed:e.classList.contains('ai-touch-down'),old:e.classList.contains('presat')};});assert.equal(suggestionPress.pressed,true);assert.equal(suggestionPress.old,false,'AI suggestions use one press animation');await page.evaluate(()=>document.getElementById('chatMain').dispatchEvent(new Event('scroll')));assert.equal(await page.locator('.chat-suggestion').first().evaluate(e=>e.classList.contains('ai-touch-down')),false,'scroll releases button');
  const actualPress=await page.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),animation:getComputedStyle(e,'::before').animationName,transform:getComputedStyle(e).transform};});
- await page.locator('#chatHistoryTab').evaluate(e=>{const r=e.getBoundingClientRect(),x=r.x+30,y=r.y+20;e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:x,clientY:y}));window.dispatchEvent(new PointerEvent('pointermove',{clientX:x+8,clientY:y}));});
- assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),0,'moving inside a wide button cancels press feedback');
- assert.equal(actualPress.pressed,true);assert.equal(actualPress.pulse,false);assert.equal(actualPress.animation,'none','reduced motion disables shimmer');assert.equal(actualPress.transform,'none');
+ await page.locator('#chatHistoryTab').evaluate(e=>{const r=e.getBoundingClientRect(),x=r.x+30,y=r.y+20;e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:x,clientY:y}));window.dispatchEvent(new PointerEvent('pointermove',{pointerType:'touch',clientX:x+8,clientY:y}));});
+ assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),1,'the sheen follows the finger inside the button');
+ assert.equal(actualPress.pressed,true);assert.equal(actualPress.pulse,true);assert.equal(actualPress.animation,'none','reduced motion disables shimmer');assert.equal(actualPress.transform,'none');
  await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointercancel')));await page.waitForTimeout(600);
  assert.equal(await page.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false,'cancel releases all press effects');
+ await page.locator('#chatWindow').dispatchEvent('touchcancel',{touches:[],changedTouches:[]});
  await page.locator('#chatSend').dispatchEvent('pointerdown',{pointerType:'touch'});assert.equal(await page.locator('#chatSend').evaluate(e=>e.classList.contains('ai-glass-pulse')),false,'disabled send does not animate');
  // Isolate the short animation from headless software rendering of weather videos.
  const motionPage=await context.newPage();await motionPage.goto(base+'/cache-test');await motionPage.emulateMedia({reducedMotion:'no-preference'});
@@ -141,16 +142,18 @@ const checks=String.raw`
  await motionPage.addScriptTag({content:"var chatWindow=document.getElementById('chatWindow');var pressedChatButton=null;"+realButtonHandlers});
 
  const glass=await motionPage.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),transform:getComputedStyle(e).transform,before:getComputedStyle(e,'::before').animationName,after:getComputedStyle(e,'::after').animationName};});
- assert.equal(glass.pressed,true);assert.equal(glass.transform,'none');assert.equal(glass.before,'none');assert.equal(glass.after,'none');
+ assert.equal(glass.pressed,true);assert.equal(glass.transform,'none');assert.equal(glass.before,'aiGlassSweep');assert.equal(glass.after,'none');
  const edge=await motionPage.locator('.ai-edge-light').evaluate(e=>({count:e.querySelectorAll('rect').length,fill:getComputedStyle(e.querySelector('rect')).fill,animation:getComputedStyle(e.querySelector('rect')).animationName,pointer:getComputedStyle(e.parentElement).pointerEvents}));
  assert.equal(edge.count,3);assert.equal(edge.fill,'none','edge lighting never fills the panel');assert.equal(edge.animation,'aiEdgeCircuit');assert.equal(edge.pointer,'none');
- assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'aiPromptGlow');
+ assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none','real editor has no animated paint');
+ assert.equal(await motionPage.locator('#chatPromptGlow').evaluate(e=>getComputedStyle(e).animationName),'aiPromptGlow');
  const phases=await motionPage.locator('.ai-edge-head').evaluate(e=>{const a=e.getAnimations()[0];a.pause();return[0,1500,3000,4500].map(t=>{a.currentTime=t;return parseFloat(getComputedStyle(e).strokeDashoffset);});});
  assert.deepEqual(phases,[0,-25,-50,-75],'light travels around the perimeter');
- const prompt=await motionPage.locator('#chatInput').evaluate(e=>{const a=e.getAnimations()[0];a.pause();return[0,1400].map(t=>{a.currentTime=t;return getComputedStyle(e,'::placeholder').textShadow;});});
- assert.notEqual(prompt[0],prompt[1],'placeholder itself pulses while waiting for text');
+ const prompt=await motionPage.locator('#chatPromptGlow').evaluate(e=>{const a=e.getAnimations()[0];a.pause();return[0,1400].map(t=>{a.currentTime=t;return getComputedStyle(e).opacity;});});
+ assert.notEqual(prompt[0],prompt[1],'separate prompt glow pulses while the editor stays stable');
  await motionPage.screenshot({path:path.join(shots,'ai-edge-lighting-412.png')});
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='false');
+ assert.equal(await motionPage.locator('#chatPromptGlow').evaluate(e=>getComputedStyle(e).animationName),'none');
  assert.equal(await motionPage.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.composerIdle='true');
  await motionPage.locator('#chatWindow').evaluate(e=>e.dataset.idle='false');

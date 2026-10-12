@@ -34,7 +34,7 @@ class StaticBoundaryTests(unittest.TestCase):
 
     def test_public_resources_and_android_verification_remain_available(self):
         client = meteo.app.test_client()
-        for path in ['/', '/index.html', '/manifest.webmanifest', '/sw.js', '/ai-conversations.js',
+        for path in ['/', '/index.html', '/manifest.webmanifest', '/sw.js', '/ai-conversations.js', '/ai-glass.js',
                      '/weather-glass.css', '/icon-192.png', '/.well-known/assetlinks.json', '/privacy.html']:
             response = client.get(path)
             self.assertEqual(response.status_code, 200, path)

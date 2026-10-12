@@ -1,30 +1,27 @@
-# METEO NOW — gesturi și glow în AI
+# METEO NOW — AI: sticlă stabilă și reflexe la atingere
 
-Versiune web/server **2026.10.12.9**, Service Worker **v58**, `weather-ai.css?v=8`, `weather-motion.js?v=9`.
+Versiune web/server **2026.10.12.10**, Service Worker **v59**, `weather-ai.css?v=9`, `ai-glass.js?v=1`.
 
-## Comportament
+## Problema raportată
 
-- Gesturile și rotița mouse-ului din AI nu mai ajung la pagina meteo. Derularea nativă a conversației și editarea textului sunt păstrate.
-- Reîmprospătarea verifică panourile deschise la începutul, mișcarea și încheierea gestului. Deschiderea AI anulează imediat și un gest început în fundal. Gesturile întrerupte și cele cu mai multe degete sunt anulate.
-- O lumină albă urmărește doar conturul rotunjit al ferestrei AI, inspirată de Samsung Edge Lighting. Cele trei trasee SVG au interiorul transparent (`fill:none`); niciun luciu nu traversează mijlocul, butoanele sau mesajele.
-- Textul de invitație „Întreabă-mă” pulsează discret cu o strălucire albă cât timp editorul este gol. Animația este aplicată editorului gol și moștenită de placeholder; la primul caracter se oprește, fără efect pe mesajul scris.
-- Conturul se oprește de asemenea în timpul scrierii și după închidere. Poziția luminii este proporțională cu perimetrul, inclusiv pe colțurile rotunjite și la redimensionare.
-- Conturul animă numai poziția trăsăturilor SVG, iar textul animă umbra textului. Preferința pentru mișcare redusă dezactivează ambele efecte. Panoul permite derularea pe ambele axe unde există conținut, fără zoom al paginii.
-- Cât timp AI este deschis, rădăcina paginii dezactivează overscroll-ul. Antetul, taburile și sugestiile pe două rânduri acceptă doar glisare verticală, prevenind interpretarea lor ca navigare orizontală a browserului; sugestiile orizontale de pe ecranele mici păstrează `pan-x`. Închiderea restabilește comportamentul paginii.
-- Eliberarea degetului în AI nu mai încearcă să repornească filmarea meteo din fundal; recuperarea autoplay-ului prin atingere rămâne disponibilă în pagina meteo.
-- Fundalul blurat este pe un strat decorativ separat (`#chatWindow::before`), cu atingerea dezactivată; containerul interactiv nu mai are `backdrop-filter`. Conturul are propria zonă de pictare.
-- Butoanele nu mai creează pseudo-elemente cu tranziții de opacitate și nu schimbă fundalul la atingere sau hover. Feedbackul este doar o schimbare locală, imediată, a chenarului. Eliberarea, anularea, glisarea peste 6 px (inclusiv în interiorul butonului) și derularea elimină feedbackul. Meniul nativ la apăsare lungă este blocat doar pentru butoane; editarea textului este păstrată.
+Corecția 2026.10.12.9 a trecut probele desktop, dar utilizatorul a raportat în continuare pâlpâirea întregului panou AI și a casetei de scriere pe S24 Ultra. Reflexul de pe butoane trebuie păstrat. Telefonul fizic nu este conectat la calculator; probele locale nu reprezintă o confirmare pe S24.
 
-## Verificări
+## Comportament final
 
-`tests/ai-interface-browser.cjs`: evenimente de atingere în antet, conversație, editor, istoric și fundal; verificarea directă a handlerului global; gest început înaintea deschiderii AI; anulare și atingere cu două degete; reîmprospătare funcțională după închidere; glisare reală în conversație prin protocolul browserului; glow gol/scriere/închidere, mișcare redusă; istoric, răspunsuri întârziate, tastatură, RO/EN, accesibilitate. Dimensiuni: 320×568, 360×800, 412×915, 430×932, 932×430 și 1280×800.
+- Nici containerul AI, nici stratul său decorativ nu mai folosesc `backdrop-filter`. La deschidere, cadrul video sau fotografia meteo deja încărcată se copiază într-un bitmap opac, estompat o singură dată, peste care rămâne nuanța mov-albastră a sticlei. Nu se descarcă altă imagine și nu se serializează date ale utilizatorului.
+- Bitmapul nu se redesenează la atingere, hover, derulare sau schimbarea tabului AI. Redimensionarea reală pe lățime îl adaptează; închiderea îi eliberează memoria. Redeschiderea captează vremea curentă, reutilizând același element. Media absentă sau canvas indisponibil păstrează un fundal stabil.
+- Reflexul liquid glass al butoanelor este păstrat: o trecere albă la intrarea pe buton și o lumină radială care urmărește degetul. Mișcarea în interiorul butonului nu îl mai dezactivează. Evenimentele tactile continuă urmărirea și după anularea Pointer Events de către derularea nativă. În Chrome Android, `pointercancel` și `pointerleave` pot sosi după `touchmove`; ele nu mai sting reflexul cât timp degetul este încă pe ecran. `touchend`/`touchcancel`, închiderea și pierderea focusului îl eliberează. Reflexele sunt limitate la zona fiecărui buton; nu există filtre animate pe panou.
+- Textul real și placeholderul editorului nu mai au animații. Strălucirea albă se află pe un text decorativ separat, cu `aria-hidden` și `pointer-events:none`, animând doar opacitatea. Eticheta și placeholderul nativ rămân accesibile și editabile. La primul caracter, glow-ul se oprește.
+- Lumina albă continuă să urmărească numai conturul rotunjit. La mișcare redusă, atât conturul, cât și efectele de text/butoane sunt oprite.
+- Izolarea fundalului, istoricul conversațiilor, derularea nativă, tastatura, RO/EN și blocarea reîmprospătării paginii meteo rămân active. Antetul/taburile nu declanșează navigarea orizontală a browserului, iar rândurile de sugestii de pe ecrane mici își păstrează derularea orizontală.
 
-`tests/ai-sweep-browser.cjs`: glisări reale în ambele sensuri peste antet, taburi și sugestii, cu fundalul fotografic meteo și animațiile contur/text active (decodarea video este exclusă din această probă SwiftShader); hover păstrat după atingere; verifică izolarea blurului, lipsa straturilor de apăsare, geometria, lipsa reîmprospătării și activării accidentale. Compară separat pixelii de sticlă cu animațiile AI active, după ascunderea fundalului meteo doar în acea probă.
+## Probe
 
-`tests/ai-long-press-browser.cjs`: 10 apăsări lungi prin protocolul real de atingere al browserului, câte 1,27 secunde; compararea pixelilor unei zone de sticlă stabile, geometria și filtrele panoului, anulare, ieșirea de pe buton, editarea textului și închidere. Fundalul meteo și animațiile de așteptare sunt înghețate doar în această probă, pentru a izola răspunsul butoanelor.
+- `tests/ai-sweep-browser.cjs`: 24 eșantioane pe șase glisări reale, în ambele sensuri, peste antet/taburi/sugestii; geometrie și bitmap nemodificate; bitmap opac; lipsa blurului CSS; reflex păstrat și coordonate actualizate în interiorul butonului; comparații de pixeli în panou și în zona liberă a editorului, cu animațiile AI active și fundalul meteo fotografic activ; închidere/eliberare și recapturare la redeschidere.
+- `tests/ai-interface-browser.cjs`: conversații, istoric, răspunsuri întârziate, editare, accesibilitate, RO/EN, tastatură, glow separat de textarea, izolare tactilă și șase dimensiuni: 320×568, 360×800, 412×915, 430×932, 932×430, 1280×800.
+- `tests/ai-long-press-browser.cjs`: zece atingeri de 1,27 secunde; reflexul de intrare nu se repetă în timpul ținerii, pixelii sticlei și geometria rămân stabili, anularea și selectarea textului funcționează.
+- `tests/ai-android-browser.cjs`: Chrome 155.0.8059.39 în emulator Android SDK 37, 360×672 CSS px, DPR 2; șase glisări native, geometrie/bitmap stabile, reflex păstrat, glow separat, scriere și închidere/eliberare, fără erori JavaScript. Testul folosește fotografia meteo locală și nu verifică telefonul fizic sau wrapperul APK.
+- `tests/test_security.py`: 26 teste; noul modul `ai-glass.js` este permis explicit ca resursă publică, iar fișierele private rămân inaccesibile.
+- Regresiile mobile, sintaxa scripturilor, fluxurile notificărilor și stocarea video sunt verificate separat. Datele meteo și răspunsurile AI sunt simulate; probele nu trimit notificări sau mesaje reale.
 
-Verificări suplimentare: `ai-conversations.test.cjs`, `mobile-regressions.test.js`, `notification-flows.test.js` (inclusiv sintaxa scripturilor).
-
-Datele meteo și răspunsurile AI sunt simulate în teste; nu sunt trimise mesaje sau notificări reale. Verificările sunt în Edge cu ecran mobil simulat, nu pe telefonul fizic S24 Ultra. Capturile sunt în `03-Testare-si-capturi/tests/ai-interface`.
-
-Schimbarea este web; APK-ul **1.0.23** existent primește noua interfață de pe server, fără reinstalare.
+Aplicația Android **1.0.23** încarcă interfața de pe server; această schimbare nu cere un APK nou. Confirmarea finală pe telefonul S24 rămâne necesară.

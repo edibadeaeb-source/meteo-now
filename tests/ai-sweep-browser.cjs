@@ -26,7 +26,11 @@ const checks=String.raw`
  const original=await surface(),samples=[];
  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehavior),'none');
  assert.equal(original.backdrop,'none','interactive ancestor has no backdrop filter');
- assert.ok(original.glassBackdrop.includes('blur(24px)'),'glass blur is isolated on its decorative layer');
+ assert.equal(original.glassBackdrop,'none','no live CSS blur remains in AI');
+ const bitmap=()=>page.locator('.ai-glass-bitmap').evaluate(e=>{const pixels=e.getContext('2d').getImageData(0,0,e.width,e.height).data;let hash=2166136261,opaque=true;for(let i=0;i<pixels.length;i++){hash=Math.imul(hash^pixels[i],16777619);if(i%4===3&&pixels[i]!==255)opaque=false;}return{width:e.width,height:e.height,hash:hash>>>0,opaque};});
+ const liveBlurs=await page.locator('#chatWindow').evaluate(e=>[e,...e.querySelectorAll('*')].filter(node=>getComputedStyle(node).backdropFilter!=='none').map(node=>node.id||node.className));
+ assert.deepEqual(liveBlurs,[],'AI has no live backdrop-filter surfaces');
+ const frozen=await bitmap();assert.equal(frozen.opaque,true);assert.ok(frozen.width>300&&frozen.height>800);
  assert.equal(original.glassContent,'""');assert.equal(original.glassPointer,'none');
  const buttons=page.locator('#chatWindow button:visible:enabled');
  const cssState=e=>{const s=getComputedStyle(e);return{background:s.background,color:s.color,transform:s.transform,filter:s.filter,shadow:s.boxShadow,before:getComputedStyle(e,'::before').content,after:getComputedStyle(e,'::after').content,afterOpacity:getComputedStyle(e,'::after').opacity};};
@@ -40,9 +44,9 @@ const checks=String.raw`
  await page.waitForTimeout(300);
  console.log('Hover states sampled');
  const hovering=await buttons.evaluateAll((els,fn)=>els.map(e=>eval('('+fn+')')(e)),cssState.toString());
- assert.deepEqual(hovering,resting,'passing over buttons cannot change their paint/compositing state');
+ assert.deepEqual(hovering,resting,'retained native hover cannot change the button geometry/filter');
  for(const nodeId of nodeIds)await cdp.send('CSS.forcePseudoState',{nodeId,forcedPseudoClasses:[]});
- for(const state of resting){assert.equal(state.before,'none');assert.equal(state.after,'none');}
+ for(const state of resting){assert.equal(state.before,'""');assert.equal(state.after,'""');}
  for(const selector of ['.ai-header-actions','.ai-tabs','.chat-suggestions']){
    console.log('Sweep '+selector);
    const box=await page.locator(selector).boundingBox(),y=box.y+Math.min(box.height/2,18);
@@ -66,28 +70,41 @@ const checks=String.raw`
  await page.waitForTimeout(180);
  assert.equal(animation.state,'running');
  assert.notEqual(animation.offset,await page.locator('.ai-edge-head').evaluate(e=>getComputedStyle(e).strokeDashoffset),'outline keeps moving during gestures');
- assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'aiPromptGlow');
+ assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none','the real editor remains static');
+ assert.equal(await page.locator('#chatPromptGlow').evaluate(e=>getComputedStyle(e).animationName),'aiPromptGlow');
+ assert.deepEqual(await bitmap(),frozen,'finger movement never repaints the frosted weather bitmap');
  console.log('Live gestures passed; capturing surface');
  await page.screenshot({path:path.join(shots,'live-sweep-412.png'),timeout:15000});
- // Also compare stable glass pixels with idle artwork still running; only the weather is now hidden.
- await page.addStyleTag({content:'#mobCer{visibility:hidden!important}'});
+ // Compare both the panel and editor while weather, contour and button sheen run.
+ const editor=await page.locator('#chatInput').boundingBox(),composerPixels=[];
  const pixels=[];const tab=await page.locator('#chatTalkTab').boundingBox();
  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:tab.x+10,y:tab.y+20}]});
  for(let n=0;n<4;n++){
    await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:tab.x+10+n*24,y:tab.y+20}]});
    await page.waitForTimeout(170);pixels.push(await page.screenshot({clip:{x:40,y:160,width:330,height:35}}));
+   composerPixels.push(await page.screenshot({clip:{x:editor.x+10,y:editor.y+editor.height-16,width:editor.width-20,height:8}}));
  }
  await cdp.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+ pixels.forEach((p,i)=>fs.writeFileSync(path.join(shots,'panel-'+i+'.png'),p));composerPixels.forEach((p,i)=>fs.writeFileSync(path.join(shots,'editor-'+i+'.png'),p));
  assert.ok(pixels.slice(1).every(p=>p.equals(pixels[0])),'moving across buttons cannot flash the glass while edge/text animations run');
- await page.locator('#chatTalkTab').evaluate(e=>{const r=e.getBoundingClientRect(),x=r.x+30,y=r.y+20;e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:x,clientY:y}));window.dispatchEvent(new PointerEvent('pointermove',{clientX:x+8,clientY:y}));});
- assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),0,'small movement inside a wide button already cancels feedback');
+ assert.ok(composerPixels.slice(1).every(p=>p.equals(composerPixels[0])),'the writing area cannot flash with the button sheen running');
+ await page.locator('#chatTalkTab').evaluate(e=>{const r=e.getBoundingClientRect(),x=r.x+30,y=r.y+20;e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:x,clientY:y}));window.dispatchEvent(new PointerEvent('pointermove',{pointerType:'touch',clientX:x+8,clientY:y}));});
+ assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),1,'the original liquid reflection follows finger movement');
+ const shine=await page.locator('#chatTalkTab').evaluate(e=>({x:e.style.getPropertyValue('--ai-press-x'),gradient:getComputedStyle(e,'::after').backgroundImage}));
+ assert.equal(parseFloat(shine.x),38);assert.ok(shine.gradient.includes('radial-gradient'));
+ await page.evaluate(()=>{window.dispatchEvent(new PointerEvent('pointercancel',{pointerType:'touch'}));document.getElementById('chatWindow').dispatchEvent(new PointerEvent('pointerleave',{pointerType:'touch'}));});
+ assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),1,'Android native pointer cancellation does not end the physical touch reflection');
+ await page.screenshot({path:path.join(shots,'finger-sheen-412.png')});
+ await page.locator('#chatWindow').dispatchEvent('touchcancel',{touches:[],changedTouches:[]});
  await page.locator('#chatHistoryTab').click();assert.equal(await page.locator('#chatWindow').getAttribute('data-mode'),'history');
  await page.locator('#chatTalkTab').click();await page.locator('#chatInput').fill('Salut');
  assert.equal(await page.locator('#chatInput').evaluate(e=>getComputedStyle(e).animationName),'none');
  await page.locator('#chatClose').click();assert.equal(await page.evaluate(()=>_nrPanouri),0);assert.equal(await page.evaluate(()=>document.documentElement.classList.contains('ai-is-open')),false);
+ assert.equal(await page.locator('.ai-glass-bitmap').evaluate(e=>e.width+e.height),0,'closing releases the bitmap memory');
+ await page.locator('#chatFab').click();assert.equal(await page.locator('.ai-glass-bitmap').count(),1);assert.equal((await bitmap()).opaque,true);await page.locator('#chatClose').click();
  assert.deepEqual(errors,[]);
- fs.writeFileSync(path.join(shots,'results.json'),JSON.stringify({samples:samples.length,hoverStable:true,liveAnimations:true,stableGlassPixels:true,surface:original,errors},null,2));
- console.log('PASS: live touch sweeps in both directions, retained hover, stable glass pixels with running glow, no accidental activation/refresh, editing and closing.');
+ fs.writeFileSync(path.join(shots,'results.json'),JSON.stringify({samples:samples.length,nativeHoverStable:true,liveAnimations:true,stableGlassPixels:true,stableComposerPixels:true,fingerSheen:true,bitmap:frozen,surface:original,errors},null,2));
+ console.log('PASS: frosted bitmap unchanged, editor pixels stable, finger sheen preserved; live touch sweeps in both directions, retained hover, stable glass pixels with running glow, no accidental activation/refresh, editing and closing.');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});`;
 const m=new Module(fixture,module);m.filename=fixture;m.paths=Module._nodeModulePaths(path.dirname(fixture));m._compile(prefix+checks,fixture);

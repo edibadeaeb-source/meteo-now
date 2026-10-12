@@ -21,7 +21,7 @@ const checks=String.raw`
      samples.push(await button.evaluate(e=>{const s=getComputedStyle(e),after=getComputedStyle(e,'::after');return{transform:s.transform,filter:s.filter,before:getComputedStyle(e,'::before').animationName,after:after.animationName};}));
      if(i===2){const image=await page.screenshot({clip:{x:40,y:160,width:330,height:40}});if(bitmap)assert.ok(bitmap.equals(image),'holding a button must not flash the glass surface');bitmap=image;}
    }
-   for(const s of samples){assert.equal(s.transform,'none');assert.equal(s.filter,'none');assert.equal(s.before,'none');assert.equal(s.after,'none');}
+   for(const [phase,s] of samples.entries()){assert.equal(s.transform,'none');assert.equal(s.filter,'none');if(phase===0)assert.ok(['none','aiGlassSweep'].includes(s.before));else assert.equal(s.before,'none','the entry sheen never loops while held');assert.equal(s.after,'none');}
    const after=await page.locator('#chatWindow').evaluate(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return{transform:s.transform,opacity:s.opacity,backdrop:s.backdropFilter,x:r.x,y:r.y,width:r.width,height:r.height};});
    assert.deepEqual(after,before,'a sustained button press cannot change the glass panel');
    if(i===2)await page.screenshot({path:path.join(shots,'held-button-412.png')});
@@ -39,7 +39,7 @@ const checks=String.raw`
  assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),0);
  await page.locator('#chatClose').click();assert.equal(await page.evaluate(()=>_nrPanouri),0);
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(shots,'results.json'),JSON.stringify({buttons:results,stableGlassPixels:true,errors},null,2));
- console.log('PASS: '+count+' real long touches, stable glass pixels and geometry, no animated press/filter/transform, cancellation, pointer exit, text editing and close restored.');
+ console.log('PASS: '+count+' real long touches, stable glass pixels and geometry, one entry sheen without looping/filter/transform, cancellation, pointer exit, text editing and close restored.');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});`;
 const m=new Module(fixture,module);m.filename=fixture;m.paths=Module._nodeModulePaths(path.dirname(fixture));m._compile(prefix+checks,fixture);
