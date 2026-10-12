@@ -15,6 +15,9 @@ const checks=String.raw`
  const show=()=>page.locator('#chatFab').click();
  await show();assert.equal(await page.locator('#chatHome').isVisible(),true);
  console.log('AI home opened');
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).overscrollBehavior),'none','AI disables browser edge navigation');
+ const backgroundRetry=await page.locator('#chatTalkTab').evaluate(e=>{const o=new MutationObserver(()=>{});o.observe(document.getElementById('mobCer'),{attributes:true,attributeFilter:['data-motion','data-video']});e.dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));const changes=o.takeRecords().map(r=>r.attributeName);o.disconnect();return changes;});
+ assert.deepEqual(backgroundRetry,[],'AI finger release cannot restart weather/autoplay behind the glass');
  assert.equal(await page.locator('#chatWindow').getAttribute('aria-hidden'),'false');
  assert.equal(await page.locator('#mobApp').evaluate(e=>e.hasAttribute('inert')),true,'background cannot be touched');
  // Exercise the actual global pull handler as well as chat touch isolation.
@@ -113,6 +116,8 @@ const checks=String.raw`
    assert.ok(boxes.window.y>=0&&boxes.window.bottom<=boxes.vh+1,'dialog vertical fit '+width);
    assert.ok(boxes.send.bottom<=boxes.window.bottom&&boxes.input.right<=boxes.window.right,'editor fit '+width);
    assert.equal(boxes.overflow,false,'no horizontal overflow '+width);
+   assert.equal(await page.locator('.ai-tabs').evaluate(e=>getComputedStyle(e).touchAction),'pan-y','tabs cannot trigger horizontal browser navigation');
+   assert.equal(await page.locator('.chat-suggestions').evaluate(e=>getComputedStyle(e).touchAction),width<=380||height<=700?'pan-x':'pan-y','narrow suggestion rows retain native horizontal scrolling');
    const home=await page.evaluate(()=>{const r=document.getElementById('chatHomeTitle').getBoundingClientRect(),main=document.getElementById('chatMain').getBoundingClientRect();return{top:r.top,bottom:r.bottom,mainTop:main.top,mainBottom:main.bottom};});
    assert.ok(home.top>=home.mainTop-1&&home.bottom<=home.mainBottom+1,'welcome heading stays visible '+width);
    if([320,412,1280].includes(width))await page.screenshot({path:path.join(shots,'ai-home-'+width+'.png')});
@@ -122,6 +127,8 @@ const checks=String.raw`
  assert.ok(typography.placeholder.startsWith('Întreabă-mă'));assert.ok(typography.top>=6&&typography.left>=4&&typography.line>=24,'diacritics have space inside the textarea');
  const suggestionPress=await page.locator('.chat-suggestion').first().evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch'}));return{pressed:e.classList.contains('ai-touch-down'),old:e.classList.contains('presat')};});assert.equal(suggestionPress.pressed,true);assert.equal(suggestionPress.old,false,'AI suggestions use one press animation');await page.evaluate(()=>document.getElementById('chatMain').dispatchEvent(new Event('scroll')));assert.equal(await page.locator('.chat-suggestion').first().evaluate(e=>e.classList.contains('ai-touch-down')),false,'scroll releases button');
  const actualPress=await page.locator('#chatHistoryTab').evaluate(e=>{e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,pointerType:'touch',clientX:220,clientY:90}));return{pressed:e.classList.contains('ai-touch-down'),pulse:e.classList.contains('ai-glass-pulse'),animation:getComputedStyle(e,'::before').animationName,transform:getComputedStyle(e).transform};});
+ await page.locator('#chatHistoryTab').evaluate(e=>{const r=e.getBoundingClientRect(),x=r.x+30,y=r.y+20;e.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:x,clientY:y}));window.dispatchEvent(new PointerEvent('pointermove',{clientX:x+8,clientY:y}));});
+ assert.equal(await page.locator('#chatWindow .ai-touch-down').count(),0,'moving inside a wide button cancels press feedback');
  assert.equal(actualPress.pressed,true);assert.equal(actualPress.pulse,false);assert.equal(actualPress.animation,'none','reduced motion disables shimmer');assert.equal(actualPress.transform,'none');
  await page.evaluate(()=>window.dispatchEvent(new PointerEvent('pointercancel')));await page.waitForTimeout(600);
  assert.equal(await page.locator('#chatHistoryTab').evaluate(e=>e.classList.contains('ai-touch-down')||e.classList.contains('ai-glass-pulse')),false,'cancel releases all press effects');

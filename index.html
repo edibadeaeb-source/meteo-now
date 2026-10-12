@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.8">
+    <meta name="application-version" content="2026.10.12.9">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -3581,7 +3581,7 @@ function renderConversation(){
 function viewportChat(){if(!chatWindow.classList.contains('open'))return;var vv=window.visualViewport;chatWindow.style.setProperty('--ai-viewport-height',(vv?vv.height:window.innerHeight)+'px');chatWindow.style.setProperty('--ai-viewport-top',(vv?vv.offsetTop:0)+'px');chatWindow.dataset.keyboard=String(!!vv&&vv.height<window.innerHeight-150);}
 function syncOpen(){
     var open=chatWindow.classList.contains('open');if(open===wasOpen)return;wasOpen=open;
-    chatWindow.setAttribute('aria-hidden',String(!open));chatFab.setAttribute('aria-expanded',String(open));chatBackdrop.hidden=!open;document.body.classList.toggle('ai-is-open',open);
+    chatWindow.setAttribute('aria-hidden',String(!open));chatFab.setAttribute('aria-expanded',String(open));chatBackdrop.hidden=!open;document.body.classList.toggle('ai-is-open',open);document.documentElement.classList.toggle('ai-is-open',open);
     if(open){
         restoreFocus=document.activeElement;chatFab.classList.remove('has-notification');
         Array.prototype.forEach.call(document.body.children,function(el){if(el===chatWindow||el===chatBackdrop||['SCRIPT','STYLE','LINK'].indexOf(el.tagName)>=0)return;backgroundState.push({el:el,inert:el.hasAttribute('inert')});el.setAttribute('inert','');});
@@ -3633,15 +3633,18 @@ window.MeteoChat={hasMessages:function(){var c=conversations.active();return !!(
 renderConversation();
 
 var pressedChatButton=null;
+var chatPressX=0,chatPressY=0;
 function releaseChatButton(){if(pressedChatButton)pressedChatButton.classList.remove('ai-touch-down');pressedChatButton=null;}
 chatWindow.addEventListener('pointerdown',function(e){
     var button=e.target.closest('button');
     if(!button||button.disabled)return;
-    releaseChatButton();pressedChatButton=button;button.classList.add('ai-touch-down');
+    releaseChatButton();pressedChatButton=button;chatPressX=e.clientX;chatPressY=e.clientY;button.classList.add('ai-touch-down');
 });
 window.addEventListener('pointerup',releaseChatButton);window.addEventListener('pointercancel',releaseChatButton);
 window.addEventListener('pointermove',function(e){
     if(!pressedChatButton)return;
+    // A swipe cancels feedback immediately, even while still inside a wide button.
+    if(Math.hypot(e.clientX-chatPressX,e.clientY-chatPressY)>6){releaseChatButton();return;}
     var r=pressedChatButton.getBoundingClientRect();
     if(e.clientX<r.left-10||e.clientX>r.right+10||e.clientY<r.top-10||e.clientY>r.bottom+10)releaseChatButton();
 },{passive:true});
@@ -8756,7 +8759,7 @@ input, textarea, select, [contenteditable="true"] {
 </style>
 
 <link rel="stylesheet" href="weather-glass.css?v=13">
-<link rel="stylesheet" href="weather-ai.css?v=7">
+<link rel="stylesheet" href="weather-ai.css?v=8">
 <div id="mobApp">
     <div id="mobCer" aria-hidden="true"></div>
     <canvas id="mobStele"></canvas>
@@ -8857,7 +8860,7 @@ input, textarea, select, [contenteditable="true"] {
 <script src="weather-library.js?v=6"></script>
 <script src="weather-data-cache.js?v=6"></script>
 <script src="weather-romania.js?v=3"></script>
-<script src="weather-motion.js?v=8"></script>
+<script src="weather-motion.js?v=9"></script>
 <script src="weather-atmosphere.js?v=8"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════

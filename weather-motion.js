@@ -241,7 +241,11 @@
     if (control) control.addEventListener('change', refresh);
     document.addEventListener('visibilitychange', refresh);
     root.addEventListener('pageshow', refresh);
-    document.addEventListener('pointerup', refresh, {passive:true});
+    // A touch in AI must not retry autoplay or change the weather behind its glass.
+    document.addEventListener('pointerup', function(e) {
+        if (e.target.closest && e.target.closest('#chatWindow, #chatBackdrop')) return;
+        refresh();
+    }, {passive:true});
     [mobile,reduced].forEach(function (query) {
         if (query.addEventListener) query.addEventListener('change', refresh);
         else if (query.addListener) query.addListener(refresh);

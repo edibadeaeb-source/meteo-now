@@ -1,15 +1,21 @@
 /* AI workspace inspired by the reference; colours belong to METEO NOW. */
+html.ai-is-open {overscroll-behavior:none;}
 #chatBackdrop {position:fixed;inset:0;background:rgba(6,12,28,.28);z-index:9998;touch-action:none;}
 #chatBackdrop[hidden], #chatWindow [hidden] {display:none!important;}
 body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow {width:460px;height:720px;max-height:calc(100dvh - 140px);border-radius:30px;
-    background:radial-gradient(ellipse at 85% 95%,rgba(163,131,238,.17),transparent 58%),linear-gradient(155deg,rgba(25,23,57,.76),rgba(9,24,45,.72))!important;
+    background:transparent!important;
     border:1px solid rgba(206,220,255,.3)!important;color:#f5f7ff;
-    backdrop-filter:blur(24px) saturate(135%);-webkit-backdrop-filter:blur(24px) saturate(135%);
+    backdrop-filter:none;-webkit-backdrop-filter:none;
     box-shadow:0 24px 64px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.12)!important;isolation:isolate;}
+/* Blur belongs to a non-interactive sibling layer, never to the ancestor of
+   repainted buttons, scrolling messages, SVG strokes or the glowing editor. */
+#chatWindow::before {content:'';position:absolute;inset:0;border-radius:inherit;z-index:-1;pointer-events:none;
+    background:radial-gradient(ellipse at 85% 95%,rgba(163,131,238,.17),transparent 58%),linear-gradient(155deg,rgba(25,23,57,.76),rgba(9,24,45,.72));
+    backdrop-filter:blur(24px) saturate(135%);-webkit-backdrop-filter:blur(24px) saturate(135%);}
 /* A light follows the rounded outline; the middle stays completely clear. */
 #chatWindow {overscroll-behavior:none;touch-action:pan-x pan-y;--ai-edge-radius:28px;}
-#chatWindow .ai-ambient-glow {position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;z-index:5;opacity:0;transition:opacity .3s ease;}
+#chatWindow .ai-ambient-glow {position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none;contain:paint;z-index:5;opacity:0;transition:opacity .3s ease;}
 #chatWindow.open[data-idle="true"] .ai-ambient-glow {opacity:1;}
 #chatWindow .ai-edge-light {display:block;pointer-events:none;overflow:visible;}
 #chatWindow .ai-edge-light rect {width:calc(100% - 4px);height:calc(100% - 4px);rx:var(--ai-edge-radius);fill:none;stroke-linecap:round;stroke-dashoffset:0;animation:none;}
@@ -18,14 +24,14 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .ai-edge-head {stroke:#fff;stroke-width:1.8;stroke-dasharray:9 91;}
 #chatWindow.open[data-idle="true"] .ai-edge-light rect {animation:aiEdgeCircuit 6s linear infinite;}
 @keyframes aiEdgeCircuit {to {stroke-dashoffset:-100;}}
-#chatWindow .chat-header {flex-shrink:0;gap:8px;padding:18px 18px 12px;background:transparent!important;border:0!important;}
+#chatWindow .chat-header {touch-action:pan-y;flex-shrink:0;gap:8px;padding:18px 18px 12px;background:transparent!important;border:0!important;}
 #chatWindow .chat-header>div:first-child {min-width:0;flex:1;}
 #chatWindow .chat-header-title {font-size:.92rem;letter-spacing:.015em;}
 #chatWindow .chat-header-sub {margin-top:5px;font-size:.73rem;color:#d1dceb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #chatWindow .ai-header-actions {display:flex;gap:6px;flex:none;}
 #chatWindow .ai-icon-button {width:44px;height:44px;display:grid;place-items:center;padding:10px;border:1px solid #ffffff24;border-radius:16px;background:#ffffff0b;color:#f5f7ff;cursor:pointer;flex-shrink:0;}
 #chatWindow .ai-icon-button svg {width:20px;height:20px;pointer-events:none;}
-#chatWindow .ai-tabs {display:flex;margin:0 18px 8px;padding:4px;border:1px solid #ffffff22;border-radius:999px;background:#05102735;flex-shrink:0;}
+#chatWindow .ai-tabs {touch-action:pan-y;display:flex;margin:0 18px 8px;padding:4px;border:1px solid #ffffff22;border-radius:999px;background:#05102735;flex-shrink:0;}
 #chatWindow .ai-tab {min-height:40px;flex:1;padding:8px 12px;font-family:inherit;font-size:.82rem;font-weight:600;border:0;border-radius:999px;background:transparent;color:#ced8ed;cursor:pointer;}
 #chatWindow .ai-tab[aria-selected="true"] {background:linear-gradient(120deg,#c5a7ff29,#8ddfff20);color:white;box-shadow:inset 0 1px 0 #ffffff22;}
 #chatWindow .ai-main {min-height:0;flex:1;display:flex;flex-direction:column;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;}
@@ -40,9 +46,9 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .chat-msg.error {color:#ffe4cb!important;}
 #chatWindow .ai-message-city {display:block;font-size:.7rem;color:#cbd8f1;margin-bottom:5px;}
 #chatWindow .chat-msg.typing {color:#d2d9ed!important;}
-#chatWindow .chat-suggestions {padding:4px 18px 12px;gap:8px;flex-shrink:0;}
+#chatWindow .chat-suggestions {touch-action:pan-y;padding:4px 18px 12px;gap:8px;flex-shrink:0;}
 #chatWindow .chat-suggestion {font-size:.75rem;min-height:38px;padding:8px 12px;background:#ffffff0d!important;border:1px solid #d9d6ff32!important;color:#edf1ff!important;transition:background .15s;}
-#chatWindow .chat-suggestion:active {transform:none;background:#ffffff20!important;filter:none;}
+#chatWindow .chat-suggestion:active {transform:none;background:#ffffff0d!important;filter:none;}
 #chatWindow .chat-input-area {display:block;flex-shrink:0;padding:0 18px calc(16px + env(safe-area-inset-bottom,0px));border:0!important;background:transparent!important;}
 #chatWindow .ai-composer {padding:1.5px;border-radius:25px;background:linear-gradient(115deg,#bca0f4aa,#d4c1ff55 45%,#90d9ffbb);box-shadow:0 3px 20px #b0acff0b;}
 #chatWindow .ai-composer {position:relative;isolation:isolate;}
@@ -71,13 +77,12 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
 #chatWindow .ai-storage-note {margin:0;padding:0 20px 10px;font-size:.72rem;line-height:1.45;color:#ffddc0;flex-shrink:0;}
 #chatWindow button:focus-visible {outline:2px solid #b2dfff;outline-offset:3px;}
 #chatWindow .ai-composer:focus-within {box-shadow:0 0 0 2px #b4c6ff35;}
-/* Keep the glass/backdrop surface stable during a sustained press. */
-#chatWindow button {position:relative;overflow:hidden;transform:none!important;filter:none!important;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;transition:border-color .16s ease;box-shadow:inset 0 1px 0 #ffffff17,inset 0 -1px 0 #ffffff07;}
+/* Touch/hover must not create fading compositor layers on every crossed button.
+   Keep only a local, immediate border response; keyboard focus remains visible. */
+#chatWindow button {position:relative;overflow:hidden;transform:none!important;filter:none!important;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none;transition:none!important;box-shadow:inset 0 1px 0 #ffffff17,inset 0 -1px 0 #ffffff07;}
 #chatWindow .ai-history-open {border-radius:16px;}
-#chatWindow button::before {content:none!important;animation:none!important;}
-#chatWindow button::after {content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(140deg,#ffffff20,#ffffff08);opacity:0;transform:none!important;animation:none!important;transition:opacity .14s ease;}
+#chatWindow button::before,#chatWindow button::after {content:none!important;animation:none!important;transition:none!important;}
 #chatWindow button.ai-touch-down {border-color:#e0eaff75;}
-#chatWindow button.ai-touch-down::after {opacity:1;}
 #chatWindow[data-keyboard="true"] .chat-suggestions, #chatWindow[data-keyboard="true"] .ai-home {display:none!important;}
 @media (max-width:380px),(max-height:700px) {
     #chatWindow .chat-suggestions {flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:10px;touch-action:pan-x;scrollbar-width:none;}
@@ -96,6 +101,6 @@ body.ai-is-open #chatFab {visibility:hidden;pointer-events:none;}
     #chatWindow[data-mode="home"] #chatInput {height:64px;}
 }
 @media (max-height:450px) {#chatWindow .ai-home {padding:10px 24px;}#chatWindow .ai-weather-mark {display:none;}#chatWindow .ai-home h2 {font-size:23px;}#chatWindow .ai-home p {display:none;}#chatWindow .chat-suggestions {padding-top:10px;}}
-@media (prefers-reduced-transparency:reduce) {#chatWindow {background:#152039!important;backdrop-filter:none;-webkit-backdrop-filter:none;}}
+@media (prefers-reduced-transparency:reduce) {#chatWindow::before {background:#152039;backdrop-filter:none;-webkit-backdrop-filter:none;}}
 @media (prefers-reduced-motion:reduce) {#chatWindow .ai-ambient-glow {transition:none;opacity:0!important;}#chatWindow .ai-edge-light rect,#chatWindow #chatInput {animation:none!important;text-shadow:none!important;}#chatWindow button {transition:none!important;transform:none!important;}#chatWindow button::before,#chatWindow button::after {animation:none!important;opacity:0!important;}}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {#chatWindow {background:#152039!important;}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {#chatWindow::before {background:#152039;}}
