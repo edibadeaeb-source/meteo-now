@@ -33,7 +33,11 @@ ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
 from widget_weather import current_widget, condition as widget_condition
-from notification_weather import fresh_forecast, forecast_time, summary_indices, finite as notification_finite
+from notification_weather import (
+    fresh_forecast, forecast_time, summary_indices, finite as notification_finite,
+    city_title as notification_city_title, event_title as notification_event_title,
+    warning_title as notification_warning_title,
+)
 import tempfile as _weather_tempfile
 _weather_service = WeatherService(OPENWEATHER_API_KEY,
     cache_dir=os.path.join(_weather_tempfile.gettempdir(), 'meteo-now-met-cache'))
@@ -497,7 +501,7 @@ def push_test_device():
         return jsonify({'error': 'Așteaptă un minut înainte de un nou test.'}), 429
     en = sub.get('limba') == 'en'
     ok, code = _send_push(sub, {
-        'title': f"{sub.get('nume') or 'METEO NOW'} | {'Test' if en else 'Test notificare'}",
+        'title': notification_city_title(sub.get('nume') or 'METEO NOW', sub.get('limba', 'ro')),
         'body': ('This is the METEO NOW test notification.' if en else
                  'Aceasta este notificarea de test METEO NOW.'),
         'url': '/', 'tag': 'meteo-test', 'ttl': 300, 'urgency': 'high',
@@ -592,7 +596,7 @@ def push_test():
     if not cron_authorized(PUSH_CRON_SECRET):
         return jsonify({'error': 'acces interzis'}), 403
     t, s = broadcast_push({
-        'title': 'METEO NOW | Test notificare',
+        'title': 'METEO NOW',
         'body': 'Notificările sunt active. Vei primi prognoza zilei și avertizările meteo.',
         'url': '/'
     })
@@ -696,7 +700,7 @@ def _push_check_intern():
         top = max(active, key=lambda a: a['nivel'])
         name = sub.get('admin') or county
         ok, code = _send_push(sub, {
-            'title': f"{sub.get('nume') or name} | {_COD_NUME.get(top['nivel'], 'avertizare').capitalize()}",
+            'title': notification_warning_title(sub.get('nume') or name, top['nivel'], sub.get('limba', 'ro')),
             'body': _rezumat_scurt_avertizare(top, name),
             'url': '/#warnings-section', 'tag': 'anm-avertizare', 'nivel': top['nivel'], 'ttl': 3600, 'urgency': 'high',
         })
@@ -1010,10 +1014,11 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
     en = limba == 'en'
     loc = str(nume or ('Your area' if en else 'Zona ta')).strip()[:60]
 
-    def result(kind, ro_title, en_title, ro_body, en_body, target=None, level=0):
+    def result(kind, ro_body, en_body, target=None, level=0):
         return {
             'kind': kind,
-            'title': f"{loc} | {en_title if en else ro_title}",
+            'title': notification_event_title(kind, loc, limba,
+                ending_soon=target is not None and 0 <= (target - now).total_seconds() <= 3600),
             'body': en_body if en else ro_body,
             'fingerprint': f"{kind}:{(target or now):%Y%m%d%H}",
             'target': (target or now).isoformat(timespec='minutes'),
@@ -1026,7 +1031,6 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         moment = _moment_eveniment(target, now, limba)
         return result(
             'storm_now' if current_code in _STORM_WMO else 'storm_start',
-            'Furtună', 'Thunderstorm',
             'Sunt posibile furtuni chiar acum. Evită zonele deschise.' if current_code in _STORM_WMO else f'Sunt posibile furtuni {moment}.',
             'Thunderstorms are possible right now. Avoid open areas.' if current_code in _STORM_WMO else f'Thunderstorms are possible {moment}.',
             target, 2)
@@ -1044,17 +1048,17 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         if ending is not None:
             target, moment = times[ending], _moment_eveniment(times[ending], now, limba)
             if current_kind == 'snow':
-                return result('snow_end', 'Ninsoare', 'Snow',
+                return result('snow_end',
                               f'Este probabil ca ninsoarea să se oprească {moment}.',
                               f'The snow is likely to stop {moment}.', target)
-            return result('rain_end', 'Ploaie', 'Rain',
+            return result('rain_end',
                           f'Este probabil ca ploaia să se oprească {moment}.',
                           f'The rain is likely to stop {moment}.', target)
         if current_kind == 'snow':
-            return result('snow_now', 'Ninsoare', 'Snow',
+            return result('snow_now',
                           'Ninge acum în zona ta.',
                           'It is snowing in your area now.')
-        return result('rain_now', 'Ploaie', 'Rain',
+        return result('rain_now',
                       'Plouă acum în zona ta.',
                       'It is raining in your area now.')
 
@@ -1068,10 +1072,10 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
             continue
         target, moment = times[i], _moment_eveniment(times[i], now, limba)
         if kind == 'snow':
-            return result('snow_start', 'Ninsoare în curând', 'Snow soon',
+            return result('snow_start',
                           f'Este probabil să înceapă ninsoarea {moment}.',
                           f'Snow is likely to start {moment}.', target)
-        return result('rain_start', 'Ploaie în curând', 'Rain soon',
+        return result('rain_start',
                       f'Este probabil să înceapă ploaia {moment}.',
                       f'Rain is likely to start {moment}.', target)
 
@@ -1081,7 +1085,7 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         target = now if current_code in _FOG_WMO else times[fog]
         moment = _moment_eveniment(target, now, limba)
         return result(
-            'fog_now' if current_code in _FOG_WMO else 'fog_start', 'Ceață', 'Fog',
+            'fog_now' if current_code in _FOG_WMO else 'fog_start',
             'Este ceață acum. Vizibilitatea poate fi redusă pe drum.' if current_code in _FOG_WMO else f'Este probabil să se formeze ceață {moment}.',
             'It is foggy now. Visibility may be poor on the road.' if current_code in _FOG_WMO else f'Fog is likely to form {moment}.',
             target)
@@ -1095,7 +1099,6 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         shown, unit = (round(speed * .621371), 'mph') if unitate == 'F' else (round(speed), 'km/h')
         return result(
             'wind_now' if current_gust >= 60 else 'wind_start',
-            'Vânt puternic', 'Strong wind',
             f'Rafalele ajung acum la aproximativ {shown} {unit}.' if current_gust >= 60 else f'Rafalele pot ajunge la {shown} {unit} {moment}.',
             f'Gusts are reaching about {shown} {unit} now.' if current_gust >= 60 else f'Gusts may reach {shown} {unit} {moment}.',
             target)
@@ -1369,18 +1372,17 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     if ref is not None and len(maxime) > ref and notification_finite(maxime[ref]):
         dif = maxi - maxime[ref]
 
-    loc = nume or ('your area' if en else 'zona ta')
+    loc = str(nume or '').strip() or ('your area' if en else 'zona ta')
+    titlu = notification_city_title(loc, limba)
     descriere = vreme[:1].upper() + vreme[1:] if vreme else ('Forecast' if en else 'Prognoză')
     if seara:
-        titlu = f"Tomorrow in {loc}" if en else f"Mâine în {loc}"
-        corp = (f"{descriere}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+        corp = (f"Tomorrow: {descriere.lower()}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
                 if en else
-                f"{descriere}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
+                f"Mâine: {descriere.lower()}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
     else:
-        titlu = f"{loc} | {descriere}"
-        corp = (f"Today the high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+        corp = (f"Today: {descriere.lower()}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
                 if en else
-                f"Astăzi, maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
+                f"Astăzi: {descriere.lower()}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
 
     if dif is not None and abs(dif) >= 3:
         pas = abs(dif) * 9 / 5 if unitate == 'F' else abs(dif)

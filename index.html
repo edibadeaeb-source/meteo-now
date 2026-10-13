@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.13.2">
+    <meta name="application-version" content="2026.10.13.3">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -6302,7 +6302,7 @@ function startLocalAlerts() {
             })[0] || {};
             var corp = rezumatAvertizareLocala(avertizareAleasa);
             try {
-                new Notification('Dâmbovița | ' + cod.charAt(0) + cod.slice(1).toLowerCase(), {
+                new Notification(cod.charAt(0) + cod.slice(1).toLowerCase() + ' pentru Dâmbovița', {
                     body: corp, icon: 'icon-192.png', tag: 'anm-local'
                 });
             } catch (e) {}
