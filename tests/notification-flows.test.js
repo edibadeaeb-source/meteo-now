@@ -14,7 +14,7 @@ function store(initial = {}) {
 function context(extra = {}) {
   const checkbox = {checked:true, disabled:false};
   return vm.createContext({Promise, Date, Math, JSON, Intl, isFinite, setTimeout, clearTimeout,
-    LANG:'ro', UNIT:'C', LOC:{nume:'Moreni', tara:'RO', admin:'Dâmbovița', lat:44.98, lon:25.64},
+    _locAutoPromisiune:null, LANG:'ro', UNIT:'C', LOC:{nume:'Moreni', tara:'RO', admin:'Dâmbovița', lat:44.98, lon:25.64},
     document:{hidden:false, getElementById:() => checkbox}, localStorage:store(), sessionStorage:store(),
     pushNote:()=>{}, ...extra});
 }
@@ -49,7 +49,7 @@ async function run() {
   // A location result started before a manual city choice cannot overwrite it.
   {
     let finishGPS, positions = 0, applied = 0;
-    const c = context({_locAutoInCurs:false, _locatiePregatita:true, _locAutoUltima:0,
+    const c = context({_locAutoInCurs:false, _locAutoPromisiune:null, _locAutoGeneratieInCurs:0, _locatiePregatita:true, _locAutoUltima:0,
       _locAutoGeneration:0, _locManualPreview:false, LOC_AUTO_KEY:'auto', navigator:{geolocation:{}},
       urmarimLocatiaAutomat:async()=>true,
       pozitieCuReincercare:()=>{positions++; return new Promise(resolve=>finishGPS=resolve);},
@@ -57,12 +57,12 @@ async function run() {
       seteazaLocatie:()=>applied++, actualizeazaLocatiaPush:async()=>{}});
     vm.runInContext(block('async function actualizeazaLocatieAutomat(', '/** Aplică locația:'), c);
     const pending = c.actualizeazaLocatieAutomat(true);
-    await Promise.resolve();
-    await c.actualizeazaLocatieAutomat(true);
+    await new Promise(resolve=>setImmediate(resolve));
+    const simultaneous = c.actualizeazaLocatieAutomat(true);
     assert.strictEqual(positions, 1);
     c._locAutoGeneration++;
     finishGPS({coords:{latitude:45,longitude:26}});
-    await pending;
+    await Promise.all([pending, simultaneous]);
     assert.strictEqual(applied, 0);
     assert.strictEqual(c._locAutoInCurs, false);
   }
@@ -86,6 +86,22 @@ async function run() {
     await Promise.all([first,latest]);
     assert.deepStrictEqual(writes, ['Moreni','București']);
   }
+  // Permission revalidation can save a subscription independently of the GPS
+  // caller. It must wait for the new town, and recheck off after that wait.
+  for (const turnOff of [false, true]) {
+    let releaseGPS;const writes=[];
+    const c=context({_locatiePregatita:true,_pushSaveChain:Promise.resolve(),_pushSaveVersion:0,
+      abonamentPushJSON:()=>({endpoint:'https://push.example.test',keys:{auth:'a',p256dh:'b'}}),
+      locatiePentruNotificari:()=>c.LOC,
+      pushFetch:async(url,opts)=>{writes.push(JSON.parse(opts.body).nume);return {ok:true,json:async()=>({ok:true})};}});
+    c._locAutoPromisiune=new Promise(resolve=>releaseGPS=resolve);
+    vm.runInContext(block('async function trimiteAbonament(', '/* Când utilizatorul schimbă orașul'),c);
+    const saving=c.trimiteAbonament({});await new Promise(resolve=>setImmediate(resolve));
+    assert.deepStrictEqual(writes,[],'subscription must wait for the foreground GPS fix');
+    c.LOC={...c.LOC,nume:'București'};if(turnOff)c.localStorage.setItem('meteo-push-disabled','1');
+    const completed=c._locAutoPromisiune;c._locAutoPromisiune=null;releaseGPS();await completed;await saving;
+    assert.deepStrictEqual(writes,turnOff?[]:['București']);
+  }
   // Compile each executable inline script and the worker to catch syntax errors.
   // A resume/update cannot recreate a subscription that the user turned off.
   {
@@ -99,7 +115,7 @@ async function run() {
   // Recovery after a GPS/network failure is not suppressed by the 2-minute throttle.
   {
     let attempts = 0, synced = 0;
-    const c = context({_locAutoInCurs:false, _locatiePregatita:true, _locAutoUltima:0,
+    const c = context({_locAutoInCurs:false, _locAutoPromisiune:null, _locAutoGeneratieInCurs:0, _locatiePregatita:true, _locAutoUltima:0,
       _locAutoGeneration:0, _locManualPreview:false, LOC_AUTO_KEY:'auto', navigator:{geolocation:{}},
       urmarimLocatiaAutomat:async()=>true,
       pozitieCuReincercare:async()=>{if(++attempts === 1) throw Error('offline'); return {coords:{latitude:45,longitude:26}};},

@@ -17,7 +17,7 @@ const checks=String.raw`
  page.setDefaultTimeout(60000);page.setDefaultNavigationTimeout(60000);
  const device=await page.evaluate(()=>({ua:navigator.userAgent,dpr:devicePixelRatio,width:innerWidth,height:innerHeight,version:document.querySelector('meta[name="application-version"]').content}));
  device.browser=browser.version();device.sdk=require('node:child_process').execFileSync('C:/Users/ediba/AppData/Local/Android/Sdk/platform-tools/adb.exe',['-s','emulator-5554','shell','getprop','ro.build.version.sdk'],{encoding:'utf8'}).trim();
- assert.ok(/Android/.test(device.ua));assert.equal(device.version,'2026.10.12.11');
+ assert.ok(/Android/.test(device.ua));assert.equal(device.version,'2026.10.13.1');
  const shape=()=>page.locator('#chatWindow').evaluate(e=>{const r=e.getBoundingClientRect(),s=getComputedStyle(e);return{x:r.x,y:r.y,width:r.width,height:r.height,opacity:s.opacity,backdrop:s.backdropFilter,glass:getComputedStyle(e,'::before').backdropFilter};});
  const before=await shape();assert.equal(before.backdrop,'none');assert.equal(before.glass,'none');
  const bitmap=()=>page.locator('.ai-glass-bitmap').evaluate(e=>{const data=e.getContext('2d').getImageData(0,0,e.width,e.height).data;let hash=2166136261;for(const n of data)hash=Math.imul(hash^n,16777619);return hash>>>0;});

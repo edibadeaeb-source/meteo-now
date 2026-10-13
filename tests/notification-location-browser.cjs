@@ -48,7 +48,7 @@ const server=http.createServer(async(req,res)=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
  try{
- const context=await browser.newContext({viewport:{width:412,height:915},isMobile:true,hasTouch:true,locale:'ro-RO',permissions:['geolocation'],geolocation:{latitude:loc.lat,longitude:loc.lon},serviceWorkers:'allow'});
+ const context=await browser.newContext({viewport:{width:412,height:915},isMobile:true,hasTouch:true,locale:'ro-RO',permissions:['geolocation','notifications'],geolocation:{latitude:loc.lat,longitude:loc.lon},serviceWorkers:'allow'});
  let geocodes=0;
  await context.route('**/*',route=>{
    const url=new URL(route.request().url());
@@ -108,9 +108,50 @@ const server=http.createServer(async(req,res)=>{
  await context.setGeolocation({latitude:second.lat,longitude:second.lon});
  await page.evaluate(async()=>{_locAutoUltima=0;await actualizeazaLocatieAutomat(true);});
  assert.equal(await page.evaluate(()=>LOC.nume),second.nume,'returning brings current GPS town into view');
+ // A foreground lookup delayed across hide/resume cannot publish the old town.
+ // Exercise the actual visibility/focus handlers with an intentionally slow GPS.
+ await page.evaluate(()=>{
+   window.originalGPSLookup=pozitieCuReincercare;window.pendingGPSFixes=[];
+   pozitieCuReincercare=()=>new Promise(resolve=>pendingGPSFixes.push(resolve));
+   _locAutoUltima=0;window.beforeHideGPS=actualizeazaLocatieAutomat(true);
+ });
+ await page.waitForFunction(()=>pendingGPSFixes.length===1);
+ await page.evaluate(()=>{
+   Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));
+   Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));
+   window.dispatchEvent(new Event('focus'));
+ });
+ await page.evaluate(position=>pendingGPSFixes[0]({coords:{latitude:position.lat,longitude:position.lon}}),loc);
+ await page.waitForFunction(()=>pendingGPSFixes.length===2);
+ assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('meteo-gps-location')).nume),second.nume,'the previous session cannot replace the confirmed GPS town');
+ await page.evaluate(position=>pendingGPSFixes[1]({coords:{latitude:position.lat,longitude:position.lon}}),loc);
+ await page.waitForFunction(name=>LOC.nume===name&&!_locAutoInCurs,loc.nume);
+ assert.equal(await page.evaluate(()=>pendingGPSFixes.length),2,'focus and visibility share one fresh lookup');
+ assert.equal(await page.evaluate(()=>_locManualPreview),false);
+ assert.equal(writes.length,beforeDisable,'the return path keeps notifications disabled');
+ await page.evaluate(()=>{pozitieCuReincercare=originalGPSLookup;delete document.hidden;});
  assert.deepEqual(errors,[]);
  await page.screenshot({path:path.join(out,'gps-return-412.png')});
- const result={checkedAt:new Date().toISOString(),browser:'Edge mobile 412x915',realGeolocationAPI:true,realServiceWorker:true,weatherAndPush:'isolated local fixtures; no real push messages',moveBetweenTowns:true,stationaryGeocodeReuse:true,manualPreviewPreservesGPSAlerts:true,reconnectSync:true,transient503Recovery:true,disabledNotificationsPreserved:true,returnToGPSCity:true,javascriptErrors:errors,geocodes,subscriptionWrites:writes};
+ const result={version:await page.locator('meta[name="application-version"]').getAttribute('content'),checkedAt:new Date().toISOString(),browser:'Edge mobile 412x915',realGeolocationAPI:true,realServiceWorker:true,weatherAndPush:'isolated local fixtures; no real push messages',moveBetweenTowns:true,stationaryGeocodeReuse:true,manualPreviewPreservesGPSAlerts:true,reconnectSync:true,transient503Recovery:true,disabledNotificationsPreserved:true,returnToGPSCity:true,staleHiddenGPSDiscarded:true,simultaneousResumeSharesFreshFix:true,javascriptErrors:errors,geocodes,subscriptionWrites:writes};
+ // Deliver a browser-generated PushEvent to the real worker after closing the
+ // actual app window. No VAPID request, real subscriber or remote send is used.
+ const worker=context.serviceWorkers().find(w=>w.url()===base+'/sw.js');assert.ok(worker);
+ const probe=await context.newPage(),cdp=await context.newCDPSession(probe),registrations=new Map();
+ cdp.on('ServiceWorker.workerRegistrationUpdated',event=>event.registrations.forEach(r=>registrations.set(r.registrationId,r)));
+ await cdp.send('ServiceWorker.enable');
+ const deadline=Date.now()+5000;while(![...registrations.values()].some(r=>r.scopeURL===base+'/')&&Date.now()<deadline)await new Promise(r=>setTimeout(r,50));
+ const registration=[...registrations.values()].find(r=>r.scopeURL===base+'/');assert.ok(registration,'real registration discovered');
+ await page.close();
+ assert.equal(await worker.evaluate(async()=> (await self.clients.matchAll({type:'window'})).length),0,'no app window remains');
+ await cdp.send('ServiceWorker.deliverPushMessage',{origin:base,registrationId:registration.registrationId,data:JSON.stringify({title:'Oraș QA | Ploaie',body:'Ploaia se oprește în următoarea oră.',tag:'meteo-qa-closed',url:'/'})});
+ const delivered=await worker.evaluate(async()=>{
+   const end=Date.now()+5000;let notifications=[];
+   while(Date.now()<end){notifications=await self.registration.getNotifications({tag:'meteo-qa-closed'});if(notifications.length)break;await new Promise(r=>setTimeout(r,50));}
+   const items=notifications.map(n=>({title:n.title,body:n.body,url:n.data.url,tag:n.tag}));notifications.forEach(n=>n.close());
+   return {items,gpsInWorker:typeof navigator.geolocation!=='undefined'};
+ });
+ assert.equal(delivered.items.length,1);assert.equal(delivered.items[0].title,'Oraș QA | Ploaie');assert.equal(delivered.items[0].body,'Ploaia se oprește în următoarea oră.');assert.equal(delivered.items[0].url,'/');assert.equal(delivered.gpsInWorker,false);
+ Object.assign(result,{realWorkerPushWithoutAppWindow:true,workerHasGeolocation:false,remoteFCMWakeupVerified:false,physicalPhoneTested:false});
  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify(result,null,2));console.log('PASS: '+JSON.stringify(result));
  await context.close();
  }finally{await browser.close();server.closeAllConnections();server.close();}

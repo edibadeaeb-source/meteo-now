@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.12.11">
+    <meta name="application-version" content="2026.10.13.1">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -6179,6 +6179,10 @@ function locatiePentruNotificari() {
 }
 async function trimiteAbonament(sub) {
     if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
+    // Permission checks and other callers also wait for any foreground GPS fix.
+    // Recheck off afterwards: the user may disable alerts while GPS is pending.
+    while (_locAutoPromisiune) await _locAutoPromisiune;
+    if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
     var corp = abonamentPushJSON(sub);
     var loc = locatiePentruNotificari();
     corp.lat = loc.lat; corp.lon = loc.lon;
@@ -6875,6 +6879,8 @@ var LOC = {
 var LOC_AUTO_KEY = 'meteo-locatie-automata';
 var _locAutoUltima = 0;
 var _locAutoInCurs = false;
+var _locAutoPromisiune = null;
+var _locAutoGeneratieInCurs = 0;
 var _locAutoGeneration = 0;
 var _locatiePregatita = false;
 var _locManualPreview = false;
@@ -6999,31 +7005,52 @@ function numeLocatieDinPozitie(pos) {
         });
 }
 async function actualizeazaLocatieAutomat(fortat) {
-    if (_locAutoInCurs || !_locatiePregatita || !navigator.geolocation || document.hidden || navigator.onLine === false) return;
+    if (document.hidden || navigator.onLine === false) return;
+    if (_locAutoPromisiune) {
+        // Focus/visibility callers wait for the same fix before syncing alerts.
+        // A new foreground session needs one fresh lookup after the old one ends.
+        var reluare = fortat && _locAutoGeneratieInCurs !== _locAutoGeneration;
+        return _locAutoPromisiune.then(function() {
+            if (reluare && !document.hidden) return actualizeazaLocatieAutomat(true);
+        });
+    }
+    if (!_locatiePregatita || !navigator.geolocation) return;
     if (Date.now() - _locAutoUltima < (fortat ? 15000 : 120000)) return;
     _locAutoInCurs = true;
     var generation = _locAutoGeneration;
-    try {
-        if (!(await urmarimLocatiaAutomat())) return;
-        _locAutoUltima = Date.now();
-        var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 0 });
-        if (generation !== _locAutoGeneration || document.hidden) return;
-        var lat = pos.coords.latitude, lon = pos.coords.longitude;
-        var loc = await numeLocatieDinPozitie(pos);
-        if (generation !== _locAutoGeneration || document.hidden) return;
-        localStorage.setItem(LOC_AUTO_KEY, '1');
-        localStorage.setItem('meteo-gps-location', JSON.stringify(loc));
-        if (fortat || !_locManualPreview) {
-            if (loc.nume !== LOC.nume || loc.tara !== LOC.tara || distantaLocatiiKm(LOC.lat, LOC.lon, lat, lon) >= 0.5) {
-                await seteazaLocatie(loc, true, 'gps');
+    _locAutoGeneratieInCurs = generation;
+    _locAutoPromisiune = (async function() {
+        try {
+            if (!(await urmarimLocatiaAutomat())) return;
+            _locAutoUltima = Date.now();
+            var pos = await pozitieCuReincercare({ enableHighAccuracy: false, timeout: 12000, maximumAge: 0 });
+            if (generation !== _locAutoGeneration || document.hidden) return;
+            var lat = pos.coords.latitude, lon = pos.coords.longitude;
+            var loc = await numeLocatieDinPozitie(pos);
+            if (generation !== _locAutoGeneration || document.hidden) return;
+            localStorage.setItem(LOC_AUTO_KEY, '1');
+            localStorage.setItem('meteo-gps-location', JSON.stringify(loc));
+            if (fortat) _locManualPreview = false;
+            if (fortat || !_locManualPreview) {
+                if (loc.nume !== LOC.nume || loc.tara !== LOC.tara || distantaLocatiiKm(LOC.lat, LOC.lon, lat, lon) >= 0.5) {
+                    await seteazaLocatie(loc, true, 'gps');
+                }
             }
+            return true;
+        } catch (e) {
+            // Nu afișăm o eroare la revenirea în aplicație; butonul GPS o poate arăta explicit.
+            _locAutoUltima = 0; // A failed lookup must not block recovery when online again.
+            return false;
+        } finally {
+            _locAutoInCurs = false;
+            _locAutoPromisiune = null;
         }
+    })();
+    var confirmata = await _locAutoPromisiune;
+    // GPS waiters must finish before subscribing; otherwise a subscription
+    // waiting for this same GPS task would create a circular wait.
+    if (confirmata && generation === _locAutoGeneration && !document.hidden) {
         await actualizeazaLocatiaPush();
-    } catch (e) {
-        // Nu afișăm o eroare la revenirea în aplicație; butonul GPS o poate arăta explicit.
-        _locAutoUltima = 0; // A failed lookup must not block recovery when online again.
-    } finally {
-        _locAutoInCurs = false;
     }
 }
 
@@ -7846,7 +7873,12 @@ document.getElementById('lpLocatie').addEventListener('click', function() {
     }
 })();
 document.addEventListener('visibilitychange', function() {
-    if (!document.hidden) {
+    if (document.hidden) {
+        // Ignore late GPS/geocoding from this session and recheck on return,
+        // even if the app was hidden for less than the normal focus cooldown.
+        _locAutoGeneration++;
+        _locAutoUltima = 0;
+    } else {
         actualizeazaLocatieAutomat(true).then(actualizeazaLocatiaPush);
     }
 });
