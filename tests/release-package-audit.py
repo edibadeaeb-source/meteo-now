@@ -56,6 +56,18 @@ def main():
             assert source.read_bytes() == copy.read_bytes(), str(copy)
         results['docs'].append(source.name)
     assert (PACKAGE / 'privacy.html').read_bytes() == (REPO / 'privacy.html').read_bytes()
+    captures = PACKAGE / 'screenshots/2026-10-13'
+    manifest = json.loads((captures / 'manifest.json').read_text(encoding='utf8'))
+    assert len(manifest['screenshots']) == 5
+    results['screenshots'] = []
+    for entry in manifest['screenshots']:
+        data = (captures / entry['file']).read_bytes()
+        assert data == (REPO / 'release-readiness/screenshots/2026-10-13' / entry['file']).read_bytes()
+        assert data[:8] == b'\x89PNG\r\n\x1a\n'
+        assert struct.unpack('>II', data[16:24]) == (1080, 1920)
+        assert data[24:26] == bytes([8, 2]), 'Expected 24-bit RGB PNG without alpha'
+        assert hashlib.sha256(data).hexdigest() == entry['sha256']
+        results['screenshots'].append(entry['file'])
     for host in ['https://meteo-now.onrender.com', 'https://meteo-targoviste.onrender.com']:
         record = {'host': host, 'checks': []}
         for endpoint, local in [('/', 'index.html'), ('/sw.js', 'sw.js'),
@@ -74,7 +86,7 @@ def main():
         results['hosts'].append(record)
     results['webVersion'] = '2026.10.13.3'
     assert results['webVersion'] in (REPO / 'diagnostics.py').read_text()
-    results['remaining'] = ['current screenshots', 'provider sharing/retention review',
+    results['remaining'] = ['developer account registration', 'provider sharing/retention review',
                             'Play Console requirements and signing certificate',
                             'physical push delivery and battery/standby check']
     OUT.mkdir(parents=True, exist_ok=True)

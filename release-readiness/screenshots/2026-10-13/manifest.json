@@ -1,0 +1,55 @@
+{
+  "capturedOn": "Pixel_10 Android emulator",
+  "androidAPI": 37,
+  "nativeAPK": "1.0.23",
+  "webVersion": "2026.10.13.3",
+  "liveURL": "https://meteo-now.onrender.com/",
+  "weatherMocked": false,
+  "AIMessagesSent": false,
+  "physicalS24Test": false,
+  "playUploaded": false,
+  "formatting": "RGB conversion only; original resolution, no compositing or UI edits",
+  "checkedAt": "2026-10-13T20:48:21.154180+00:00",
+  "screenshots": [
+    {
+      "file": "01-vremea-acum.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "sha256": "31dfca0707a4283ca5707f859a13f6b9b2ff4c6d60de1d6aa38393ba355a2cf3",
+      "alt": "Vremea actuală în Târgoviște, avertizări ANM și prognoza pe ore."
+    },
+    {
+      "file": "02-orasele-mele.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "sha256": "b191b93dfe5da071d388405e816c90223cb9457213cd503faec011ed5528d1ac",
+      "alt": "Lista orașelor salvate: Târgoviște, București și New York City."
+    },
+    {
+      "file": "03-prognoza.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "sha256": "8cf973b15402c0f39b9b9fac88f83c679577247dcc4c3dc4b5db4d8870f077d7",
+      "alt": "Prognoza zilnică, temperaturi minime și maxime și șanse de precipitații."
+    },
+    {
+      "file": "04-luna.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "sha256": "d939fdfced8cd92d7c2208c4793949efa7265067db2f63eef1eb68272a72d953",
+      "alt": "Faza lunii, iluminarea și informațiile astronomice pentru localitatea selectată."
+    },
+    {
+      "file": "05-asistent-ai.png",
+      "width": 1080,
+      "height": 1920,
+      "mode": "RGB",
+      "sha256": "45dedb878f200cfdc9c3c14f27c51f368af6596bdfa3589befc9c5bddef5d99d",
+      "alt": "Asistentul AI meteo, sugestii de întrebări și câmpul pentru conversație."
+    }
+  ]
+}

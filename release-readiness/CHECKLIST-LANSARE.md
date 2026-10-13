@@ -29,16 +29,16 @@ Raportul original al buildului descrie interfața web de la momentul construirii
 ## Ordinea înainte de publicare
 
 1. Revizuiește `TEXTE-MAGAZIN.md` și `DATA-SAFETY-2026.md`. Formularul Data safety trebuie să includă și diagnosticul, nu răspunsul vechi „fără raportare de erori”.
-2. Refă capturile magazinului pe interfața actuală: vreme, orașe, radar/ANM, AI și widgeturi. Cele cinci capturi existente sunt materiale anterioare; nu le declarăm capturi ale versiunii actuale.
+2. Folosește cele cinci capturi actuale din `screenshots/2026-10-13/`: vreme, orașe, prognoză, lună și AI. Sunt capturi reale ale APK-ului în emulator, cu date live, verificate vizual și exportate la 1080×1920 RGB. Detalii și texte alternative în `CAPTURI-20261013.md`. Cele cinci capturi vechi direct din `screenshots/` rămân materiale anterioare.
 3. Încarcă AAB-ul într-un release de test din Play Console. Dacă versionCode 24 a fost deja folosit, trebuie un build cu număr mai mare; nu redenumi fișierul ca soluție.
 4. Compară certificatul „App signing key certificate” din Play Console cu `/.well-known/assetlinks.json`. Adaugă amprenta Play dacă diferă, păstrând-o și pe cea locală. Nu presupune că trebuie să fie exact două certificate.
 5. Instalează versiunea livrată de Play pe S24 Ultra și verifică lipsa barei Chrome, actualizarea peste instalarea existentă, orașele și widgeturile păstrate.
 6. Probează notificările pe telefon: activare, test pe propriul dispozitiv, dezactivare din Android, revenire și o alertă reală cu aplicația închisă. Testele locale de Service Worker nu confirmă livrarea remote sau trezirea telefonului.
 7. Probează locația după deplasare și revenire, pornirea offline, reconectarea, AI și widgeturile cu telefonul în repaus. Nu șterge datele pentru testul de actualizare.
-8. Verifică cerințele afișate contului tău în Play Console și raportul de pre-lansare. Utilizatorul declară un cont din 2013; nu presupunem automat obligațiile pentru un cont personal nou.
+8. Verifică cerințele afișate contului tău în Play Console și raportul de pre-lansare. Utilizatorul a confirmat că nu are încă un cont de dezvoltator Play Console; vechimea contului Google nu îl transformă într-un cont de dezvoltator vechi. Pentru un cont personal creat acum, Google cere în prezent test închis cu minimum 12 testeri înscriși continuu 14 zile înaintea cererii de acces la producție. Testul intern inițial nu înlocuiește acest test închis. [Cerințe oficiale](https://support.google.com/googleplay/android-developer/answer/14151465), consultate la 13 octombrie 2026.
 
 ## Ce rămâne neconfirmat
 
-Nu a fost încărcat un release Play în această verificare. Certificatul de semnare folosit de Play, capturile noi, livrarea push pe S24 în repaus și consumul real de baterie necesită verificare separată. Nu certificăm toate mărcile de telefoane prin testele de calculator.
+Nu există încă un cont de dezvoltator Play Console și nu a fost încărcat un release Play în această verificare. Certificatul de semnare folosit de Play, livrarea push pe S24 în repaus și consumul real de baterie necesită verificare separată. Nu certificăm toate mărcile de telefoane prin testele de calculator. Continuarea după înregistrarea contului este descrisă în `TEST-INTERN-PLAY.md`.
 
 Nu reconstruim APK/AAB pentru această actualizare a documentelor și nu schimbăm interfața aplicației.
