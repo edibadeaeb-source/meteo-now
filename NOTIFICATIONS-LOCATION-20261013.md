@@ -1,6 +1,6 @@
 # METEO NOW — verificare notificări și revenire GPS
 
-Versiune web/server **2026.10.13.1**, Service Worker **v61**. Interfața AI și sursele Android sunt păstrate.
+Versiune web/server **2026.10.13.2**, Service Worker **v62**. Interfața AI și sursele Android sunt păstrate.
 
 ## Alegerea pentru prima lansare
 
@@ -10,6 +10,7 @@ Utilizatorul a ales actualizarea localității la deschidere și revenire. Notif
 
 - Un apel simultan de focus/visibility revenea înaintea poziției GPS aflate în curs; continuarea putea sincroniza orașul vechi. Apelurile așteaptă acum aceeași operație GPS.
 - Verificarea permisiunii pentru notificări putea salva independent abonamentul înaintea noii poziții. Salvarea așteaptă actualizarea GPS și verifică din nou dacă notificările au fost oprite în timpul așteptării. Sincronizarea push are loc după încheierea operației GPS, pentru a evita o așteptare circulară.
+- O verificare de permisiune întârziată nu mai reactivează vizual bifa după oprirea notificărilor. Ordinea salvărilor este rezervată înainte de așteptarea GPS, astfel încât o operație veche să rămână anulată și dacă utilizatorul oprește/repornește rapid notificările.
 - Ascunderea aplicației invalidează rezultatele GPS/geocodării întârziate și elimină pauza normală de focus pentru următoarea revenire. Dacă o cerere veche este încă activă, apelurile de revenire împart o singură reverificare nouă după încheierea ei.
 - Revenirea restabilește urmărirea automată și dacă orașul consultat manual coincide deja cu localitatea GPS, fără reîncărcarea inutilă a vremii.
 

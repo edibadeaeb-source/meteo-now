@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.13.1">
+    <meta name="application-version" content="2026.10.13.2">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -6179,10 +6179,11 @@ function locatiePentruNotificari() {
 }
 async function trimiteAbonament(sub) {
     if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
+    var version = ++_pushSaveVersion;
     // Permission checks and other callers also wait for any foreground GPS fix.
     // Recheck off afterwards: the user may disable alerts while GPS is pending.
     while (_locAutoPromisiune) await _locAutoPromisiune;
-    if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1') return;
+    if (!_locatiePregatita || localStorage.getItem('meteo-push-disabled') === '1' || version !== _pushSaveVersion) return;
     var corp = abonamentPushJSON(sub);
     var loc = locatiePentruNotificari();
     corp.lat = loc.lat; corp.lon = loc.lon;
@@ -6190,7 +6191,6 @@ async function trimiteAbonament(sub) {
     corp.judet = (loc === LOC && typeof judetulLocatiei === 'function' ? judetulLocatiei() : null) || '';
     corp.limba = LANG; corp.unitate = UNIT;
     corp.fus = (loc.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || '');
-    var version = ++_pushSaveVersion;
     var saving = _pushSaveChain.catch(function() {}).then(async function() {
     if (version !== _pushSaveVersion) return;
     var r = await pushFetch('api/push/subscribe', {
@@ -6343,6 +6343,7 @@ async function sincronizeazaPush(discret, stareFortata) {
             return false;
         }
         await trimiteAbonament(sub);
+        if (localStorage.getItem('meteo-push-disabled') === '1') { el.checked = false; return false; }
         el.checked = true;
         pushNote(T('notifActiv').replace('{oras}', locatiePentruNotificari().nume || ''), 'var(--green)');
         return true;

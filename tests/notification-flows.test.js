@@ -88,7 +88,7 @@ async function run() {
   }
   // Permission revalidation can save a subscription independently of the GPS
   // caller. It must wait for the new town, and recheck off after that wait.
-  for (const turnOff of [false, true]) {
+  for (const action of ['keep', 'off', 'off-on']) {
     let releaseGPS;const writes=[];
     const c=context({_locatiePregatita:true,_pushSaveChain:Promise.resolve(),_pushSaveVersion:0,
       abonamentPushJSON:()=>({endpoint:'https://push.example.test',keys:{auth:'a',p256dh:'b'}}),
@@ -98,9 +98,22 @@ async function run() {
     vm.runInContext(block('async function trimiteAbonament(', '/* Când utilizatorul schimbă orașul'),c);
     const saving=c.trimiteAbonament({});await new Promise(resolve=>setImmediate(resolve));
     assert.deepStrictEqual(writes,[],'subscription must wait for the foreground GPS fix');
-    c.LOC={...c.LOC,nume:'București'};if(turnOff)c.localStorage.setItem('meteo-push-disabled','1');
+    c.LOC={...c.LOC,nume:'București'};if(action!=='keep')c.localStorage.setItem('meteo-push-disabled','1');
+    if(action==='off-on'){c._pushSaveVersion++;c.localStorage.removeItem('meteo-push-disabled');}
     const completed=c._locAutoPromisiune;c._locAutoPromisiune=null;releaseGPS();await completed;await saving;
-    assert.deepStrictEqual(writes,turnOff?[]:['București']);
+    assert.deepStrictEqual(writes,action==='keep'?['București']:[]);
+  }
+  // A background permission check finishing after the user switches off must
+  // not put the notification checkbox back on while the subscription is skipped.
+  {
+    let release;const c=context({window:{Notification:{}},Notification:{permission:'granted'},
+      pushSupported:()=>true,esteAplicatiaAndroid:()=>false,stareNotificariAndroid:()=> 'granted',
+      navigator:{serviceWorker:{ready:Promise.resolve({pushManager:{getSubscription:async()=>({})}})}},
+      trimiteAbonament:()=>new Promise(resolve=>release=resolve),T:()=>'{oras}',locatiePentruNotificari:()=>c.LOC});
+    vm.runInContext(block('async function sincronizeazaPush(', 'async function revalideazaAbonamentAndroid('),c);
+    const checking=c.sincronizeazaPush(true);await new Promise(resolve=>setImmediate(resolve));
+    c.localStorage.setItem('meteo-push-disabled','1');c.document.getElementById().checked=false;release();
+    assert.strictEqual(await checking,false);assert.strictEqual(c.document.getElementById().checked,false);
   }
   // Compile each executable inline script and the worker to catch syntax errors.
   // A resume/update cannot recreate a subscription that the user turned off.
