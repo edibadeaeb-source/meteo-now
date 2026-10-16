@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.13.3">
+    <meta name="application-version" content="2026.10.17.1">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -6255,7 +6255,7 @@ async function pushUnsubscribe() {
     pushNote('Notificările sunt dezactivate.');
 }
 // ── ALERTE LOCALE (rezervă când browserul nu acceptă push în fundal) ──
-function rezumatAvertizareLocala(w) {
+function rezumatAvertizareLocala(w, nivel) {
     var d = anmDetalii(w);
     var text = (d.fenomene || d.rezumat || '').toLowerCase();
     var f = [];
@@ -6269,9 +6269,19 @@ function rezumatAvertizareLocala(w) {
     adauga(/canicul|val de c[ăa]ldur|disconfort termic/.test(text), 'temperaturi foarte ridicate');
     adauga(/r[ăa]cire accentuat|vremea devenind rece/.test(text), 'o răcire accentuată');
     f = f.slice(0, 3);
-    if (!f.length) return 'Este în vigoare o avertizare meteorologică pentru județul Dâmbovița.';
-    var lista = f.length === 1 ? f[0] : f.slice(0, -1).join(', ') + ' și ' + f[f.length - 1];
-    return 'În județul Dâmbovița sunt prognozate ' + lista + '.';
+    var en = typeof LANG !== 'undefined' && LANG === 'en';
+    if (en) {
+        var labels = {'furtuni și vijelii':'thunderstorms and squalls','ploi':'rain',
+            'intensificări ale vântului':'strong winds','lapoviță și ninsoare':'sleet and snow',
+            'polei':'ice','ceață':'fog','temperaturi foarte ridicate':'very high temperatures',
+            'o răcire accentuată':'a sharp drop in temperature'};
+        f = f.map(function(x) { return labels[x]; });
+    }
+    var cod = (en ? ['Weather warning','Yellow warning','Orange warning','Red warning'] :
+        ['Avertizare meteo','Cod galben','Cod portocaliu','Cod roșu'])[nivel] || (en ? 'Weather warning' : 'Avertizare meteo');
+    if (!f.length) return cod + ': ' + (en ? 'check the ANM warning.' : 'verifică avertizarea ANM.');
+    var lista = f.length === 1 ? f[0] : f.slice(0, -1).join(', ') + (en ? ' and ' : ' și ') + f[f.length - 1];
+    return cod + ': ' + lista + '.';
 }
 var _localAlertTimer = null;
 function startLocalAlerts() {
@@ -6296,13 +6306,12 @@ function startLocalAlerts() {
             if (amprenta === PREF.get('lastalert', '')) return;   // deja anunțat
             PREF.set('lastalert', amprenta);
             if (!nivel) return;
-            var cod = ['', 'COD GALBEN', 'COD PORTOCALIU', 'COD ROȘU'][nivel] || 'AVERTIZARE';
             var avertizareAleasa = warns.filter(function(w) {
                 return (w.numeTipMesaj || 'Avertizare meteorologică') === info.tip;
             })[0] || {};
-            var corp = rezumatAvertizareLocala(avertizareAleasa);
+            var corp = rezumatAvertizareLocala(avertizareAleasa, nivel);
             try {
-                new Notification(cod.charAt(0) + cod.slice(1).toLowerCase() + ' pentru Dâmbovița', {
+                new Notification('Dâmbovița ⚠️', {
                     body: corp, icon: 'icon-192.png', tag: 'anm-local'
                 });
             } catch (e) {}

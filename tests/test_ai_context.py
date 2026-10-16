@@ -256,9 +256,9 @@ class NotificationCopyTests(unittest.TestCase):
     def test_daily_notification_uses_natural_copy_without_arrows(self):
         title, body = meteo._compune_rezumat(
             self.forecast(), "dimineata", "ro", "C", "Moreni")
-        self.assertEqual(title, "MORENI")
-        self.assertIn("Maxima va fi de 18°C", body)
-        self.assertIn("minima de 9°C", body)
+        self.assertEqual(title, "Moreni 🌧️")
+        self.assertIn("Maxima 18°C", body)
+        self.assertIn("minima 9°C", body)
         self.assertNotIn("↑", body)
         self.assertNotIn("↓", body)
 
@@ -290,16 +290,16 @@ class NotificationCopyTests(unittest.TestCase):
         event = meteo._compune_eveniment_meteo(
             self.event_forecast(63, 0.7, [63, 63, 2, 2, 2, 2], [90, 90, 10, 5, 5, 5]),
             'ro', 'C', 'Moreni')
-        self.assertEqual(event['title'], 'Ploaia se oprește în Moreni')
-        self.assertEqual(event['body'], 'Este probabil ca ploaia să se oprească în această seară.')
+        self.assertEqual(event['title'], 'Moreni 🌧️')
+        self.assertEqual(event['body'], 'Ploaia s-ar putea opri în această seară.')
         self.assertEqual(event['kind'], 'rain_end')
 
     def test_weather_event_warns_before_rain_starts(self):
         event = meteo._compune_eveniment_meteo(
             self.event_forecast(2, 0, [2, 2, 61, 61, 2, 2], [5, 5, 75, 70, 10, 5]),
             'ro', 'C', 'Ghirdoveni')
-        self.assertEqual(event['title'], 'Se apropie ploaia de Ghirdoveni')
-        self.assertEqual(event['body'], 'Este probabil să înceapă ploaia în această seară.')
+        self.assertEqual(event['title'], 'Ghirdoveni 🌧️')
+        self.assertEqual(event['body'], 'Ploaie posibilă în această seară.')
         self.assertEqual(event['kind'], 'rain_start')
 
     def test_calm_weather_does_not_create_a_notification(self):

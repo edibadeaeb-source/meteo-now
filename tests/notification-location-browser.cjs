@@ -143,14 +143,14 @@ const server=http.createServer(async(req,res)=>{
  const registration=[...registrations.values()].find(r=>r.scopeURL===base+'/');assert.ok(registration,'real registration discovered');
  await page.close();
  assert.equal(await worker.evaluate(async()=> (await self.clients.matchAll({type:'window'})).length),0,'no app window remains');
- await cdp.send('ServiceWorker.deliverPushMessage',{origin:base,registrationId:registration.registrationId,data:JSON.stringify({title:'Ploaia se oprește curând în Oraș QA',body:'Ploaia se oprește în următoarea oră.',tag:'meteo-qa-closed',url:'/'})});
+ await cdp.send('ServiceWorker.deliverPushMessage',{origin:base,registrationId:registration.registrationId,data:JSON.stringify({title:'Oraș QA 🌧️',body:'Averse posibile în următoarea oră.',tag:'meteo-qa-closed',url:'/'})});
  const delivered=await worker.evaluate(async()=>{
    const end=Date.now()+5000;let notifications=[];
    while(Date.now()<end){notifications=await self.registration.getNotifications({tag:'meteo-qa-closed'});if(notifications.length)break;await new Promise(r=>setTimeout(r,50));}
    const items=notifications.map(n=>({title:n.title,body:n.body,url:n.data.url,tag:n.tag}));notifications.forEach(n=>n.close());
    return {items,gpsInWorker:typeof navigator.geolocation!=='undefined'};
  });
- assert.equal(delivered.items.length,1);assert.equal(delivered.items[0].title,'Ploaia se oprește curând în Oraș QA');assert.equal(delivered.items[0].body,'Ploaia se oprește în următoarea oră.');assert.equal(delivered.items[0].url,'/');assert.equal(delivered.gpsInWorker,false);
+ assert.equal(delivered.items.length,1);assert.equal(delivered.items[0].title,'Oraș QA 🌧️');assert.equal(delivered.items[0].body,'Averse posibile în următoarea oră.');assert.equal(delivered.items[0].url,'/');assert.equal(delivered.gpsInWorker,false);
  Object.assign(result,{realWorkerPushWithoutAppWindow:true,workerHasGeolocation:false,remoteFCMWakeupVerified:false,physicalPhoneTested:false});
  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify(result,null,2));console.log('PASS: '+JSON.stringify(result));
  await context.close();

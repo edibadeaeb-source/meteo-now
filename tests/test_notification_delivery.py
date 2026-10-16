@@ -111,7 +111,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.get_json()['accepted'])
             send.assert_called_once()
-            self.assertEqual(send.call_args.args[1]['title'], 'MORENI')
+            self.assertEqual(send.call_args.args[1]['title'], 'Moreni 🔔')
             self.assertEqual(client.post('/api/push/test-device', json={'endpoint': self.sub['endpoint'], 'keys': {'auth': 'wrong'}}).status_code, 403)
             self.assertEqual(send.call_count, 1)
 
@@ -158,7 +158,8 @@ class DeliveryTests(unittest.TestCase):
             meteo._push_check_intern()
         self.assertEqual(send.call_count, 2)
         self.assertEqual(send.call_args.args[0]['nume'], 'Moreni')
-        self.assertEqual(send.call_args.args[1]['title'], 'Cod galben pentru Moreni')
+        self.assertEqual(send.call_args.args[1]['title'], 'Moreni ⚠️')
+        self.assertEqual(send.call_args.args[1]['body'], 'Cod galben: ploi.')
         self.assertNotIn('push_anm_state/a', self.storage)
 
 

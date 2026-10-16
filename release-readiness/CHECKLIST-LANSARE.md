@@ -8,7 +8,7 @@ Actualizat: 13 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.23, versionCode 24, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.13.3, Service Worker v63 |
+| Aplicația web / server | 2026.10.17.1, Service Worker v64 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.23-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.23-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.23-widget-source.zip |

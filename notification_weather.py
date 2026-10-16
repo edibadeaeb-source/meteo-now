@@ -62,53 +62,39 @@ def location_label(name, language='ro'):
     return str(name or '').strip() or ('your area' if language == 'en' else 'zona ta')
 
 
-def city_title(name, language='ro'):
-    """Routine updates leave the weather details in the body, like a city header."""
-    return location_label(name, language).upper()
+def city_title(name, language='ro', emoji='🔔'):
+    """One city and one meaningful symbol; details belong in the short body."""
+    return f'{location_label(name, language)} {emoji}'
 
 
-def event_title(kind, name, language='ro', ending_soon=False):
-    """A complete event headline, without converting a later forecast into 'soon'."""
-    place = location_label(name, language)
-    if language == 'en':
-        soon = ' soon' if ending_soon else ''
-        titles = {
-            'rain_now': f'Raining now in {place}',
-            'rain_start': f'Rain approaching {place}',
-            'rain_end': f'Rain is likely to stop{soon} in {place}',
-            'snow_now': f'Snowing now in {place}',
-            'snow_start': f'Snow approaching {place}',
-            'snow_end': f'Snow is likely to stop{soon} in {place}',
-            'storm_now': f'Thunderstorms in {place}',
-            'storm_start': f'Thunderstorm risk in {place}',
-            'fog_now': f'Fog in {place}',
-            'fog_start': f'Fog expected in {place}',
-            'wind_now': f'Strong winds in {place}',
-            'wind_start': f'Strong winds expected in {place}',
-        }
-    else:
-        soon = ' curând' if ending_soon else ''
-        titles = {
-            'rain_now': f'Plouă acum în {place}',
-            'rain_start': f'Se apropie ploaia de {place}',
-            'rain_end': f'Ploaia se oprește{soon} în {place}',
-            'snow_now': f'Ninge acum în {place}',
-            'snow_start': f'Se apropie ninsoarea de {place}',
-            'snow_end': f'Ninsoarea se oprește{soon} în {place}',
-            'storm_now': f'Furtună în {place}',
-            'storm_start': f'Risc de furtună în {place}',
-            'fog_now': f'Ceață în {place}',
-            'fog_start': f'Se anunță ceață în {place}',
-            'wind_now': f'Vânt puternic în {place}',
-            'wind_start': f'Se anunță vânt puternic în {place}',
-        }
-    return titles.get(kind, city_title(name, language))
+def weather_emoji(code, is_day=True):
+    try:
+        code = int(code)
+    except (TypeError, ValueError, OverflowError):
+        return '🌦️'
+    if code in (0, 1):
+        return ('☀️' if code == 0 else '🌤️') if is_day else '🌙'
+    if code == 2:
+        return '⛅' if is_day else '☁️'
+    if code == 3:
+        return '☁️'
+    if code in (45, 48):
+        return '🌫️'
+    if code in (71, 73, 75, 77, 85, 86):
+        return '🌨️'
+    if code in (95, 96, 99):
+        return '⛈️'
+    if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 80, 81, 82):
+        return '🌧️'
+    return '🌦️'
+
+
+def event_title(kind, name, language='ro'):
+    """Event timing stays in the body, never in the compact city header."""
+    symbol = {'rain': '🌧️', 'snow': '🌨️', 'storm': '⛈️',
+              'fog': '🌫️', 'wind': '💨'}.get(kind.split('_')[0], '🌦️')
+    return city_title(name, language, symbol)
 
 
 def warning_title(name, level, language='ro'):
-    place = location_label(name, language)
-    if language == 'en':
-        color = {1: 'Yellow', 2: 'Orange', 3: 'Red'}.get(level)
-        return f'{color} weather warning for {place}' if color else f'Weather warning for {place}'
-    code = {1: 'Cod galben', 2: 'Cod portocaliu', 3: 'Cod roșu'}.get(level, 'Avertizare meteo')
-    return f'{code} pentru {place}'
+    return city_title(name, language, '⚠️')

@@ -1,5 +1,7 @@
 # METEO NOW — titluri de notificări
 
+Document istoric. Formatul curent cu emoji și mesaje scurte este descris în `NOTIFICATION-COPY-20261017.md`.
+
 Versiune web/server **2026.10.13.3**, Service Worker **v63**. Utilizatorul a ales combinația dintre numele simplu al orașului pentru actualizări obișnuite și o propoziție adaptată evenimentului pentru schimbările meteo.
 
 ## Comportament

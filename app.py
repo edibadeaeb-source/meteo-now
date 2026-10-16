@@ -36,7 +36,7 @@ from widget_weather import current_widget, condition as widget_condition
 from notification_weather import (
     fresh_forecast, forecast_time, summary_indices, finite as notification_finite,
     city_title as notification_city_title, event_title as notification_event_title,
-    warning_title as notification_warning_title,
+    warning_title as notification_warning_title, weather_emoji as notification_weather_emoji,
 )
 import tempfile as _weather_tempfile
 _weather_service = WeatherService(OPENWEATHER_API_KEY,
@@ -701,7 +701,7 @@ def _push_check_intern():
         name = sub.get('admin') or county
         ok, code = _send_push(sub, {
             'title': notification_warning_title(sub.get('nume') or name, top['nivel'], sub.get('limba', 'ro')),
-            'body': _rezumat_scurt_avertizare(top, name),
+            'body': _rezumat_scurt_avertizare(top, name, compact=True, limba=sub.get('limba', 'ro')),
             'url': '/#warnings-section', 'tag': 'anm-avertizare', 'nivel': top['nivel'], 'ttl': 3600, 'urgency': 'high',
         })
         if ok:
@@ -961,7 +961,7 @@ def _moment_eveniment(target, now, limba):
     en = limba == 'en'
     if not target:
         return 'soon' if en else 'în curând'
-    if 0 <= (target - now).total_seconds() <= 4500:
+    if 0 <= (target - now).total_seconds() <= 3600:
         return 'within the next hour' if en else 'în următoarea oră'
     tomorrow, hour = target.date() != now.date(), target.hour
     if en:
@@ -1017,8 +1017,7 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
     def result(kind, ro_body, en_body, target=None, level=0):
         return {
             'kind': kind,
-            'title': notification_event_title(kind, loc, limba,
-                ending_soon=target is not None and 0 <= (target - now).total_seconds() <= 3600),
+            'title': notification_event_title(kind, loc, limba),
             'body': en_body if en else ro_body,
             'fingerprint': f"{kind}:{(target or now):%Y%m%d%H}",
             'target': (target or now).isoformat(timespec='minutes'),
@@ -1031,8 +1030,8 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         moment = _moment_eveniment(target, now, limba)
         return result(
             'storm_now' if current_code in _STORM_WMO else 'storm_start',
-            'Sunt posibile furtuni chiar acum. Evită zonele deschise.' if current_code in _STORM_WMO else f'Sunt posibile furtuni {moment}.',
-            'Thunderstorms are possible right now. Avoid open areas.' if current_code in _STORM_WMO else f'Thunderstorms are possible {moment}.',
+            'Furtuni posibile acum. Evită zonele deschise.' if current_code in _STORM_WMO else f'Furtuni posibile {moment}.',
+            'Thunderstorms possible now. Avoid open areas.' if current_code in _STORM_WMO else f'Thunderstorms possible {moment}.',
             target, 2)
 
     if current_kind:
@@ -1049,18 +1048,18 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
             target, moment = times[ending], _moment_eveniment(times[ending], now, limba)
             if current_kind == 'snow':
                 return result('snow_end',
-                              f'Este probabil ca ninsoarea să se oprească {moment}.',
+                              f'Ninsoarea s-ar putea opri {moment}.',
                               f'The snow is likely to stop {moment}.', target)
             return result('rain_end',
-                          f'Este probabil ca ploaia să se oprească {moment}.',
+                          f'Ploaia s-ar putea opri {moment}.',
                           f'The rain is likely to stop {moment}.', target)
         if current_kind == 'snow':
             return result('snow_now',
-                          'Ninge acum în zona ta.',
-                          'It is snowing in your area now.')
+                          'Ninge în acest moment.',
+                          'It is snowing now.')
         return result('rain_now',
-                      'Plouă acum în zona ta.',
-                      'It is raining in your area now.')
+                      'Plouă în acest moment.',
+                      'It is raining now.')
 
     for i in future[:3]:
         kind = kind_at(i)
@@ -1073,11 +1072,12 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         target, moment = times[i], _moment_eveniment(times[i], now, limba)
         if kind == 'snow':
             return result('snow_start',
-                          f'Este probabil să înceapă ninsoarea {moment}.',
-                          f'Snow is likely to start {moment}.', target)
+                          f'Ninsoare posibilă {moment}.',
+                          f'Snow possible {moment}.', target)
+        averse = _event_code(codes, i) in (80, 81, 82)
         return result('rain_start',
-                      f'Este probabil să înceapă ploaia {moment}.',
-                      f'Rain is likely to start {moment}.', target)
+                      f'{"Averse posibile" if averse else "Ploaie posibilă"} {moment}.',
+                      f'{"Showers" if averse else "Rain"} possible {moment}.', target)
 
     fog = next((i for i in future[:3] if _event_code(codes, i) in _FOG_WMO
                 or 0 < _event_num(visibility, i, 999999) <= 1200), None)
@@ -1086,8 +1086,8 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         moment = _moment_eveniment(target, now, limba)
         return result(
             'fog_now' if current_code in _FOG_WMO else 'fog_start',
-            'Este ceață acum. Vizibilitatea poate fi redusă pe drum.' if current_code in _FOG_WMO else f'Este probabil să se formeze ceață {moment}.',
-            'It is foggy now. Visibility may be poor on the road.' if current_code in _FOG_WMO else f'Fog is likely to form {moment}.',
+            'Ceață acum. Vizibilitatea poate fi redusă.' if current_code in _FOG_WMO else f'Ceață posibilă {moment}.',
+            'Fog now. Visibility may be reduced.' if current_code in _FOG_WMO else f'Fog possible {moment}.',
             target)
 
     current_gust = float(current.get('wind_gusts_10m') or 0)
@@ -1099,8 +1099,8 @@ def _compune_eveniment_meteo(p, limba='ro', unitate='C', nume=None):
         shown, unit = (round(speed * .621371), 'mph') if unitate == 'F' else (round(speed), 'km/h')
         return result(
             'wind_now' if current_gust >= 60 else 'wind_start',
-            f'Rafalele ajung acum la aproximativ {shown} {unit}.' if current_gust >= 60 else f'Rafalele pot ajunge la {shown} {unit} {moment}.',
-            f'Gusts are reaching about {shown} {unit} now.' if current_gust >= 60 else f'Gusts may reach {shown} {unit} {moment}.',
+            f'Rafale de aproximativ {shown} {unit} acum.' if current_gust >= 60 else f'Rafale de {shown} {unit} posibile {moment}.',
+            f'Gusts of about {shown} {unit} now.' if current_gust >= 60 else f'Gusts up to {shown} {unit} possible {moment}.',
             target)
     return None
 
@@ -1241,7 +1241,7 @@ def _text_anm(value):
     return re.sub(r'\s+', ' ', html.unescape(value).replace('\xa0', ' ')).strip(' ;,.')
 
 
-def _rezumat_scurt_avertizare(avertizare, county_name='Dâmbovița'):
+def _rezumat_scurt_avertizare(avertizare, county_name='Dâmbovița', compact=False, limba='ro'):
     """Compune o propoziție scurtă și completă din mesajul ANM.
 
     ANM folosește uneori „conform textelor” în câmpurile scurte. Nu trimitem
@@ -1280,6 +1280,19 @@ def _rezumat_scurt_avertizare(avertizare, county_name='Dâmbovița'):
     # Trei idei sunt suficiente pentru ecranul restrâns al notificării. Alegem
     # semantic fenomenele, nu tăiem o frază existentă la un număr de caractere.
     fenomene = fenomene[:3]
+    if compact:
+        if limba == 'en':
+            labels = {'furtuni și vijelii': 'thunderstorms and squalls', 'ploi': 'rain',
+                      'intensificări ale vântului': 'strong winds', 'lapoviță și ninsoare': 'sleet and snow',
+                      'polei': 'ice', 'ceață': 'fog', 'temperaturi foarte ridicate': 'very high temperatures',
+                      'o răcire accentuată': 'a sharp drop in temperature', 'ger': 'severe cold'}
+            phenomena = [labels[x] for x in fenomene]
+            code = {1: 'Yellow warning', 2: 'Orange warning', 3: 'Red warning'}.get(avertizare.get('nivel'), 'Weather warning')
+            description = (', '.join(phenomena[:-1]) + ' and ' + phenomena[-1]) if len(phenomena) > 1 else (phenomena[0] if phenomena else 'check the ANM warning')
+        else:
+            code = {1: 'Cod galben', 2: 'Cod portocaliu', 3: 'Cod roșu'}.get(avertizare.get('nivel'), 'Avertizare meteo')
+            description = (', '.join(fenomene[:-1]) + ' și ' + fenomene[-1]) if len(fenomene) > 1 else (fenomene[0] if fenomene else 'verifică avertizarea ANM')
+        return f'{code}: {description}.'
     if not fenomene:
         return f'Este în vigoare o avertizare meteorologică pentru {county_name}.'
     if len(fenomene) == 1:
@@ -1345,9 +1358,6 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
         maxime = zi['temperature_2m_max']
         minime = zi['temperature_2m_min']
         coduri = zi.get('weather_code') or []
-        probs = zi.get('precipitation_probability_max') or []
-        uvs = zi.get('uv_index_max') or []
-        raf = zi.get('wind_gusts_10m_max') or []
     except (KeyError, TypeError):
         return None
 
@@ -1355,7 +1365,7 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     indices = summary_indices(p, seara)
     if indices is None:
         return None
-    i, ref = indices
+    i, _ = indices
     if len(maxime) <= i or len(minime) <= i:
         return None
 
@@ -1363,37 +1373,20 @@ def _compune_rezumat(p, moment, limba, unitate, nume):
     if not notification_finite(maxi) or not notification_finite(mini):
         return None
     cod = coduri[i] if len(coduri) > i else None
-    prob = probs[i] if len(probs) > i else None
-    uv = uvs[i] if len(uvs) > i else None
-    rafale = raf[i] if len(raf) > i else None
     vreme = tabel.get(cod, '')
 
-    dif = None
-    if ref is not None and len(maxime) > ref and notification_finite(maxime[ref]):
-        dif = maxi - maxime[ref]
-
     loc = str(nume or '').strip() or ('your area' if en else 'zona ta')
-    titlu = notification_city_title(loc, limba)
+    # A daily summary describes the target day, even when sent the evening before.
+    titlu = notification_city_title(loc, limba, notification_weather_emoji(cod))
     descriere = vreme[:1].upper() + vreme[1:] if vreme else ('Forecast' if en else 'Prognoză')
     if seara:
-        corp = (f"Tomorrow: {descriere.lower()}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+        corp = (f"Tomorrow: {descriere.lower()}. High {_grade(maxi, unitate)}, low {_grade(mini, unitate)}."
                 if en else
-                f"Mâine: {descriere.lower()}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
+                f"Mâine: {descriere.lower()}. Maxima {_grade(maxi, unitate)}, minima {_grade(mini, unitate)}.")
     else:
-        corp = (f"Today: {descriere.lower()}. The high will be {_grade(maxi, unitate)}, and the low {_grade(mini, unitate)}. "
+        corp = (f"Today: {descriere.lower()}. High {_grade(maxi, unitate)}, low {_grade(mini, unitate)}."
                 if en else
-                f"Astăzi: {descriere.lower()}. Maxima va fi de {_grade(maxi, unitate)}, iar minima de {_grade(mini, unitate)}. ")
-
-    if dif is not None and abs(dif) >= 3:
-        pas = abs(dif) * 9 / 5 if unitate == 'F' else abs(dif)
-        u = '°F' if unitate == 'F' else '°C'
-        if en:
-            reper = 'today' if seara else 'yesterday'
-            corp += f"It will be {round(pas)}{u} {'warmer' if dif > 0 else 'colder'} than {reper}. "
-        else:
-            reper = 'astăzi' if seara else 'ieri'
-            corp += f"Va fi cu {round(pas)}{u} mai {'cald' if dif > 0 else 'rece'} decât {reper}. "
-    corp += _sfat_zi(maxi, uv, prob, rafale, cod, limba)
+                f"Astăzi: {descriere.lower()}. Maxima {_grade(maxi, unitate)}, minima {_grade(mini, unitate)}.")
     return titlu, corp
 
 

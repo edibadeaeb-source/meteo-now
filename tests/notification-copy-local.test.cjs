@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+const start=html.indexOf('function rezumatAvertizareLocala('),end=html.indexOf('var _localAlertTimer',start);
+const context=vm.createContext({LANG:'ro',anmDetalii:w=>w});
+vm.runInContext(html.slice(start,end),context);
+assert.equal(context.rezumatAvertizareLocala({fenomene:'ploi și intensificări ale vântului'},2),'Cod portocaliu: ploi și intensificări ale vântului.');
+assert.equal(context.rezumatAvertizareLocala({},3),'Cod roșu: verifică avertizarea ANM.');
+context.LANG='en';
+assert.equal(context.rezumatAvertizareLocala({fenomene:'ploi și intensificări ale vântului'},1),'Yellow warning: rain and strong winds.');
+assert.equal(context.rezumatAvertizareLocala({},3),'Red warning: check the ANM warning.');
+assert(html.includes("new Notification('Dâmbovița ⚠️'"));
+console.log('PASS: local fallback keeps city/emoji and warning severity in short RO/EN copy');
