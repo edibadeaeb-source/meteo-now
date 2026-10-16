@@ -1,6 +1,6 @@
 # Google Play Data safety — METEO NOW
 
-Revizie: 13 octombrie 2026. Android 1.0.23 / web 2026.10.13.3. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
+Revizie: 17 octombrie 2026. Android 1.0.23 / web 2026.10.17.2. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
 
 ## Răspunsuri generale
 
@@ -28,7 +28,8 @@ Revizie: 13 octombrie 2026. Android 1.0.23 / web 2026.10.13.3. Inventar bazat pe
 - Lista orașelor widgeturilor este un pachet AES-GCM criptat end-to-end. Cheia rămâne pe dispozitiv; serverul păstrează și un identificator opac al pachetului. Nu declara întregul serviciu exempt de identificatori doar fiindcă lista este criptată.
 - Starea Android păstrează ultimul rezultat permis/refuzat, identificatorul cererii și data, înlocuite la o nouă verificare; nu promitem retenție automată limitată în zile pentru acest flux.
 - Agregatele de diagnostic mai vechi de 14 zile sunt curățate la o raportare ulterioară. Jurnalele Render au retenție administrată separat.
-- Istoricul AI este salvat local și se poate șterge din panoul AI. Serverul METEO NOW nu păstrează conversația; retenția Anthropic trebuie verificată în termenii contului/API înainte de declararea procesării efemere.
+- Istoricul AI este salvat local și se poate șterge din panoul AI. Serverul METEO NOW nu păstrează conversația; contextul transmis poate include localitatea și coordonatele. Anthropic declară retenție standard API de până la 30 zile, cu excepții contractuale, de siguranță și legale; nu declara acest flux exclusiv efemer și nu promite că ștergerea locală șterge copiile furnizorului. [Politica furnizorului](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data), verificată la 17 octombrie 2026. Nu am verificat în consola Anthropic existența unui acord special al contului.
+- Pentru protecția împotriva abuzului, contoarele locale de acces folosesc un hash al IP-ului; înregistrările expirate sunt curățate la cereri ulterioare. Nu folosi afirmația generală „nu procesăm identificatori”. Scopul acestui flux este prevenirea abuzului și securitate, separat de diagnosticul tehnic.
 - Ștergerea datelor locale și revocarea permisiunilor nu sunt echivalente cu ștergerea tuturor datelor de pe server. Politica publică oferă contactul edibadea.eb@gmail.com; nu bifa un mecanism automat de ștergere server pe baza simplei dezinstalări.
 
 ## Destinatari și clasificarea distribuirii
@@ -42,3 +43,5 @@ Nu presupune că fiecare cerere de hartă trimite coordonate GPS sau că orice t
 În formular, „colectare” include transmiterea în afara dispozitivului. Procesarea efemeră presupune păstrare doar în memorie pentru cererea imediată. Google distinge transferul către prestatori de distribuire și include diagnosticul tehnic în categoriile de performanță. Aceste reguli nu înlocuiesc verificarea contractelor furnizorilor. [Ghid oficial Data safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en), consultat la 13 octombrie 2026.
 
 Politica publică actuală: https://meteo-now.onrender.com/privacy.html. Copia inclusă în pachet trebuie să fie identică cu sursa publicată.
+
+Verificarea din 17 octombrie și condițiile de utilizare ale API-urilor sunt în `LAUNCH-AUDIT-20261017.md` din sursele active / documentația tehnică. Jurnalele private confirmă apeluri automate ale joburilor, dar nu înlocuiesc proba fizică de livrare a unei alerte.

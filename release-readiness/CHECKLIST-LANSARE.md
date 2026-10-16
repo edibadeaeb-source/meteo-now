@@ -8,7 +8,7 @@ Actualizat: 13 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.23, versionCode 24, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.17.1, Service Worker v64 |
+| Aplicația web / server | 2026.10.17.2, Service Worker v65 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.23-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.23-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.23-widget-source.zip |
@@ -29,7 +29,7 @@ Raportul original al buildului descrie interfața web de la momentul construirii
 ## Ordinea înainte de publicare
 
 1. Revizuiește `TEXTE-MAGAZIN.md` și `DATA-SAFETY-2026.md`. Formularul Data safety trebuie să includă și diagnosticul, nu răspunsul vechi „fără raportare de erori”.
-2. Folosește cele cinci capturi actuale din `screenshots/2026-10-13/`: vreme, orașe, prognoză, lună și AI. Sunt capturi reale ale APK-ului în emulator, cu date live, verificate vizual și exportate la 1080×1920 RGB. Detalii și texte alternative în `CAPTURI-20261013.md`. Cele cinci capturi vechi direct din `screenshots/` rămân materiale anterioare.
+2. Utilizatorul a ales să refacă personal capturile pe S24 Ultra; selecția finală pentru magazin așteaptă imaginile lui. Capturile emulatorului din `screenshots/2026-10-13/` și cele vechi direct din `screenshots/` sunt păstrate ca exemple și materiale anterioare, fără a fi înlocuite sau declarate selecția finală.
 3. Încarcă AAB-ul într-un release de test din Play Console. Dacă versionCode 24 a fost deja folosit, trebuie un build cu număr mai mare; nu redenumi fișierul ca soluție.
 4. Compară certificatul „App signing key certificate” din Play Console cu `/.well-known/assetlinks.json`. Adaugă amprenta Play dacă diferă, păstrând-o și pe cea locală. Nu presupune că trebuie să fie exact două certificate.
 5. Instalează versiunea livrată de Play pe S24 Ultra și verifică lipsa barei Chrome, actualizarea peste instalarea existentă, orașele și widgeturile păstrate.

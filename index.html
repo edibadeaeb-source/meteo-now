@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.17.1">
+    <meta name="application-version" content="2026.10.17.2">
     <script src="diagnostics.js?v=1"></script>
     <meta name="color-scheme" content="dark light">
     <style>
@@ -5052,8 +5052,7 @@ var forecastMapL = null, fcTowns = [], fcData = null, fcMarkers = [];
 
 /**
  * Construiește o rețea de puncte în jurul locației alese (funcționează oriunde
- * în lume) și le află numele prin geocodare inversă. Așa harta arată localitățile
- * din zona New York-ului la fel de bine ca pe cele din jurul Târgoviștei.
+ * în lume). Punctele din rețea sunt zone de prognoză, nu orașe identificate.
  */
 function construiestePuncteZona() {
     var pas = 0.42;                                   // ~45 km
@@ -5068,17 +5067,18 @@ function construiestePuncteZona() {
     return puncte;
 }
 
-/** Află numele localităților pentru punctele generate (gratuit, fără cheie). */
+/** Denumește local zonele; geocodarea GPS gratuită nu permite puncte generate. */
 function numesteePuncte(puncte) {
-    var cereri = puncte.map(function(p) {
-        if (p.centru) return Promise.resolve(p);
-        return fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + p.lat +
-                     '&longitude=' + p.lon + '&localityLanguage=' + (LANG === 'en' ? 'en' : 'ro'))
-            .then(function(r) { return r.json(); })
-            .then(function(g) { p.n = g.city || g.locality || g.principalSubdivision || ''; return p; })
-            .catch(function() { return p; });
+    var en = LANG === 'en';
+    puncte.forEach(function(p) {
+        if (p.centru || p.n) return;
+        var dy = p.lat - LOC.lat, dx = p.lon - LOC.lon;
+        var ns = Math.abs(dy) < 0.01 ? '' : (dy > 0 ? (en ? 'north' : 'nord') : (en ? 'south' : 'sud'));
+        var ew = Math.abs(dx) < 0.01 ? '' : (dx > 0 ? (en ? 'east' : 'est') : (en ? 'west' : 'vest'));
+        var direction = ns && ew ? ns + '-' + ew : ns || ew;
+        p.n = direction ? (en ? 'Area to the ' : 'Zona de ') + direction : (en ? 'Local area' : 'Zona locală');
     });
-    return Promise.all(cereri);
+    return Promise.resolve(puncte);
 }
 
 function initForecastMap() {

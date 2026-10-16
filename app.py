@@ -1994,7 +1994,8 @@ def ask():
     except requests.exceptions.Timeout:
         return jsonify({'error': 'Timeout'}), 504
     except requests.exceptions.HTTPError as e:
-        print(f"❌ HTTP {e.response.status_code}: {e.response.text}")
+        # Provider error bodies may echo input. Log the status, never user text.
+        print(f"❌ Claude HTTP {e.response.status_code}")
         return jsonify({'error': f'API Error: {e.response.status_code}'}), 500
     except Exception as e:
         print(f"❌ Eroare: {e}")

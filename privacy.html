@@ -56,7 +56,7 @@
 
     <!-- ══════════════ ROMÂNĂ ══════════════ -->
     <div class="sec-ro">
-        <p><b>Ultima actualizare:</b> 11 octombrie 2026</p>
+        <p><b>Ultima actualizare:</b> 17 octombrie 2026</p>
 
         <div class="box">
             <p><b>Pe scurt:</b> METEO NOW nu creează conturi și nu vinde informații nimănui. Locația este folosită pentru vremea locală. Prognozele pe coordonate sunt păstrate într-un cache al serverului, fără identificator de persoană sau dispozitiv. Dacă activezi notificările, localitatea este păstrată și cu abonamentul tehnic necesar alertelor.</p>
@@ -77,6 +77,8 @@
             <li><b>Întrebările către asistentul AI</b> — sunt trimise pentru procesare către Anthropic
             (Claude) împreună cu ultimele mesaje relevante ale discuției și vremea afișată în acel moment. Nu le asociem cu identitatea ta și nu le
             folosim pentru altceva.</li>
+            <li><b>Procesarea AI la furnizor</b> — contextul poate include localitatea și coordonatele selectate. METEO NOW nu salvează conversația pe server. Anthropic declară pentru API o retenție standard de până la 30 de zile pentru întrebări și răspunsuri, cu excepții contractuale, de siguranță și legale. Ștergerea istoricului local nu șterge automat copiile procesate anterior de furnizor. Detalii în <a href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data">politica Anthropic pentru API</a>.</li>
+            <li><b>Protecția împotriva abuzului</b> — serverul primește adresa IP a cererii și folosește temporar o amprentă derivată din ea pentru limitele de acces. Înregistrările limitelor expirate sunt eliminate la o cerere ulterioară. Jurnalele proprii de acces ale aplicației păstrează metoda, calea fără parametri, codul de răspuns, dimensiunea și durata, fără coordonate, chei sau IP în acel format. Infrastructura Render și serviciile externe pot avea separat propriile jurnale tehnice.</li>
             <li><b>Prognoze salvate pe dispozitiv</b> — păstrăm local prognoze pentru cel mult 16 locații, utilizabile până la 24 de ore de la salvare, ca să poți vedea ultimele informații când nu ai internet. Datele salvate sunt marcate împreună cu ora actualizării. Fișierele interfeței sunt păstrate separat pentru pornirea offline. Prognozele expirate sunt eliminate la următoarea utilizare a cache-ului; ștergerea datelor aplicației elimină și copiile locale.</li>
             <li><b>Istoricul conversațiilor AI</b> — se salvează local pe acest dispozitiv, fără sincronizare în cloud. Poți șterge conversațiile din panoul AI; ștergerea datelor aplicației elimină și istoricul local.</li>
             <li><b>Rapoarte tehnice de eroare</b> — aplicația poate trimite automat codul problemei, componenta afectată, versiunea aplicației, categoria platformei, codul HTTP și numărul liniei dintr-un fișier cunoscut. Nu includ mesajele sau conversațiile AI, coordonate, nume de orașe, adrese URL, chei, identificatori de instalare ori istoricul navigării. Sunt înregistrate în jurnalele private ale serverului și agregate în Firebase; agregatele mai vechi de 14 zile sunt șterse la următoarea raportare. Furnizorul de găzduire gestionează separat jurnalele tehnice ale cererilor. Nu folosim aceste rapoarte pentru publicitate sau profilare.</li>
@@ -130,7 +132,7 @@
 
     <!-- ══════════════ ENGLISH ══════════════ -->
     <div class="sec-en">
-        <p><b>Last updated:</b> 11 October 2026</p>
+        <p><b>Last updated:</b> 17 October 2026</p>
 
         <div class="box">
             <p><b>In short:</b> METEO NOW does not create accounts or sell information. Location is used for local weather. Forecasts by coordinates are retained in a server cache, without a person or device identifier. If you enable notifications, the locality is also stored with the technical subscription required to deliver alerts.</p>
@@ -151,6 +153,8 @@
             <li><b>Questions to the AI assistant</b> — sent for processing to Anthropic (Claude) together
             with recent relevant messages from the conversation and the weather currently displayed. They are not linked to your identity and are not used
             for anything else.</li>
+            <li><b>AI provider processing</b> — context may include the selected locality and coordinates. METEO NOW does not store conversations on its server. Anthropic states a standard API retention period of up to 30 days for inputs and outputs, subject to contractual, safety and legal exceptions. Deleting local history does not automatically delete copies previously processed by the provider. See <a href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data">Anthropic's API retention policy</a>.</li>
+            <li><b>Abuse prevention</b> — the server receives the request IP address and temporarily uses a derived fingerprint to enforce access limits. Expired quota records are removed on a later request. The application's own access log format keeps the method, path without parameters, status, response size and duration, without coordinates, keys or IP addresses in that format. Render infrastructure and external services may separately maintain their own technical logs.</li>
             <li><b>Forecasts saved on your device</b> — forecasts for up to 16 locations are stored locally and remain usable for up to 24 hours after saving, so you can view the last available information without internet. Saved data is labelled with its update time. Interface files are stored separately for offline startup. Expired forecasts are removed when the cache is next maintained; clearing app data also removes local copies.</li>
             <li><b>AI conversation history</b> — saved locally on this device, without cloud synchronisation. You can delete conversations in the AI panel; clearing app data also removes the local history.</li>
             <li><b>Technical error reports</b> — the app may automatically send an issue code, affected component, app version, platform category, HTTP status and a line number in a known source file. Reports exclude AI messages and conversations, coordinates, city names, URLs, keys, installation identifiers and browsing history. They are recorded in private server logs and aggregated in Firebase; aggregates older than 14 days are removed when the next report is processed. The hosting provider separately manages technical request logs. We do not use error reports for advertising or profiling.</li>
