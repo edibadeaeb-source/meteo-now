@@ -76,7 +76,8 @@ class WeatherPromptTests(unittest.TestCase):
         sent=post.call_args.kwargs['json']
         self.assertEqual(sent['model'],'claude-sonnet-5-5')
         self.assertEqual(sent['thinking'],{'type':'between_tools'})
-        self.assertEqual(sent['max_tokens'],2000)
+        self.assertEqual(sent['max_tokens'],600)
+        self.assertIn('maximum 120 de cuvinte', sent['system'])
         self.assertEqual(sent['messages'][-1]['role'],'user')
         self.assertEqual(len(sent['messages']),3)
         for parameter in ('temperature','top_p','top_k','tool_choice'):

@@ -1,6 +1,6 @@
 # METEO NOW — verificare înainte de Google Play
 
-Actualizat: 13 octombrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
+Actualizat: 17 octombrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
 
 ## Pachetul actual
 
@@ -8,7 +8,7 @@ Actualizat: 13 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.23, versionCode 24, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.17.2, Service Worker v65 |
+| Aplicația web / server | 2026.10.17.3, Service Worker v66 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.23-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.23-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.23-widget-source.zip |
@@ -23,6 +23,7 @@ Raportul original al buildului descrie interfața web de la momentul construirii
 - O singură programare comună pentru widgeturi, aproximativ la 20 minute. Toți cei cinci furnizori au `updatePeriodMillis=0`; nu mai există fallbackul periodic suplimentar de 30 minute. Android poate amâna lucrul în funcție de conexiune și baterie.
 - Locația se actualizează la deschidere / revenire și în timpul utilizării. Cu aplicația închisă, notificările folosesc ultima localitate confirmată și sincronizată. Fără GPS în fundal.
 - Istoricul AI este local; întrebarea, contextul recent și vremea afișată sunt trimise pentru răspuns către Anthropic.
+- Răspuns AI: maximum 120 cuvinte și 2.000 caractere, impus pe server; generare limitată la 600 tokenuri, fără continuare automată plătită.
 - Prognoze locale salvate pentru pornire offline; datele vechi sunt marcate cu ora actualizării.
 - Raportare tehnică proprie a erorilor, fără conversații, coordonate sau identificatori în evenimentele de diagnostic. Nu avem integrare Crashlytics.
 

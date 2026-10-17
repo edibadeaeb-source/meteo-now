@@ -33,6 +33,7 @@ ANTHROPIC_MODEL = "claude-sonnet-5-5"
 OPENWEATHER_API_KEY = _load_key("OPENWEATHER_API_KEY", "OPENWEATHER_API_KEY")
 from weather_service import WeatherService
 from widget_weather import current_widget, condition as widget_condition
+from ai_response_limits import MAX_OUTPUT_TOKENS, RESPONSE_INSTRUCTION, bound_response
 from notification_weather import (
     fresh_forecast, forecast_time, summary_indices, finite as notification_finite,
     city_title as notification_city_title, event_title as notification_event_title,
@@ -1825,7 +1826,7 @@ SURSE DE DATE: MET Norway, Open-Meteo si OpenWeatherMap prin acelasi serviciu no
 STIL DE COMUNICARE:
 - Raspunzi in LIMBA indicata in context (ro = romana, en = engleza). Daca e engleza, raspunzi natural in engleza, nu traduceri stangace.
 - Natural si prietenos, ca un meteorolog care explica pe intelesul oricui
-- IMPLICIT raspunsuri SCURTE (1-3 propozitii). Doar la cerere explicita → mai lungi
+- IMPLICIT raspunsuri SCURTE (1-3 propozitii). La cerere explicita poti detalia, dar niciodata peste 120 de cuvinte.
 - Emoji subtile (maxim 1 per raspuns)
 - NU folosi markdown (* ** _ etc)
 - Raspunzi lejer si la lucruri de baza: ce ora e, ce zi/data e, saluturi, intrebari generale despre vreme, clima, fenomene meteo
@@ -1939,7 +1940,7 @@ def ask():
     ora_text = (f"\nDATA SI ORA CURENTA IN LOCALITATEA SELECTATA: {_zi}, {_acum.strftime('%d.%m.%Y')}, "
                 f"ora {_acum.strftime('%H:%M')} ({_nume_fus}). Foloseste aceasta valoare pentru intrebari despre ora sau data.")
 
-    full_system = f"{SYSTEM_PROMPT}{limba_text}{loc_text}{vremea_text}\n{context_text}{ora_text}"
+    full_system = f"{SYSTEM_PROMPT}{limba_text}{loc_text}{vremea_text}\n{context_text}{ora_text}{RESPONSE_INSTRUCTION}"
     
     # Construim messages pentru Claude
     messages = []
@@ -1965,7 +1966,7 @@ def ask():
     }
     data = {
         "model": ANTHROPIC_MODEL,
-        "max_tokens": 2000,
+        "max_tokens": MAX_OUTPUT_TOKENS,
         # Weather chat needs a direct answer; do not spend its short output
         # budget on the new model's default up-front adaptive thinking.
         "thinking": {"type": "between_tools"},
@@ -1983,6 +1984,7 @@ def ask():
         answer = '\n'.join(block['text'] for block in result.get('content', [])
             if isinstance(block, dict) and block.get('type', 'text') == 'text'
             and isinstance(block.get('text'), str) and block['text'].strip()).strip()
+        answer = bound_response(answer, result.get('stop_reason', 'end_turn'))
         if not answer:
             print("⚠️ Claude returned no usable text")
             return jsonify({'error': 'Raspuns gol de la Claude'}), 502
