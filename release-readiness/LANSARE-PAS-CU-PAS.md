@@ -6,7 +6,7 @@ Lista unică de pași este acum în [CHECKLIST-LANSARE.md](CHECKLIST-LANSARE.md)
 
 1. Revizuim textele și declarațiile din pachet.
 2. Folosim capturile actuale pregătite în `screenshots/2026-10-13/`, descrise în `CAPTURI-20261013.md`.
-3. Încărcăm AAB-ul 1.0.25 într-un canal de test, dacă versionCode 26 este disponibil.
+3. Încărcăm AAB-ul 1.0.26 într-un canal de test, dacă versionCode 27 este disponibil.
 4. Verificăm certificatul Play în assetlinks și instalarea din magazin.
 5. Finalizăm proba pe S24 Ultra, inclusiv notificări în repaus și widgeturi.
 6. Verificăm cerințele contului în consolă, apoi pregătim trimiterea spre verificare.

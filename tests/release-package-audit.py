@@ -23,12 +23,12 @@ def main():
     results = {'checkedAt': datetime.now(timezone.utc).isoformat(),
                'readOnlyProduction': True, 'playUploaded': False,
                'physicalPhoneTested': False, 'files': [], 'hosts': []}
-    for line in (CURRENT / 'SHA256-1.0.25.txt').read_text().splitlines():
+    for line in (CURRENT / 'SHA256-1.0.26.txt').read_text().splitlines():
         digest, name = line.split(maxsplit=1)
         actual = hashlib.sha256((CURRENT / name).read_bytes()).hexdigest()
         assert actual.lower() == digest.lower(), name
         results['files'].append({'name': name, 'sha256': actual})
-    with zipfile.ZipFile(CURRENT / 'METEO-NOW-1.0.25-widget-source.zip') as archive:
+    with zipfile.ZipFile(CURRENT / 'METEO-NOW-1.0.26-widget-source.zip') as archive:
         forbidden = [name for name in archive.namelist()
                      if pathlib.PurePosixPath(name).name.lower() in
                      {'keystore.properties', '.env', 'local.properties'}
@@ -36,8 +36,8 @@ def main():
         assert not forbidden, 'Signing/environment files found in source archive'
         results['sourceArchiveSigningFilesExcluded'] = True
     gradle = (REPO / 'android-native/app/build.gradle').read_text(encoding='utf8')
-    assert re.search(r'versionCode\s+26\b', gradle)
-    assert re.search(r'versionName\s+"1.0.25"', gradle)
+    assert re.search(r'versionCode\s+27\b', gradle)
+    assert re.search(r'versionName\s+"1.0.26"', gradle)
     providers = list((REPO / 'android-native/app/src/main/res/xml').glob('meteo*info.xml'))
     assert len(providers) == 5
     assert all('android:updatePeriodMillis="0"' in p.read_text() for p in providers)

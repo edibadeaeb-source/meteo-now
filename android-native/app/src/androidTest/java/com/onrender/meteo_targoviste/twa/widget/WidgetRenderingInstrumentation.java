@@ -128,21 +128,22 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
                             && text.getLineWidth(0) <= temp.getWidth(), "temperature must fit " + size[0] + "x" + size[1]);
                     require(temp.getHeight() >= text.getHeight(), "temperature height must fit " + size[0] + "x" + size[1]
                             + ", font " + font + ": " + temp.getHeight() + " < " + text.getHeight());
-                    View column=(View)temp.getParent();
-                    require(Math.abs((temp.getLeft()+temp.getRight())/2f-column.getWidth()/2f)<=1,
-                            "temperature centered horizontally in text column");
-                    require((temp.getGravity() & android.view.Gravity.HORIZONTAL_GRAVITY_MASK)==android.view.Gravity.CENTER_HORIZONTAL,
-                            "temperature text is centered");
                     TextView range=view.findViewById(R.id.capsule_maxmin);
-                    require(name.getBottom()<=temp.getTop(),"city stays above temperature");
+                    require((temp.getGravity() & android.view.Gravity.HORIZONTAL_GRAVITY_MASK)==android.view.Gravity.CENTER_HORIZONTAL,
+                            "temperature text remains centered");
                     for(TextView line:new TextView[]{name,temp,range}) if(line.getVisibility()==View.VISIBLE){
                         require(line.getLayout()!=null && line.getLayout().getHeight()<=line.getHeight(),
-                                "each capsule text row fits its own height "+size[0]+"x"+size[1]+" font "+font+" text="+line.getText()+" layout="+line.getLayout().getHeight()+" height="+line.getHeight());
+                                "capsule text fits: "+size[0]+"x"+size[1]+" font "+font+" text="+line.getText());
                     }
-                    if(range.getVisibility()==View.VISIBLE){
-                        require(temp.getBottom()<=range.getTop(),"min/max stays below temperature");
-                        require(Math.abs((temp.getTop()+temp.getBottom())/2f-column.getHeight()/2f)<=2,
-                                "temperature row is at the vertical center");
+                    if(!shortRow){
+                        View header=view.findViewById(R.id.capsule_header),hero=view.findViewById(R.id.capsule_hero);
+                        require(header.getBottom()<=hero.getTop() && hero.getBottom()<=range.getTop(),"separate city, weather and min/max rows");
+                        require(Math.abs((hero.getTop()+hero.getBottom())/2f-((View)hero.getParent()).getHeight()/2f)<=2,
+                                "weather hero centered vertically");
+                        require(range.getWidth()==header.getWidth(),"city and min/max use full capsule width");
+                        android.graphics.Rect nameBounds=new android.graphics.Rect();name.getDrawingRect(nameBounds);
+                        ((android.view.ViewGroup)header).offsetDescendantRectToMyCoords(name,nameBounds);
+                        require(Math.abs(nameBounds.centerX()-header.getWidth()/2f)<=2,"city centered across capsule");
                     }
                     require(view.findViewById(R.id.capsule_root).hasOnClickListeners() && name.hasOnClickListeners(), "open-city and configure actions");
                     if (size[0] >= 160 && size[1] >= 100) {
@@ -157,6 +158,18 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
                 }
             }
         }
+        JSONObject moreni=new JSONObject().put("oras","Moreni").put("tempText","9°")
+                .put("fundal","noapte").put("weatherCode",2).put("isDay",0)
+                .put("minAzi",6).put("maxAzi",9);
+        RemoteViews moreniViews=(RemoteViews)layout.invoke(null,base,moreni,995,city,R.layout.widget_capsule);
+        View moreniWidget=moreniViews.apply(base,new FrameLayout(base));moreniWidget.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        float screenDensity=base.getResources().getDisplayMetrics().density;
+        int moreniWidth=Math.round(180*screenDensity),moreniHeight=Math.round(86*screenDensity);
+        for(int pass=0;pass<3;pass++){
+            moreniWidget.forceLayout();moreniWidget.measure(View.MeasureSpec.makeMeasureSpec(moreniWidth,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(moreniHeight,View.MeasureSpec.EXACTLY));moreniWidget.layout(0,0,moreniWidth,moreniHeight);
+        }
+        Bitmap moreniShot=Bitmap.createBitmap(moreniWidth,moreniHeight,Bitmap.Config.ARGB_8888);moreniWidget.draw(new Canvas(moreniShot));
+        try(FileOutputStream file=new FileOutputStream(new File(base.getExternalFilesDir(null),"widget-moreni-redesign.png"))){moreniShot.compress(Bitmap.CompressFormat.PNG,100,file);}
         RemoteViews offline = (RemoteViews) layout.invoke(null, base, null, 991, city, R.layout.widget_capsule);
         View empty = offline.apply(base, new FrameLayout(base));
         require("--°".contentEquals(((TextView) empty.findViewById(R.id.capsule_temp)).getText()), "missing data is not zero degrees");
