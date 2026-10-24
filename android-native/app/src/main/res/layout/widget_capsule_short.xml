@@ -1,39 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/capsule_root"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:background="@drawable/widget_capsule_day" android:clipToOutline="true"
-    android:orientation="horizontal" android:baselineAligned="false"
-    android:gravity="center_vertical" android:padding="6dp">
-    <ImageView android:id="@+id/capsule_icon"
-        android:layout_width="38dp" android:layout_height="match_parent"
-        android:layout_marginEnd="5dp" android:scaleType="fitCenter"
-        android:src="@drawable/ic_w_partial" android:importantForAccessibility="no" />
-    <LinearLayout android:layout_width="0dp" android:layout_height="match_parent"
-        android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
-        <TextView android:id="@+id/capsule_temp"
-            android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.6"
-            android:gravity="bottom" android:includeFontPadding="false" android:maxLines="1"
-            android:fontFamily="sans-serif-medium" android:text="19°" android:textColor="#FFFFFFFF"
-            android:textSize="25sp" android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="25sp"
-            android:autoSizeStepGranularity="1sp" />
-        <TextView android:id="@+id/capsule_oras"
-            android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.15"
-            android:gravity="center_vertical" android:includeFontPadding="false"
-            android:drawableStart="@drawable/ic_capsule_location" android:drawablePadding="3dp"
-            android:fontFamily="sans-serif-medium" android:text="@string/widget_preview_city"
-            android:maxLines="1" android:ellipsize="end" android:textColor="#FFFFFFFF"
-            android:textSize="12sp" android:autoSizeTextType="uniform"
-            android:autoSizeMinTextSize="4sp" android:autoSizeMaxTextSize="12sp"
-            android:autoSizeStepGranularity="1sp" />
-        <TextView android:id="@+id/capsule_maxmin"
-            android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.8"
-            android:gravity="top" android:includeFontPadding="false" android:maxLines="1"
-            android:fontFamily="sans-serif" android:text="@string/widget_capsule_preview_range"
-            android:textSize="10sp" android:textColor="#E8FFFFFF" android:ellipsize="end"
-            android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp"
-            android:autoSizeMaxTextSize="10sp" android:autoSizeStepGranularity="1sp"
-            android:visibility="gone" />
+<?xml version='1.0' encoding='utf-8'?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:id="@+id/capsule_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/widget_capsule_day" android:clipToOutline="true" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical" android:padding="5dp" android:layout_marginTop="2dp" android:layout_marginBottom="2dp">
+        <ImageView android:id="@+id/capsule_icon" android:layout_width="38dp" android:layout_height="match_parent" android:layout_marginEnd="5dp" android:scaleType="fitCenter" android:src="@drawable/ic_w_partial" android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
+            <TextView android:id="@+id/capsule_temp" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.6" android:gravity="bottom" android:includeFontPadding="false" android:maxLines="1" android:fontFamily="sans-serif-medium" android:text="19°" android:textColor="#FFFFFFFF" android:textSize="25sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="25sp" android:autoSizeStepGranularity="1sp" android:shadowColor="#80010A22" android:shadowDy="1" android:shadowRadius="1.5" />
+            <TextView android:id="@+id/capsule_oras" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1.15" android:gravity="center_vertical" android:includeFontPadding="false" android:drawableStart="@drawable/ic_capsule_location" android:drawablePadding="3dp" android:fontFamily="sans-serif-medium" android:text="@string/widget_preview_city" android:maxLines="1" android:ellipsize="end" android:textColor="#FFFFFFFF" android:textSize="12sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="4sp" android:autoSizeMaxTextSize="12sp" android:autoSizeStepGranularity="1sp" android:shadowColor="#80010A22" android:shadowDy="1" android:shadowRadius="1.5" />
+            <TextView android:id="@+id/capsule_maxmin" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="0.8" android:gravity="top" android:includeFontPadding="false" android:maxLines="1" android:fontFamily="sans-serif" android:text="@string/widget_capsule_preview_range" android:textSize="10sp" android:textColor="#FFFFFFFF" android:ellipsize="end" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="10sp" android:autoSizeStepGranularity="1sp" android:visibility="gone" android:shadowColor="#80010A22" android:shadowDy="1" android:shadowRadius="1.5" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

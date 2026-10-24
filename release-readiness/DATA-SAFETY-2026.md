@@ -1,6 +1,6 @@
 # Google Play Data safety — METEO NOW
 
-Revizie: 17 octombrie 2026. Android 1.0.23 / web 2026.10.17.3. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
+Revizie: 24 octombrie 2026. Android 1.0.24 / web 2026.10.24.1. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
 
 ## Răspunsuri generale
 
@@ -28,7 +28,7 @@ Revizie: 17 octombrie 2026. Android 1.0.23 / web 2026.10.17.3. Inventar bazat pe
 - Lista orașelor widgeturilor este un pachet AES-GCM criptat end-to-end. Cheia rămâne pe dispozitiv; serverul păstrează și un identificator opac al pachetului. Nu declara întregul serviciu exempt de identificatori doar fiindcă lista este criptată.
 - Starea Android păstrează ultimul rezultat permis/refuzat, identificatorul cererii și data, înlocuite la o nouă verificare; nu promitem retenție automată limitată în zile pentru acest flux.
 - Agregatele de diagnostic mai vechi de 14 zile sunt curățate la o raportare ulterioară. Jurnalele Render au retenție administrată separat.
-- Istoricul AI este salvat local și se poate șterge din panoul AI. Serverul METEO NOW nu păstrează conversația; contextul transmis poate include localitatea și coordonatele. Anthropic declară retenție standard API de până la 30 zile, cu excepții contractuale, de siguranță și legale; nu declara acest flux exclusiv efemer și nu promite că ștergerea locală șterge copiile furnizorului. [Politica furnizorului](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data), verificată la 17 octombrie 2026. Nu am verificat în consola Anthropic existența unui acord special al contului.
+- Istoricul AI este salvat local și se poate șterge din panoul AI. Serverul METEO NOW nu păstrează conversația; contextul transmis poate include localitatea și coordonatele. Anthropic declară retenție standard API de până la 30 zile, cu excepții contractuale, de siguranță și legale; nu declara acest flux exclusiv efemer și nu promite că ștergerea locală șterge copiile furnizorului. [Politica furnizorului](https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data), verificată la 24 octombrie 2026. Nu am verificat în consola Anthropic existența unui acord special al contului.
 - Pentru protecția împotriva abuzului, contoarele locale de acces folosesc un hash al IP-ului; înregistrările expirate sunt curățate la cereri ulterioare. Nu folosi afirmația generală „nu procesăm identificatori”. Scopul acestui flux este prevenirea abuzului și securitate, separat de diagnosticul tehnic.
 - Ștergerea datelor locale și revocarea permisiunilor nu sunt echivalente cu ștergerea tuturor datelor de pe server. Politica publică oferă contactul edibadea.eb@gmail.com; nu bifa un mecanism automat de ștergere server pe baza simplei dezinstalări.
 

@@ -2,7 +2,7 @@
 
 Actualizat: 13 octombrie 2026.
 
-Începe cu [CHECKLIST-LANSARE.md](CHECKLIST-LANSARE.md), apoi folosește [TEXTE-MAGAZIN.md](TEXTE-MAGAZIN.md) și [DATA-SAFETY-2026.md](DATA-SAFETY-2026.md). Pachetul Android curent este 1.0.23 / versionCode 24, în `builds/current` din directorul release-ready.
+Începe cu [CHECKLIST-LANSARE.md](CHECKLIST-LANSARE.md), apoi folosește [TEXTE-MAGAZIN.md](TEXTE-MAGAZIN.md) și [DATA-SAFETY-2026.md](DATA-SAFETY-2026.md). Pachetul Android curent este 1.0.24 / versionCode 25, în `builds/current` din directorul release-ready.
 
 Codul curent este deja publicat pe cele două servicii Render. Nu trebuie reîncărcate manual fișierele web și nu trebuie regenerat pachetul prin PWABuilder pentru această revizie a documentelor.
 

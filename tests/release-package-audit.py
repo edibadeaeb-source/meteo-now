@@ -23,12 +23,12 @@ def main():
     results = {'checkedAt': datetime.now(timezone.utc).isoformat(),
                'readOnlyProduction': True, 'playUploaded': False,
                'physicalPhoneTested': False, 'files': [], 'hosts': []}
-    for line in (CURRENT / 'SHA256-1.0.23.txt').read_text().splitlines():
+    for line in (CURRENT / 'SHA256-1.0.24.txt').read_text().splitlines():
         digest, name = line.split(maxsplit=1)
         actual = hashlib.sha256((CURRENT / name).read_bytes()).hexdigest()
         assert actual.lower() == digest.lower(), name
         results['files'].append({'name': name, 'sha256': actual})
-    with zipfile.ZipFile(CURRENT / 'METEO-NOW-1.0.23-widget-source.zip') as archive:
+    with zipfile.ZipFile(CURRENT / 'METEO-NOW-1.0.24-widget-source.zip') as archive:
         forbidden = [name for name in archive.namelist()
                      if pathlib.PurePosixPath(name).name.lower() in
                      {'keystore.properties', '.env', 'local.properties'}
@@ -36,8 +36,8 @@ def main():
         assert not forbidden, 'Signing/environment files found in source archive'
         results['sourceArchiveSigningFilesExcluded'] = True
     gradle = (REPO / 'android-native/app/build.gradle').read_text(encoding='utf8')
-    assert re.search(r'versionCode\s+24\b', gradle)
-    assert re.search(r'versionName\s+"1.0.23"', gradle)
+    assert re.search(r'versionCode\s+25\b', gradle)
+    assert re.search(r'versionName\s+"1.0.24"', gradle)
     providers = list((REPO / 'android-native/app/src/main/res/xml').glob('meteo*info.xml'))
     assert len(providers) == 5
     assert all('android:updatePeriodMillis="0"' in p.read_text() for p in providers)
@@ -84,7 +84,7 @@ def main():
                 assert normalized(data) == normalized((REPO / local).read_bytes()), host + endpoint
             record['checks'].append({'endpoint': endpoint, 'status': 200, 'matchesSource': True})
         results['hosts'].append(record)
-    results['webVersion'] = '2026.10.17.3'
+    results['webVersion'] = '2026.10.24.1'
     assert results['webVersion'] in (REPO / 'diagnostics.py').read_text()
     results['remaining'] = ['developer account registration', 'provider sharing/retention review',
                             'Play Console requirements and signing certificate',

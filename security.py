@@ -23,7 +23,7 @@ from flask_cors import CORS
 
 
 PUBLIC_FILES = frozenset({
-    'index.html', 'privacy.html', 'weather-credits.html', 'simulator.html',
+    'index.html', 'privacy.html', 'weather-credits.html', 'simulator.html', 'app-messages.js', 'app-messages.css',
     'manifest.webmanifest', 'sw.js', 'assetlinks.json', 'ai-conversations.js', 'ai-glass.js', 'diagnostics.js',
     'weather-ai.css', 'weather-atmosphere.js', 'weather-data-cache.js',
     'weather-geography.js', 'weather-glass.css', 'weather-library.js',

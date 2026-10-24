@@ -381,7 +381,18 @@ final class WeatherWidgetUpdater {
 
     private static RemoteViews buildDetails(Context context, JSONObject data, int appWidgetId,
                                                     WidgetPreferences.Location location) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_details);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Map<SizeF, RemoteViews> sizes = new LinkedHashMap<>();
+            sizes.put(new SizeF(250, 110), detailsLayout(context, data, appWidgetId, location, R.layout.widget_details_short));
+            sizes.put(new SizeF(250, 180), detailsLayout(context, data, appWidgetId, location, R.layout.widget_details));
+            return new RemoteViews(sizes);
+        }
+        return detailsLayout(context, data, appWidgetId, location, R.layout.widget_details_short);
+    }
+
+    private static RemoteViews detailsLayout(Context context, JSONObject data, int appWidgetId,
+                                             WidgetPreferences.Location location, int layout) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), layout);
         bindActions(context, views, R.id.details_root, R.id.details_oras, appWidgetId, location);
         views.setInt(R.id.details_root, "setBackgroundResource", backgroundFor(data));
 
@@ -407,8 +418,8 @@ final class WeatherWidgetUpdater {
         Integer feels = nullableInt(data, "resimtit");
         Integer humidity = nullableInt(data, "umiditate");
         Integer wind = nullableInt(data, "vant");
-        views.setTextViewText(R.id.details_feels, feels == null ? "--°" : feels + "° resimțită");
-        views.setTextViewText(R.id.details_humidity, humidity == null ? "--%" : humidity + "% umid.");
+        views.setTextViewText(R.id.details_feels, feels == null ? "--°" : feels + "°");
+        views.setTextViewText(R.id.details_humidity, humidity == null ? "--%" : humidity + "%");
         views.setTextViewText(R.id.details_wind, wind == null ? "-- km/h" : wind + " km/h");
         bindWarning(views, R.id.details_warning, data, true);
         return views;

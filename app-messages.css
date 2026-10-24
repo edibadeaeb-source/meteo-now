@@ -1,0 +1,53 @@
+/* One entrance/exit language for transient in-app messages. No layout animation. */
+html #sfatToast, html #appNotice {
+    position: fixed; z-index: 20050; top: calc(60px + env(safe-area-inset-top, 0px));
+    left: 50%; right: auto; width: min(460px, calc(100vw - 24px)); margin: 0;
+    transform: translateX(-50%); transition: none; pointer-events: none;
+}
+html #sfatToast[data-message-state], html #appNotice[data-message-state] {
+    opacity: 1; transform: translateX(-50%); transition: none;
+}
+html #sfatToast:not(.vizibil), html #appNotice:not(.vizibil) { visibility: hidden; }
+html #sfatToast[data-message-state="closing"], html #appNotice[data-message-state="closing"] { visibility: visible; }
+html #sfatToast[data-message-state="waiting"], html #appNotice[data-message-state="waiting"] { visibility: hidden; }
+html #sfatToast .st-card, html #appNotice .st-card { transform: none; transform-origin: center; }
+html #appNotice .st-card { grid-template-columns: 44px minmax(0, 1fr); padding-block: 14px 17px; }
+html #appNotice .st-et { font-size: .75rem; padding-right: 32px; }
+html #appNotice .st-text { margin-top: 4px; }
+html #appNotice, html #appNotice * { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
+[data-message-state="opening"] .st-card { animation: messageUnfold 680ms cubic-bezier(.22,.8,.2,1) both; }
+[data-message-state="opening"] .st-ico { animation: messageIconIn 680ms cubic-bezier(.22,.8,.2,1) both; }
+[data-message-state="opening"] .st-mij, [data-message-state="opening"] .st-x {
+    animation: messageTextIn 680ms ease both;
+}
+[data-message-state="closing"] .st-card { animation: messageFold 380ms cubic-bezier(.55,0,.3,1) both; pointer-events: none; }
+[data-message-state="closing"] .st-ico { animation: messageIconOut 380ms cubic-bezier(.55,0,.3,1) both; }
+[data-message-state="closing"] .st-mij, [data-message-state="closing"] .st-x { opacity: 0; pointer-events: none; }
+[data-message-state="closing"] .st-timp { opacity: 0; }
+@keyframes messageUnfold {
+    0% { opacity: 0; clip-path: inset(calc(50% - 20px) calc(50% - 20px) round 28px); }
+    16%, 28% { opacity: 1; clip-path: inset(calc(50% - 28px) calc(50% - 28px) round 28px); }
+    85%, 100% { opacity: 1; clip-path: inset(0 0 round 24px); }
+}
+@keyframes messageIconIn {
+    0% { transform: translate(var(--message-icon-x), var(--message-icon-y)) scale(.65); opacity: 0; }
+    16%, 28% { transform: translate(var(--message-icon-x), var(--message-icon-y)) scale(1); opacity: 1; }
+    85%, 100% { transform: translate(0, 0) scale(1); opacity: 1; }
+}
+@keyframes messageTextIn {
+    0%, 42% { opacity: 0; transform: translateX(-8px); }
+    100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes messageFold {
+    0% { opacity: 1; clip-path: inset(0 0 round 24px); }
+    70% { opacity: 1; clip-path: inset(calc(50% - 28px) calc(50% - 28px) round 28px); }
+    100% { opacity: 0; clip-path: inset(calc(50% - 20px) calc(50% - 20px) round 28px); }
+}
+@keyframes messageIconOut {
+    0% { transform: translate(0, 0) scale(1); }
+    70% { transform: translate(var(--message-icon-x), var(--message-icon-y)) scale(1); opacity: 1; }
+    100% { transform: translate(var(--message-icon-x), var(--message-icon-y)) scale(.65); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html #sfatToast *, html #appNotice * { animation: none !important; }
+}

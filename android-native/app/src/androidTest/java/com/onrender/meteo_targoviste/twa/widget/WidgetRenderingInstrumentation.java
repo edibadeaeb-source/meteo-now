@@ -128,7 +128,7 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
                             && text.getLineWidth(0) <= temp.getWidth(), "temperature must fit " + size[0] + "x" + size[1]);
                     require(temp.getHeight() >= text.getHeight(), "temperature height must fit " + size[0] + "x" + size[1]
                             + ", font " + font + ": " + temp.getHeight() + " < " + text.getHeight());
-                    require(view.hasOnClickListeners() && name.hasOnClickListeners(), "open-city and configure actions");
+                    require(view.findViewById(R.id.capsule_root).hasOnClickListeners() && name.hasOnClickListeners(), "open-city and configure actions");
                     if (size[0] >= 160 && size[1] >= 100) {
                         Layout lines = name.getLayout();
                         require(lines.getEllipsisCount(lines.getLineCount() - 1) == 0, "full New York City in spacious widget");
@@ -144,7 +144,7 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
         RemoteViews offline = (RemoteViews) layout.invoke(null, base, null, 991, city, R.layout.widget_capsule);
         View empty = offline.apply(base, new FrameLayout(base));
         require("--°".contentEquals(((TextView) empty.findViewById(R.id.capsule_temp)).getText()), "missing data is not zero degrees");
-        require(empty.getContentDescription().toString().contains("Fără conexiune"), "offline accessible status");
+        require(empty.findViewById(R.id.capsule_root).getContentDescription().toString().contains("Fără conexiune"), "offline accessible status");
         JSONObject data = new JSONObject().put("oras", city.city).put("tempText", "19°")
                 .put("icon", "partial").put("fundal", "noapte").put("minAzi", 16).put("maxAzi", 24);
         Method iconMethod = WeatherWidgetUpdater.class.getDeclaredMethod("iconForCurrent", JSONObject.class);
@@ -212,6 +212,46 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
             Drawable actual = ((ImageView) oldWidget.findViewById(iconIds[i])).getDrawable();
             require(renderIcon(actual).sameAs(renderIcon(base.getDrawable(R.drawable.ic_w_ploaie))),
                     "rain must render in all five widgets: " + builders[i]);
+        }
+        Method details = WeatherWidgetUpdater.class.getDeclaredMethod("detailsLayout", Context.class,
+                JSONObject.class, int.class, WidgetPreferences.Location.class, int.class);
+        details.setAccessible(true);
+        for (float font : new float[]{1f, 1.3f, 2f}) {
+            Configuration cfg = new Configuration(base.getResources().getConfiguration()); cfg.fontScale = font;
+            Context context = base.createConfigurationContext(cfg);
+            for (int[] size : new int[][]{{250,110},{300,180},{390,210}}) {
+                JSONObject sample = new JSONObject().put("oras","Moreni").put("tempText","11°")
+                        .put("descriere","Parțial noros").put("weatherCode",2).put("isDay",0)
+                        .put("fundal","noapte").put("minAzi",6).put("maxAzi",11)
+                        .put("resimtit",10).put("umiditate",50).put("vant",2).put("actualizat","19:35");
+                RemoteViews rv = (RemoteViews)details.invoke(null,context,sample,993,city,
+                        size[1]<180 ? R.layout.widget_details_short : R.layout.widget_details);
+                View widget = rv.apply(context,new FrameLayout(context));
+                widget.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+                float density=context.getResources().getDisplayMetrics().density;
+                int w=Math.round(size[0]*density),h=Math.round(size[1]*density);
+                for(int pass=0;pass<3;pass++){
+                    widget.forceLayout();widget.measure(View.MeasureSpec.makeMeasureSpec(w,View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(h,View.MeasureSpec.EXACTLY));widget.layout(0,0,w,h);
+                }
+                android.graphics.Rect range=new android.graphics.Rect(), metrics=new android.graphics.Rect();
+                widget.findViewById(R.id.details_maxmin).getDrawingRect(range);
+                ((android.view.ViewGroup)widget).offsetDescendantRectToMyCoords(widget.findViewById(R.id.details_maxmin),range);
+                widget.findViewById(R.id.details_metrics).getDrawingRect(metrics);
+                ((android.view.ViewGroup)widget).offsetDescendantRectToMyCoords(widget.findViewById(R.id.details_metrics),metrics);
+                require(range.bottom <= metrics.top,"min/max must not overlap metrics "+size[0]+"x"+size[1]+" font "+font);
+                for(int textId:new int[]{R.id.details_temp,R.id.details_desc,R.id.details_maxmin,R.id.details_feels,R.id.details_humidity,R.id.details_wind}){
+                    TextView tv=widget.findViewById(textId);
+                    require(tv.getLayout()!=null && tv.getLayout().getHeight()<=tv.getHeight(),
+                            "details text height "+textId+" "+size[0]+"x"+size[1]+" font "+font);
+                    require(tv.getLayout().getEllipsisCount(0)==0,"details text complete "+textId);
+                }
+                require("10°".contentEquals(((TextView)widget.findViewById(R.id.details_feels)).getText()),"metric value has separate label");
+                if(font==1f && size[0]==390){
+                    Bitmap shot=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);widget.draw(new Canvas(shot));
+                    try(FileOutputStream file=new FileOutputStream(new File(base.getExternalFilesDir(null),"widget-details-20261024.png"))){shot.compress(Bitmap.CompressFormat.PNG,100,file);}
+                }
+            }
         }
         Bitmap preview = Bitmap.createBitmap(samples.get(0).getWidth() + 80, samples.get(0).getHeight() * 3 + 160,
                 Bitmap.Config.ARGB_8888);

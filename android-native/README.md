@@ -1,6 +1,6 @@
-# Android METEO NOW 1.0.23
+# Android METEO NOW 1.0.24
 
-Copie completă a surselor native active, versionCode 24, targetSdk 36. Proiectul de lucru rămâne în `01-Surse-active/METEO Tgv - Google Play package (1)/source`.
+Copie completă a surselor native active, versionCode 25, targetSdk 36. Proiectul de lucru rămâne în `01-Surse-active/METEO Tgv - Google Play package (1)/source`.
 
 Adaugă widgetul **METEO NOW · Mini 2×1**, fără schimbarea celor patru widgeturi existente. Toate folosesc același configurator nativ de oraș, cache pe localitate și o singură actualizare WorkManager la aproximativ 20 minute. Economisirea bateriei poate amâna actualizările.
 
@@ -13,3 +13,5 @@ Verificarea include randarea pe emulator Android API 37, 7 dimensiuni × 3 scale
 Corecții 1.0.22: toate cele cinci widgeturi folosesc codul WMO al aplicației. Ploaia, ninsoarea, lapovița, furtuna și ceața au prioritate față de noapte sau apus; noros complet rămâne noros. Toate previzualizările afișează „Vremea mea”. Vezi `../WIDGET-CONSISTENCY-20261011.md`.
 
 Corecții 1.0.23: toate cele cinci metadate `updatePeriodMillis` sunt zero. Actualizarea periodică este gestionată numai de WorkManager-ul comun, fără programarea paralelă la 30 de minute. Testul Android verifică toate cele cinci metadate. Vezi `../PERFORMANCE-AUDIT-20261012.md`.
+
+Corecții 1.0.24: widget opac adaptat înălțimii disponibile, detalii fără suprapuneri, mini 2×1 cu corp vizibil mai scund și opt palete cu contrast crescut. Test Android: 2.076 aserțiuni. Vezi ../WIDGET-MESSAGES-20261024.md.

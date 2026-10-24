@@ -1,170 +1,39 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/details_root"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_weather_day"
-    android:clipToOutline="true"
-    android:orientation="vertical"
-    android:padding="14dp">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="32dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/details_oras"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:drawableStart="@drawable/ic_widget_location"
-            android:drawablePadding="6dp"
-            android:ellipsize="end"
-            android:fontFamily="sans-serif-condensed"
-            android:maxLines="1"
-            android:text="@string/widget_preview_city"
-            android:textColor="#FFFFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/details_actualizat"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
-            android:maxLines="1"
-            android:text=""
-            android:textColor="#D8FFFFFF"
-            android:textSize="10sp" />
-</LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:baselineAligned="false"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/details_temp"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-light"
-                android:includeFontPadding="false"
-                android:maxLines="1"
-                android:text="--°"
-                android:textColor="#FFFFFFFF"
-                android:textSize="64sp" />
-
-            <TextView
-                android:id="@+id/details_desc"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
-                android:maxLines="1"
-                android:text="Vremea acum"
-                android:textColor="#FFFFFFFF"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/details_maxmin"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:ellipsize="end"
-                android:fontFamily="sans-serif-medium"
-                android:maxLines="1"
-                android:text="Max --° · Min --°"
-                android:textColor="#E2FFFFFF"
-                android:textSize="12sp" />
-
-            <TextView
-                android:id="@+id/details_warning"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:background="@drawable/widget_warning_yellow"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:paddingStart="8dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
-                android:text="! COD"
-                android:textColor="#27313B"
-                android:textSize="8sp"
-                android:textStyle="bold"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <ImageView
-            android:id="@+id/details_icon"
-            android:layout_width="116dp"
-            android:layout_height="116dp"
-            android:layout_marginStart="10dp"
-            android:contentDescription="Starea vremii"
-            android:src="@drawable/ic_w_partial" />
+<?xml version='1.0' encoding='utf-8'?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/details_root" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/widget_weather_night" android:clipToOutline="true" android:orientation="vertical" android:padding="12dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="24dp" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/details_oras" android:layout_width="0dp" android:layout_height="wrap_content" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="14sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="14sp" android:autoSizeStepGranularity="1sp" android:text="@string/widget_preview_city" android:drawableStart="@drawable/ic_widget_location" android:drawablePadding="4dp" android:layout_weight="1" />
+        <TextView android:id="@+id/details_actualizat" android:layout_width="40dp" android:layout_height="wrap_content" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="9sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="9sp" android:autoSizeStepGranularity="1sp" android:text="" android:gravity="end" />
     </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="42dp"
-        android:baselineAligned="false"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginEnd="4dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_glass"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingStart="7dp"
-            android:paddingEnd="7dp">
-            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:contentDescription="Temperatura resimțită" android:src="@drawable/ic_widget_thermo" />
-            <TextView android:id="@+id/details_feels" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:maxLines="1" android:text="--°" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical" android:baselineAligned="false" android:layout_marginTop="2dp" android:layout_marginBottom="10dp" android:id="@+id/details_hero">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
+            <TextView android:id="@+id/details_temp" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-light" android:textColor="#FFFFFFFF" android:textSize="64sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="16sp" android:autoSizeMaxTextSize="64sp" android:autoSizeStepGranularity="1sp" android:text="--°" android:layout_weight="1" android:gravity="bottom" />
+            <TextView android:id="@+id/details_desc" android:layout_width="match_parent" android:layout_height="22dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="17sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="17sp" android:autoSizeStepGranularity="1sp" android:text="Vremea acum" android:textStyle="bold" />
+            <TextView android:id="@+id/details_maxmin" android:layout_width="match_parent" android:layout_height="18dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#EDF5FFFF" android:textSize="12sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="6sp" android:autoSizeMaxTextSize="12sp" android:autoSizeStepGranularity="1sp" android:text="Max --° · Min --°" android:layout_marginTop="2dp" />
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_glass"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingStart="7dp"
-            android:paddingEnd="7dp">
-            <ImageView android:layout_width="15dp" android:layout_height="15dp" android:contentDescription="Umiditate" android:src="@drawable/ic_widget_drop" />
-            <TextView android:id="@+id/details_humidity" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:maxLines="1" android:text="--%" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+        <ImageView android:id="@+id/details_icon" android:layout_width="96dp" android:layout_height="match_parent" android:layout_marginStart="8dp" android:scaleType="fitCenter" android:contentDescription="Starea vremii" android:src="@drawable/ic_w_partial" />
+    </LinearLayout>
+    <TextView android:id="@+id/details_warning" android:layout_width="match_parent" android:layout_height="16dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#202E43" android:textSize="9sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="7sp" android:autoSizeMaxTextSize="9sp" android:autoSizeStepGranularity="1sp" android:text="! COD" android:background="@drawable/widget_warning_yellow" android:visibility="gone" android:paddingStart="7dp" android:paddingEnd="7dp" android:layout_marginBottom="3dp" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="42dp" android:orientation="horizontal" android:baselineAligned="false" android:id="@+id/details_metrics">
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="0dp" android:layout_marginEnd="3dp" android:background="@drawable/widget_details_panel" android:orientation="horizontal" android:gravity="center" android:paddingStart="4dp" android:paddingEnd="4dp" android:paddingTop="4dp" android:paddingBottom="4dp">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_widget_thermo" android:contentDescription="RESIMȚITĂ" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:orientation="vertical" android:gravity="center_vertical">
+                <TextView android:id="@+id/details_feels_label" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#D8E8F8FF" android:textSize="7sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="3sp" android:autoSizeMaxTextSize="7sp" android:autoSizeStepGranularity="1sp" android:text="RESIMȚITĂ" android:textStyle="bold" android:layout_weight="1" />
+                <TextView android:id="@+id/details_feels" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="14sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="5sp" android:autoSizeMaxTextSize="14sp" android:autoSizeStepGranularity="1sp" android:text="--°" android:textStyle="bold" android:layout_weight="1.7" />
+            </LinearLayout>
         </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="4dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_glass"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingStart="7dp"
-            android:paddingEnd="7dp">
-            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:contentDescription="Vânt" android:src="@drawable/ic_widget_wind" />
-            <TextView android:id="@+id/details_wind" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:maxLines="1" android:text="-- km/h" android:textColor="#FFFFFFFF" android:textSize="12sp" android:textStyle="bold" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="3dp" android:layout_marginEnd="3dp" android:background="@drawable/widget_details_panel" android:orientation="horizontal" android:gravity="center" android:paddingStart="4dp" android:paddingEnd="4dp" android:paddingTop="4dp" android:paddingBottom="4dp">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_widget_drop" android:contentDescription="UMIDITATE" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:orientation="vertical" android:gravity="center_vertical">
+                <TextView android:id="@+id/details_humidity_label" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#D8E8F8FF" android:textSize="7sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="3sp" android:autoSizeMaxTextSize="7sp" android:autoSizeStepGranularity="1sp" android:text="UMIDITATE" android:textStyle="bold" android:layout_weight="1" />
+                <TextView android:id="@+id/details_humidity" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="14sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="5sp" android:autoSizeMaxTextSize="14sp" android:autoSizeStepGranularity="1sp" android:text="--%" android:textStyle="bold" android:layout_weight="1.7" />
+            </LinearLayout>
+        </LinearLayout>
+        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="3dp" android:layout_marginEnd="0dp" android:background="@drawable/widget_details_panel" android:orientation="horizontal" android:gravity="center" android:paddingStart="4dp" android:paddingEnd="4dp" android:paddingTop="4dp" android:paddingBottom="4dp">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_widget_wind" android:contentDescription="VÂNT" />
+            <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:layout_marginStart="4dp" android:orientation="vertical" android:gravity="center_vertical">
+                <TextView android:id="@+id/details_wind_label" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#D8E8F8FF" android:textSize="7sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="3sp" android:autoSizeMaxTextSize="7sp" android:autoSizeStepGranularity="1sp" android:text="VÂNT" android:textStyle="bold" android:layout_weight="1" />
+                <TextView android:id="@+id/details_wind" android:layout_width="match_parent" android:layout_height="0dp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" android:fontFamily="sans-serif-medium" android:textColor="#FFFFFFFF" android:textSize="14sp" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="5sp" android:autoSizeMaxTextSize="14sp" android:autoSizeStepGranularity="1sp" android:text="-- km/h" android:textStyle="bold" android:layout_weight="1.7" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

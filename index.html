@@ -2,8 +2,10 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.17.3">
+    <meta name="application-version" content="2026.10.24.1">
     <script src="diagnostics.js?v=1"></script>
+    <link rel="stylesheet" href="app-messages.css?v=1">
+    <script src="app-messages.js?v=1" defer></script>
     <meta name="color-scheme" content="dark light">
     <style>
         html[data-theme="dark"]  { color-scheme: dark; }
@@ -3088,7 +3090,8 @@ function aratăToast() {
     var durata = s.nivel >= 3 ? 15000 : 11000;
     t.style.setProperty('--st-duration', (durata / 1000) + 's');
     t.setAttribute('aria-hidden', 'false');
-    t.classList.add('vizibil');
+    if (window.MeteoMessages) MeteoMessages.open(t);
+    else t.classList.add('vizibil');
     // dispare singur; avertizările grave stau ceva mai mult
     if (_sfatTimer) clearTimeout(_sfatTimer);
     _sfatTimer = setTimeout(inchideToast, durata);
@@ -3096,7 +3099,10 @@ function aratăToast() {
 
 function inchideToast() {
     var t = document.getElementById('sfatToast');
-    if (t) { t.classList.remove('vizibil'); t.setAttribute('aria-hidden', 'true'); }
+    if (t) {
+        if (window.MeteoMessages) MeteoMessages.close(t);
+        else { t.classList.remove('vizibil'); t.setAttribute('aria-hidden', 'true'); }
+    }
     if (_sfatTimer) { clearTimeout(_sfatTimer); _sfatTimer = null; }
 }
 
@@ -5991,6 +5997,10 @@ function pushNote(text, color, stare) {
         el.textContent = text || '';
         el.style.color = color || 'var(--muted)';
         el.classList.toggle('push-asking', stare === 'asking');
+        var settings = document.getElementById('settingsSheet');
+        if (text && window.MeteoMessages && settings && settings.classList.contains('open')) {
+            MeteoMessages.notify(text, {icon: stare === 'asking' ? '🔔' : color === 'var(--green)' ? '✓' : color === 'var(--red)' ? '⚠️' : '🔔'});
+        }
     }
 }
 function pushSupported() {
@@ -9183,6 +9193,7 @@ function mobCerereLoc(loc, force) {
     }).then(function(d) { mobPuneCache(loc,d); return d; });
 }
 function mobMesajLoc(text) {
+    if (window.MeteoMessages) { MeteoMessages.notify(text, {icon:'📍'}); return; }
     var vechi=document.getElementById('mobLocMesaj'); if(vechi) vechi.remove();
     var el=document.createElement('div'); el.id='mobLocMesaj'; el.className='mb-card';
     el.setAttribute('role','status'); el.textContent=text;
