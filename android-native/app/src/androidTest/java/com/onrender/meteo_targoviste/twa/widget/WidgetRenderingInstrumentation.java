@@ -128,6 +128,22 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
                             && text.getLineWidth(0) <= temp.getWidth(), "temperature must fit " + size[0] + "x" + size[1]);
                     require(temp.getHeight() >= text.getHeight(), "temperature height must fit " + size[0] + "x" + size[1]
                             + ", font " + font + ": " + temp.getHeight() + " < " + text.getHeight());
+                    View column=(View)temp.getParent();
+                    require(Math.abs((temp.getLeft()+temp.getRight())/2f-column.getWidth()/2f)<=1,
+                            "temperature centered horizontally in text column");
+                    require((temp.getGravity() & android.view.Gravity.HORIZONTAL_GRAVITY_MASK)==android.view.Gravity.CENTER_HORIZONTAL,
+                            "temperature text is centered");
+                    TextView range=view.findViewById(R.id.capsule_maxmin);
+                    require(name.getBottom()<=temp.getTop(),"city stays above temperature");
+                    for(TextView line:new TextView[]{name,temp,range}) if(line.getVisibility()==View.VISIBLE){
+                        require(line.getLayout()!=null && line.getLayout().getHeight()<=line.getHeight(),
+                                "each capsule text row fits its own height "+size[0]+"x"+size[1]+" font "+font+" text="+line.getText()+" layout="+line.getLayout().getHeight()+" height="+line.getHeight());
+                    }
+                    if(range.getVisibility()==View.VISIBLE){
+                        require(temp.getBottom()<=range.getTop(),"min/max stays below temperature");
+                        require(Math.abs((temp.getTop()+temp.getBottom())/2f-column.getHeight()/2f)<=2,
+                                "temperature row is at the vertical center");
+                    }
                     require(view.findViewById(R.id.capsule_root).hasOnClickListeners() && name.hasOnClickListeners(), "open-city and configure actions");
                     if (size[0] >= 160 && size[1] >= 100) {
                         Layout lines = name.getLayout();
