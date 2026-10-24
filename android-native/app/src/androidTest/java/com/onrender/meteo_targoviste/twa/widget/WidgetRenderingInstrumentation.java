@@ -141,6 +141,10 @@ public final class WidgetRenderingInstrumentation extends Instrumentation {
                         require(Math.abs((hero.getTop()+hero.getBottom())/2f-((View)hero.getParent()).getHeight()/2f)<=2,
                                 "weather hero centered vertically");
                         require(range.getWidth()==header.getWidth(),"city and min/max use full capsule width");
+                        require(Math.abs((temp.getLeft()+temp.getRight())/2f-hero.getWidth()/2f)<=2,
+                                "temperature centered across the whole capsule");
+                        View weatherIcon=view.findViewById(R.id.capsule_icon);
+                        require(weatherIcon.getRight()<=temp.getLeft(),"weather icon cannot overlap temperature");
                         android.graphics.Rect nameBounds=new android.graphics.Rect();name.getDrawingRect(nameBounds);
                         ((android.view.ViewGroup)header).offsetDescendantRectToMyCoords(name,nameBounds);
                         require(Math.abs(nameBounds.centerX()-header.getWidth()/2f)<=2,"city centered across capsule");

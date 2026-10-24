@@ -15,7 +15,7 @@ Vechimea contului Google nu este vechimea contului de dezvoltator. Pentru un con
 ## Primul release de test
 
 1. După înregistrare, creează aplicația METEO NOW cu limba principală română și identificatorul pachetului existent. Nu schimba Application ID-ul sursei.
-2. Deschide canalul Internal testing și pregătește un release cu `builds/current/METEO-NOW-1.0.26-target36.aab`. Dacă numărul 27 a fost deja consumat în Play, va trebui reconstruit cu număr mai mare.
+2. Deschide canalul Internal testing și pregătește un release cu `builds/current/METEO-NOW-1.0.27-target36.aab`. Dacă numărul 28 a fost deja consumat în Play, va trebui reconstruit cu număr mai mare.
 3. Adaugă numai conturile Google ale testerilor care acceptă să participe. Pregătirea de acum nu trimite invitații și nu înscrie pe nimeni automat.
 4. Compară SHA-256 din App signing key certificate cu assetlinks public. Dacă diferă, adaugă certificatul Play lângă cel local înainte de verificarea afișării fără bara Chrome.
 5. Distribuie linkul de înscriere testerilor aleși, după configurarea release-ului. Existența AAB-ului local nu produce un link de instalare Play.

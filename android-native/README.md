@@ -1,6 +1,6 @@
-# Android METEO NOW 1.0.26
+# Android METEO NOW 1.0.27
 
-Copie completă a surselor native active, versionCode 27, targetSdk 36. Proiectul de lucru rămâne în `01-Surse-active/METEO Tgv - Google Play package (1)/source`.
+Copie completă a surselor native active, versionCode 28, targetSdk 36. Proiectul de lucru rămâne în `01-Surse-active/METEO Tgv - Google Play package (1)/source`.
 
 Adaugă widgetul **METEO NOW · Mini 2×1**, fără schimbarea celor patru widgeturi existente. Toate folosesc același configurator nativ de oraș, cache pe localitate și o singură actualizare WorkManager la aproximativ 20 minute. Economisirea bateriei poate amâna actualizările.
 
@@ -19,3 +19,5 @@ Corecții 1.0.24: widget opac adaptat înălțimii disponibile, detalii fără s
 Corecții 1.0.25: Mini 2×1 are orașul sus, temperatura centrată și min/max jos; testele verifică pozițiile și încadrarea textului la toate dimensiunile și scalele de font. Vezi ../CAPSULE-CENTER-20261024.md.
 
 Corecții 1.0.26: Mini 2×1 are orașul și min/max pe toată lățimea, cu iconița și temperatura într-un grup central; 3180 verificări în emulator acoperă pozițiile, încadrarea și regresiile pentru toate widgeturile. Vezi ../CAPSULE-REDESIGN-20261024.md.
+
+Corecții 1.0.27: Mini 2×1 are pictograma meteo mărită și temperatura centrată pe întregul cadran; verificările Android acoperă încadrarea, absența suprapunerilor și regresiile pentru toate widgeturile. Vezi ../CAPSULE-REFINEMENT-20261024.md.
