@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path');const root=path.resolve(__dirname,'..');
 const photos=JSON.parse(fs.readFileSync(path.join(root,'assets/weather-romania/v2/sources.json'),'utf8'));
-const films=[3,4,5,6].flatMap(v=>JSON.parse(fs.readFileSync(path.join(root,'assets/weather-video/v'+v+'/sources.json'),'utf8')));
+const films=[3,4,5,6,7,8].flatMap(v=>JSON.parse(fs.readFileSync(path.join(root,'assets/weather-video/v'+v+'/sources.json'),'utf8')));
 const original=fs.readFileSync(path.join(root,'DESIGN-FUNDALURI.md'),'utf8').split('### Proveniența filmărilor')[1].split('### Proveniența celor')[0];
 for(const m of original.matchAll(/\| ([^|]+) \| ([^|]+) \| \[([^\]]+)\]\((https:[^)]+)\) \|/g))films.push({title:m[3],author:m[2].trim(),source:m[4],license:'https://www.pexels.com/license/'});
 const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

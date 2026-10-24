@@ -1,0 +1,23 @@
+[
+  {
+    "id": "partly-cloudy-night-b",
+    "sourceId": 34206506,
+    "title": "4K Timelapse of Moon and Clouds at Night",
+    "author": "Ahmet Gürün",
+    "source": "https://www.pexels.com/video/4k-timelapse-of-moon-and-clouds-at-night-34206506/",
+    "license": "https://www.pexels.com/license/",
+    "download": "https://videos.pexels.com/video-files/34206506/14498134_3240_2160_24fps.mp4",
+    "sourceWidth": 3240,
+    "sourceHeight": 2160,
+    "portraitCropWidth": 1214,
+    "outputWidth": 1080,
+    "outputHeight": 1920,
+    "quality": "hd",
+    "night": true,
+    "scene": "partly-cloudy",
+    "speed": 2,
+    "processing": "portrait crop; downscale only; motion-interpolated 30 fps; crossfaded loop; silent",
+    "notes": "Replaces a soft enlarged landscape star field. Real moonlit clouds; decorative, not live locality or current lunar phase.",
+    "withdrawnSourceId": 12423863
+  }
+]

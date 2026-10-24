@@ -8,14 +8,14 @@ Actualizat: 24 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.24, versionCode 25, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.24.1, Service Worker v67 |
+| Aplicația web / server | 2026.10.24.2, Service Worker v68 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.24-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.24-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.24-widget-source.zip |
 | Verificări originale ale buildului | builds/current/VALIDARE-1.0.24.json |
 | Amprente fișiere | builds/current/SHA256-1.0.24.txt |
 
-Buildul 1.0.24 include widgeturile corectate și este asociat cu interfața web 2026.10.24.1. Validarea proprie este în VALIDARE-1.0.24.json. Buildul 1.0.23 și raportul său istoric sunt păstrate în builds/archive/1.0.23. Modificările widgeturilor necesită instalarea noului APK peste cel existent.
+Buildul 1.0.24 include widgeturile corectate și a fost construit cu interfața web 2026.10.24.1; validarea istorică este în VALIDARE-1.0.24.json. El deschide interfața web actuală din tabel. Înlocuirea fundalului în 2026.10.24.2 nu necesită alt APK. Buildul 1.0.23 și raportul său istoric sunt păstrate în builds/archive/1.0.23. Modificările widgeturilor necesită instalarea APK-ului 1.0.24 peste cel existent.
 
 ## Funcții confirmate în surse
 
