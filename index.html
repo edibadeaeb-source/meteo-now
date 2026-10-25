@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.25.2">
+    <meta name="application-version" content="2026.10.25.3">
     <script src="diagnostics.js?v=1"></script>
     <link rel="stylesheet" href="app-messages.css?v=2">
     <script src="app-messages.js?v=1" defer></script>
@@ -1476,10 +1476,10 @@
 </style>
 <style>
 .mb-info-footer { display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:12px 16px 8px;font-size:.72rem;line-height:1.5;color:rgba(255,255,255,.52); }
-.mb-info-footer a { color:rgba(255,255,255,.75);text-decoration:none;padding:8px 2px; }
-.mb-info-footer a:focus-visible,.set-info-links a:focus-visible { outline:2px solid currentColor;outline-offset:4px;border-radius:4px; }
+.set-info-links a:focus-visible { outline:2px solid currentColor;outline-offset:4px;border-radius:4px; }
 .set-info-links { display:flex;flex-wrap:wrap;gap:8px 18px; }
-.set-info-links a { color:var(--blue);text-decoration:none;padding:6px 0; }
+.set-info-links .set-privacy-btn { display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 18px;border:1px solid rgba(255,255,255,.24);border-radius:16px;background:linear-gradient(135deg,rgba(255,255,255,.14),rgba(255,255,255,.035));color:inherit;text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.18); }
+.set-info-links .set-privacy-btn:active { background:rgba(255,255,255,.18); }
 </style>
 </head>
 <body>
@@ -1611,8 +1611,7 @@
                     <div>METEO NOW<small id="aboutVersion" data-i18n="despreSub">Vremea în timp real, oriunde în lume</small></div>
                 </div>
                 <div class="set-note set-info-links">
-                    <a href="weather-credits.html" data-i18n="weatherCredits">Surse și credite</a>
-                    <a href="privacy.html" data-i18n="ftPrivacy">Confidențialitate</a>
+                    <a class="set-privacy-btn" href="privacy.html" data-i18n="ftPrivacy">Confidențialitate</a>
                 </div>
             </div>
         </div>
@@ -2204,8 +2203,6 @@
             <a href="https://www.meteoromania.ro/avertizari/" target="_blank" rel="noopener" data-i18n="ftANM">Avertizări ANM (România)</a>
             <a href="#" id="footExport" data-i18n="ftExport">Export date (CSV / Excel)</a>
             <a href="mailto:edibadea.eb@gmail.com" data-i18n="ftContact">Contact</a>
-            <a href="privacy.html" data-i18n="ftPrivacy">Confidențialitate</a>
-            <a href="weather-credits.html" data-i18n="weatherCredits">Surse și credite</a>
         </div>
         <div>
             <h5 data-i18n="ftDespre">Despre METEO NOW</h5>
@@ -2214,7 +2211,7 @@
     </div>
     <div class="footer-bottom">
         <span data-i18n-html="ftCopyright">METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate</span>
-        <span style="text-align:right;color:#666;" data-i18n-html="ftSurse">Date meteo: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD</span>
+        <span style="text-align:right;color:#666;" data-i18n-html="ftSurse">OpenWeather · MET Norway · Open-Meteo</span>
     </div>
     <script>
         (function() {
@@ -6564,7 +6561,7 @@ var I18N = {
         ftDespre: 'Despre METEO NOW',
         ftDespreText: 'Vremea, prognoza și avertizările pentru locurile care contează pentru tine.',
         ftCopyright: 'METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate',
-        ftSurse: 'Date meteo: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD',
+        ftSurse: 'OpenWeather · MET Norway · Open-Meteo',
         locRecente: 'Locații recente',
         sideAvertizari: 'Avertizări<br>emise', sideHarti: 'Hărți', sideHidro: 'Hidro',
         titluRadar: 'Reflectivitate maximă [dBZ]', titluPrecip: 'Acumulare precipitații 24 h [mm]',
@@ -6682,7 +6679,7 @@ var I18N = {
         ftDespre: 'About METEO NOW',
         ftDespreText: 'Weather, forecasts and alerts for the places that matter to you.',
         ftCopyright: 'METEO NOW — weather information service.<br>© 2026 Eduard-Emanuel Badea — all rights reserved',
-        ftSurse: 'Weather data: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD',
+        ftSurse: 'OpenWeather · MET Norway · Open-Meteo',
         locRecente: 'Recent locations',
         sideAvertizari: 'Warnings<br>issued', sideHarti: 'Maps', sideHidro: 'Hydro',
         titluRadar: 'Maximum reflectivity [dBZ]', titluPrecip: '24 h precipitation accumulation [mm]',
@@ -10501,8 +10498,7 @@ function mobRandareAcum() {
     h += mobCardHartaANM();
     h += mobCardLuna();
     h += mobGrila();
-    h += '<footer class="mb-info-footer"><a href="weather-credits.html">' + T('weatherCredits') + '</a>' +
-         '<span aria-hidden="true">·</span><a href="privacy.html">' + T('ftPrivacy') + '</a></footer>';
+    h += '<footer class="mb-info-footer">OpenWeather · MET Norway · Open-Meteo</footer>';
     document.getElementById('mbContinut').innerHTML = h;
     mobReataseazaHarti(hartiPastrate);
     mobActualizeazaHartiLocatie();

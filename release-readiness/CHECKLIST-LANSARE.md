@@ -8,7 +8,7 @@ Actualizat: 25 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.27, versionCode 28, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.25.2, Service Worker v70 |
+| Aplicația web / server | 2026.10.25.3, Service Worker v71 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.27-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.27-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.27-widget-source.zip |
@@ -20,6 +20,8 @@ Buildul 1.0.27 include pictograma meteo mărită și temperatura centrată pe to
 Actualizarea web 2026.10.25.2 compactează notificările din aplicație și rafinează aspectul liquid glass, păstrând animația, textul complet și butonul de închidere. Android rămâne 1.0.27 / versionCode 28; nu este necesar un APK nou. Rapoartele originale ale buildului rămân nemodificate.
 
 Actualizarea 2026.10.25.2 simplifică pagina principală și secțiunea Despre, elimină cardul stațiilor proprii, reorganizează confidențialitatea și creditele în secțiuni pliabile fără imagini încorporate și înlocuiește emoji-urile de ceață/ninsoare din notificările viitoare. Nu schimbă datele meteo, permisiunile sau colectarea datelor.
+
+Actualizarea 2026.10.25.3 lasă pe pagina principală doar numele furnizorilor meteo, jos: OpenWeather · MET Norway · Open-Meteo. Setări → Despre conține un singur buton Confidențialitate; pagina reunește politica, sursele și toate creditele în secțiuni pliabile, fără media încorporate. Android rămâne 1.0.27 / versionCode 28.
 
 ## Funcții confirmate în surse
 

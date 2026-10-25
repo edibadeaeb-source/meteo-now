@@ -1,6 +1,6 @@
 # Google Play Data safety — METEO NOW
 
-Revizie: 25 octombrie 2026. Android 1.0.27 / web 2026.10.25.2. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
+Revizie: 25 octombrie 2026. Android 1.0.27 / web 2026.10.25.3. Inventar bazat pe sursele actuale; formularul nu a fost trimis în Play Console.
 
 ## Răspunsuri generale
 
