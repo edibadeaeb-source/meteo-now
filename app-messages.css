@@ -10,16 +10,66 @@ html #sfatToast[data-message-state], html #appNotice[data-message-state] {
 html #sfatToast:not(.vizibil), html #appNotice:not(.vizibil) { visibility: hidden; }
 html #sfatToast[data-message-state="closing"], html #appNotice[data-message-state="closing"] { visibility: visible; }
 html #sfatToast[data-message-state="waiting"], html #appNotice[data-message-state="waiting"] { visibility: hidden; }
-html #sfatToast .st-card, html #appNotice .st-card { transform: none; transform-origin: center; }
-html #appNotice .st-card { grid-template-columns: 44px minmax(0, 1fr); padding-block: 14px 17px; }
-html #appNotice .st-et { font-size: .75rem; padding-right: 32px; }
-html #appNotice .st-text { margin-top: 4px; }
+html #sfatToast .st-card, html #appNotice .st-card {
+    transform: none; transform-origin: center; --st-tint: rgba(13, 28, 48, .64);
+    grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 10px;
+    padding: 10px 48px 12px 12px; border-radius: 22px;
+    background: linear-gradient(115deg, rgba(255,255,255,.19), rgba(255,255,255,.025) 52%, rgba(var(--st-accent),.07)), var(--st-tint);
+    border-color: rgba(255,255,255,.25); border-top-color: rgba(255,255,255,.52);
+    box-shadow: 0 8px 26px rgba(3,14,28,.22), inset 0 1px 0 rgba(255,255,255,.3), inset 0 -1px 0 rgba(255,255,255,.07);
+}
+html[data-weather-night="1"] #sfatToast .st-card,
+html[data-weather-night="1"] #appNotice .st-card { --st-tint: rgba(12, 23, 42, .59); }
+html #sfatToast .st-ico, html #appNotice .st-ico {
+    width: 36px; height: 36px; border-radius: 12px; font-size: 1.4rem;
+    background: linear-gradient(145deg, rgba(255,255,255,.22), rgba(var(--st-accent),.055));
+    border-color: rgba(var(--st-accent),.25);
+}
+html #sfatToast .st-mij, html #appNotice .st-mij {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 3px 7px;
+}
+html #sfatToast .st-city { align-items: center; gap: 4px; padding-right: 0; min-width: 0; }
+html #sfatToast .st-city svg { width: 11px; height: 11px; flex-basis: 11px; margin-top: 0; }
+html #sfatToast .st-et, html #appNotice .st-et {
+    font-size: .69rem; line-height: 1.3; letter-spacing: .35px; padding-right: 0;
+}
+html #sfatToast .st-kind {
+    margin-top: 0; padding: 1px 6px; font-size: .58rem; line-height: 1.35;
+    background: rgba(var(--st-accent),.08); border-color: rgba(var(--st-accent),.16);
+}
+html #sfatToast .st-text, html #appNotice .st-text {
+    flex: 0 1 100%; min-width: 0; margin-top: 0; font-size: .88rem; line-height: 1.38;
+    color: rgba(255,255,255,.97);
+}
+html #sfatToast .st-x, html #appNotice .st-x {
+    top: 50%; right: 2px; transform: translateY(-50%); width: 44px; height: 44px;
+}
+html #sfatToast .st-x::before, html #appNotice .st-x::before {
+    inset: 8px; border-color: rgba(255,255,255,.15);
+    background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.025));
+}
+html #sfatToast .st-x:active::before, html #appNotice .st-x:active::before { background: rgba(255,255,255,.24); }
+html #sfatToast .st-x svg, html #appNotice .st-x svg { width: 12px; height: 12px; }
+html #sfatToast .st-timp {
+    left: 18px; bottom: 3px; width: calc(100% - 36px); height: 1px; border-radius: 1px;
+    background: rgba(var(--st-accent),.55);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html #sfatToast .st-card, html #appNotice .st-card { background: rgba(15,32,51,.96); }
+}
+@media (prefers-reduced-transparency: reduce) {
+    html #sfatToast .st-card, html #appNotice .st-card {
+        background: rgba(15,32,51,.97); -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+}
 html #appNotice, html #appNotice * { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; }
 [data-message-state="opening"] .st-card { animation: messageUnfold 680ms cubic-bezier(.22,.8,.2,1) both; }
 [data-message-state="opening"] .st-ico { animation: messageIconIn 680ms cubic-bezier(.22,.8,.2,1) both; }
 [data-message-state="opening"] .st-mij, [data-message-state="opening"] .st-x {
     animation: messageTextIn 680ms ease both;
 }
+html #sfatToast[data-message-state="opening"] .st-x,
+html #appNotice[data-message-state="opening"] .st-x { animation-name: messageDismissIn; }
 [data-message-state="closing"] .st-card { animation: messageFold 380ms cubic-bezier(.55,0,.3,1) both; pointer-events: none; }
 [data-message-state="closing"] .st-ico { animation: messageIconOut 380ms cubic-bezier(.55,0,.3,1) both; }
 [data-message-state="closing"] .st-mij, [data-message-state="closing"] .st-x { opacity: 0; pointer-events: none; }
@@ -38,6 +88,7 @@ html #appNotice, html #appNotice * { -webkit-tap-highlight-color: transparent; -
     0%, 42% { opacity: 0; transform: translateX(-8px); }
     100% { opacity: 1; transform: translateX(0); }
 }
+@keyframes messageDismissIn { 0%, 42% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes messageFold {
     0% { opacity: 1; clip-path: inset(0 0 round 24px); }
     70% { opacity: 1; clip-path: inset(calc(50% - 28px) calc(50% - 28px) round 28px); }

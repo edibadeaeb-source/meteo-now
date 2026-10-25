@@ -1,6 +1,6 @@
 # METEO NOW — verificare înainte de Google Play
 
-Actualizat: 24 octombrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
+Actualizat: 25 octombrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
 
 ## Pachetul actual
 
@@ -8,14 +8,16 @@ Actualizat: 24 octombrie 2026. Acesta este punctul de pornire pentru pachetul di
 |---|---|
 | Android | 1.0.27, versionCode 28, minSdk 23, targetSdk / compileSdk 36 |
 | Application ID | com.onrender.meteo_targoviste.twa |
-| Aplicația web / server | 2026.10.24.2, Service Worker v68 |
+| Aplicația web / server | 2026.10.25.1, Service Worker v69 |
 | Fișier pentru Play Console | builds/current/METEO-NOW-1.0.27-target36.aab |
 | Instalare directă pentru test | builds/current/METEO-NOW-1.0.27-target36-test.apk |
 | Sursa Android a buildului | builds/current/METEO-NOW-1.0.27-widget-source.zip |
 | Verificări originale ale buildului | builds/current/VALIDARE-1.0.27.json |
 | Amprente fișiere | builds/current/SHA256-1.0.27.txt |
 
-Buildul 1.0.27 include pictograma meteo mărită și temperatura centrată pe toată lățimea cadranului Mini 2×1. Validarea proprie este în VALIDARE-1.0.27.json. Interfața web rămâne 2026.10.24.2. Buildurile și rapoartele anterioare sunt păstrate în builds/archive, inclusiv 1.0.26. Instalează noul APK peste cel existent, fără dezinstalare.
+Buildul 1.0.27 include pictograma meteo mărită și temperatura centrată pe toată lățimea cadranului Mini 2×1. Validarea proprie este în VALIDARE-1.0.27.json. Buildul Android a fost validat inițial cu interfața web 2026.10.24.2. Buildurile și rapoartele anterioare sunt păstrate în builds/archive, inclusiv 1.0.26. Instalează noul APK peste cel existent, fără dezinstalare.
+
+Actualizarea web 2026.10.25.1 compactează notificările din aplicație și rafinează aspectul liquid glass, păstrând animația, textul complet și butonul de închidere. Android rămâne 1.0.27 / versionCode 28; nu este necesar un APK nou. Rapoartele originale ale buildului rămân nemodificate.
 
 ## Funcții confirmate în surse
 

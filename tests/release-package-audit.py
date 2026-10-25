@@ -84,7 +84,7 @@ def main():
                 assert normalized(data) == normalized((REPO / local).read_bytes()), host + endpoint
             record['checks'].append({'endpoint': endpoint, 'status': 200, 'matchesSource': True})
         results['hosts'].append(record)
-    results['webVersion'] = '2026.10.24.2'
+    results['webVersion'] = '2026.10.25.1'
     assert results['webVersion'] in (REPO / 'diagnostics.py').read_text()
     results['remaining'] = ['developer account registration', 'provider sharing/retention review',
                             'Play Console requirements and signing certificate',
