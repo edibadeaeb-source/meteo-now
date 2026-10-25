@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
     <meta charset="UTF-8">
-    <meta name="application-version" content="2026.10.25.1">
+    <meta name="application-version" content="2026.10.25.2">
     <script src="diagnostics.js?v=1"></script>
     <link rel="stylesheet" href="app-messages.css?v=2">
     <script src="app-messages.js?v=1" defer></script>
@@ -1474,6 +1474,13 @@
             #settingsBtn { font-size: 0.95rem !important; }
         }
 </style>
+<style>
+.mb-info-footer { display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px 14px;padding:12px 16px 8px;font-size:.72rem;line-height:1.5;color:rgba(255,255,255,.52); }
+.mb-info-footer a { color:rgba(255,255,255,.75);text-decoration:none;padding:8px 2px; }
+.mb-info-footer a:focus-visible,.set-info-links a:focus-visible { outline:2px solid currentColor;outline-offset:4px;border-radius:4px; }
+.set-info-links { display:flex;flex-wrap:wrap;gap:8px 18px; }
+.set-info-links a { color:var(--blue);text-decoration:none;padding:6px 0; }
+</style>
 </head>
 <body>
 
@@ -1496,11 +1503,10 @@
         <div class="ps-results" id="wRezultate" style="top:52px;"></div>
     </div>
 
-    <button class="w-btn secundar" id="wTargoviste">🏛️ <span id="wTgvTxt">Târgoviște (stație proprie)</span></button>
+    <button class="w-btn secundar" id="wTargoviste">🏛️ <span id="wTgvTxt">Târgoviște</span></button>
 
     <div class="w-note" id="wNota">
-        Poți schimba oricând locația din bara de sus. Pentru Târgoviște afișăm în plus
-        datele măsurate de stațiile noastre.
+        Poți schimba oricând localitatea din bara de jos.
     </div>
 </div>
 
@@ -1604,9 +1610,9 @@
                 <div class="set-row">
                     <div>METEO NOW<small id="aboutVersion" data-i18n="despreSub">Vremea în timp real, oriunde în lume</small></div>
                 </div>
-                <div class="set-note">
-                    Surse de date: ANM (meteoromania.ro) · NOAA SWPC · Open-Meteo · RainViewer · OpenWeatherMap · DWD.<br>
-                    Dezvoltat de Eduard-Emanuel Badea · Universitatea Valahia din Târgoviște.<br><a href="privacy.html" style="color:var(--blue);" data-i18n="ftPrivacy">Politica de confidențialitate</a><br><a href="weather-credits.html" style="color:var(--blue);" data-i18n="weatherCredits">Credite foto și video</a>
+                <div class="set-note set-info-links">
+                    <a href="weather-credits.html" data-i18n="weatherCredits">Surse și credite</a>
+                    <a href="privacy.html" data-i18n="ftPrivacy">Confidențialitate</a>
                 </div>
             </div>
         </div>
@@ -1889,7 +1895,6 @@
 
             <div class="lora-info-bar" style="margin-top:14px;">
                 <span>🔄 Actualizare automată a datelor</span>
-                <span>📡 Surse: ANM · RainViewer · Open-Meteo · NOAA</span>
                 <span>🕐 Pagina încărcată la: <b id="pageLoadTime">--:--</b></span>
             </div>
         </div>
@@ -2199,21 +2204,17 @@
             <a href="https://www.meteoromania.ro/avertizari/" target="_blank" rel="noopener" data-i18n="ftANM">Avertizări ANM (România)</a>
             <a href="#" id="footExport" data-i18n="ftExport">Export date (CSV / Excel)</a>
             <a href="mailto:edibadea.eb@gmail.com" data-i18n="ftContact">Contact</a>
-            <a href="privacy.html" data-i18n="ftPrivacy">Politica de confidențialitate</a>
+            <a href="privacy.html" data-i18n="ftPrivacy">Confidențialitate</a>
+            <a href="weather-credits.html" data-i18n="weatherCredits">Surse și credite</a>
         </div>
         <div>
             <h5 data-i18n="ftDespre">Despre METEO NOW</h5>
-            <p data-i18n-html="ftDespreText">METEO NOW oferă date meteo pentru orice localitate din lume.<br>
-            Pentru Târgoviște (România) afișăm în plus măsurători de la stații proprii,
-            cu senzori BME680 conectați prin Wi-Fi și LoRaWAN.<br><br>
-            Dezvoltat de Eduard-Emanuel Badea<br>
-            Universitatea Valahia din Târgoviște</p>
-            <p style="margin-top:8px;font-size:1rem;letter-spacing:10px;">𝕏 ▶ f ◎ in</p>
+            <p data-i18n-html="ftDespreText">Vremea, prognoza și avertizările pentru locurile care contează pentru tine.</p>
         </div>
     </div>
     <div class="footer-bottom">
         <span data-i18n-html="ftCopyright">METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate</span>
-        <span style="text-align:right;color:#666;" data-i18n-html="ftSurse">Surse de date: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (România)<br>Stații proprii: Târgoviște, România</span>
+        <span style="text-align:right;color:#666;" data-i18n-html="ftSurse">Date meteo: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD</span>
     </div>
     <script>
         (function() {
@@ -6531,8 +6532,8 @@ var I18N = {
         locIndisponibila: 'Locația nu a putut fi stabilită. Încearcă din nou.',
         welcomeSub: 'Vremea în timp real, oriunde în lume.<br>Alege locația pentru care vrei prognoza.',
         cautaOras: 'Caută un oraș…',
-        tgvBtn: 'Târgoviște (stație proprie)',
-        welcomeNota: 'Poți schimba oricând locația din bara de sus. Pentru Târgoviște afișăm în plus datele măsurate de stațiile noastre.',
+        tgvBtn: 'Târgoviște',
+        welcomeNota: 'Poți schimba oricând localitatea din bara de jos.',
         monitorizare: 'Monitorizare vreme și măsurători',
         avertizari: 'Avertizări curente', prognoze: 'Prognoze meteo',
         harti: 'Hărți și acoperire', raportStatii: 'Raport stații',
@@ -6555,15 +6556,15 @@ var I18N = {
         ccMultMaiRece: 'mult mai rece', ccNormalScala: 'normal', ccMultMaiCald: 'mult mai cald',
         ccNota: 'Calculat din {ani} de observații pentru aceeași zi calendaristică ({start}–{end}), arhiva ERA5 (Open-Meteo).',
         setUnitati: 'Unități de temperatură', setUnitatiNota: 'Implicit după țara telefonului tău.', setNotificari: 'Notificări',
-        ftPrivacy: 'Politica de confidențialitate',
+        ftPrivacy: 'Confidențialitate',
         ftAplicatie: 'Aplicația METEO NOW',
         ftDescriere: 'Vremea în timp real oriunde în lume: alerte, radar, prognoze pe 10 zile și asistent AI — toate într-un singur loc. Scanează codul pentru a deschide aplicația pe telefon.',
         ftDeschidePeTelefon: 'DESCHIDE PE TELEFON', ftLinkuri: 'Linkuri utile',
         ftANM: 'Avertizări ANM (România)', ftExport: 'Export date (CSV / Excel)', ftContact: 'Contact',
         ftDespre: 'Despre METEO NOW',
-        ftDespreText: 'METEO NOW oferă date meteo pentru orice localitate din lume.<br>Pentru Târgoviște (România) afișăm în plus măsurători de la stații proprii, cu senzori BME680 conectați prin Wi-Fi și LoRaWAN.<br><br>Dezvoltat de Eduard-Emanuel Badea<br>Universitatea Valahia din Târgoviște',
+        ftDespreText: 'Vremea, prognoza și avertizările pentru locurile care contează pentru tine.',
         ftCopyright: 'METEO NOW — serviciu informativ de vreme.<br>© 2026 Eduard-Emanuel Badea — toate drepturile rezervate',
-        ftSurse: 'Surse de date: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (România)<br>Stații proprii: Târgoviște, România',
+        ftSurse: 'Date meteo: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD',
         locRecente: 'Locații recente',
         sideAvertizari: 'Avertizări<br>emise', sideHarti: 'Hărți', sideHidro: 'Hidro',
         titluRadar: 'Reflectivitate maximă [dBZ]', titluPrecip: 'Acumulare precipitații 24 h [mm]',
@@ -6594,7 +6595,6 @@ var I18N = {
         radarNota: 'Radar de precipitații — imagine actualizată la câteva minute.',
         fataDeNormal: 'față de normal', ccCalda: 'cea mai caldă', dinUltimii: 'din ultimii', ani: 'ani',
         statiileMele: 'Stațiile mele — Târgoviște',
-        statiiText: 'Aici măsurăm noi: senzori BME680 conectați prin Wi-Fi și LoRaWAN, montați în oraș.',
         indiceUV: 'Indice UV', uvScazut: 'Scăzut', uvModerat: 'Moderat', uvRidicat: 'Ridicat',
         uvFoarteRidicat: 'Foarte ridicat', uvExtrem: 'Extrem',
         uvSfat: 'Protejează-te de soare: umbră, cremă și pălărie.', uvOk: 'Nu ai nevoie de protecție specială.', uvIndisponibil: 'Date indisponibile',
@@ -6608,7 +6608,6 @@ var I18N = {
         rafale: 'Rafale', directie: 'Direcție',
         presiuneMare: 'Presiune ridicată — de obicei vreme stabilă.',
         presiuneMica: 'Presiune scăzută — vremea se poate schimba.', presiuneNormala: 'Presiune normală.',
-        surseMob: 'Surse: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA',
         seIncarca: 'Se încarcă datele meteo…',
         oraseleMele: 'Orașele mele', adaugaOras: 'Caută un oraș…', stergeCautarea: 'Șterge căutarea',
         hartaAvertANM: 'Avertizări pe hartă', hartaAnmNota: 'Zonele colorate sunt sub avertizare. Sursa: meteoromania.ro',
@@ -6619,7 +6618,7 @@ var I18N = {
         notifTitlu: 'Vremea la tine',
         notifSub: 'Rezumatul zilei, plus alerte la schimbări importante ale vremii',
         notifANM: 'Dacă orașul ales e din România, primești automat și avertizările oficiale ANM.',
-        despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume', weatherCredits: 'Credite foto și video',
+        despre: 'Despre', despreSub: 'Vremea în timp real, oriunde în lume', weatherCredits: 'Surse și credite',
         notifActiv: '✅ Activat pentru {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Abundente', legModerate: 'Moderate', legSlabe: 'Slabe',
         locatiaTa: 'Locația ta',
@@ -6651,8 +6650,8 @@ var I18N = {
         locIndisponibila: 'Your location could not be determined. Try again.',
         welcomeSub: 'Real-time weather, anywhere in the world.<br>Choose a location to get started.',
         cautaOras: 'Search for a city…',
-        tgvBtn: 'Târgoviște (own station)',
-        welcomeNota: 'You can change the location anytime from the top bar. For Târgoviște we also show data from our own weather stations.',
+        tgvBtn: 'Târgoviște',
+        welcomeNota: 'You can change the city anytime using the bottom bar.',
         monitorizare: 'Weather monitoring and measurements',
         avertizari: 'Current warnings', prognoze: 'Weather forecasts',
         harti: 'Maps and coverage', raportStatii: 'Station report',
@@ -6675,15 +6674,15 @@ var I18N = {
         ccMultMaiRece: 'much colder', ccNormalScala: 'normal', ccMultMaiCald: 'much warmer',
         ccNota: 'Computed from {ani} observations for the same calendar day ({start}–{end}), ERA5 archive (Open-Meteo).',
         setUnitati: 'Temperature units', setUnitatiNota: 'Defaults to your phone\'s country.', setNotificari: 'Notifications',
-        ftPrivacy: 'Privacy policy',
+        ftPrivacy: 'Privacy',
         ftAplicatie: 'The METEO NOW app',
         ftDescriere: 'Real-time weather anywhere in the world: alerts, radar, 10-day forecasts and an AI assistant — all in one place. Scan the code to open the app on your phone.',
         ftDeschidePeTelefon: 'OPEN ON YOUR PHONE', ftLinkuri: 'Useful links',
         ftANM: 'Official warnings (Romania)', ftExport: 'Export data (CSV / Excel)', ftContact: 'Contact',
         ftDespre: 'About METEO NOW',
-        ftDespreText: 'METEO NOW provides weather data for any location in the world.<br>For Târgoviște (Romania) we additionally show readings from our own weather stations, using BME680 sensors connected over Wi-Fi and LoRaWAN.<br><br>Developed by Eduard-Emanuel Badea<br>Valahia University of Târgoviște',
+        ftDespreText: 'Weather, forecasts and alerts for the places that matter to you.',
         ftCopyright: 'METEO NOW — weather information service.<br>© 2026 Eduard-Emanuel Badea — all rights reserved',
-        ftSurse: 'Data sources: Open-Meteo · RainViewer · OpenWeatherMap · NOAA SWPC · DWD · ANM (Romania)<br>Own stations: Târgoviște, Romania',
+        ftSurse: 'Weather data: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA · DWD',
         locRecente: 'Recent locations',
         sideAvertizari: 'Warnings<br>issued', sideHarti: 'Maps', sideHidro: 'Hydro',
         titluRadar: 'Maximum reflectivity [dBZ]', titluPrecip: '24 h precipitation accumulation [mm]',
@@ -6714,7 +6713,6 @@ var I18N = {
         radarNota: 'Precipitation radar — refreshed every few minutes.',
         fataDeNormal: 'from normal', ccCalda: 'warmest', dinUltimii: 'in the last', ani: 'years',
         statiileMele: 'My stations — Târgoviște',
-        statiiText: 'We measure this ourselves: BME680 sensors over Wi-Fi and LoRaWAN, installed around the city.',
         indiceUV: 'UV index', uvScazut: 'Low', uvModerat: 'Moderate', uvRidicat: 'High',
         uvFoarteRidicat: 'Very high', uvExtrem: 'Extreme',
         uvSfat: 'Use sun protection: shade, sunscreen and a hat.', uvOk: 'No special protection needed.', uvIndisponibil: 'Data unavailable',
@@ -6728,7 +6726,6 @@ var I18N = {
         rafale: 'Gusts', directie: 'Direction',
         presiuneMare: 'High pressure — usually settled weather.',
         presiuneMica: 'Low pressure — weather may change.', presiuneNormala: 'Normal pressure.',
-        surseMob: 'Sources: OpenWeather · MET Norway · Open-Meteo · RainViewer · ANM · NOAA',
         seIncarca: 'Loading weather data…',
         oraseleMele: 'My cities', adaugaOras: 'Search for a city…', stergeCautarea: 'Clear search',
         hartaAvertANM: 'Warnings on the map', hartaAnmNota: 'Coloured areas are under warning. Source: meteoromania.ro',
@@ -6739,7 +6736,7 @@ var I18N = {
         notifTitlu: 'Your weather',
         notifSub: 'A daily brief plus alerts when the weather changes in a meaningful way',
         notifANM: 'If your city is in Romania, you also get the official ANM warnings automatically.',
-        despre: 'About', despreSub: 'Real-time weather, anywhere in the world', weatherCredits: 'Photo and video credits',
+        despre: 'About', despreSub: 'Real-time weather, anywhere in the world', weatherCredits: 'Sources & credits',
         notifActiv: '✅ Enabled for {oras}.',
         legExtreme: 'Extreme', legAbundente: 'Heavy', legModerate: 'Moderate', legSlabe: 'Light',
         locatiaTa: 'Your location',
@@ -10294,15 +10291,6 @@ function legRigla() {
 }
 
 
-/* ══ STAȚIILE PROPRII — doar în zona Târgoviștei ══ */
-function mobCardStatii() {
-    if (typeof esteTargoviste !== 'function' || !esteTargoviste()) return '';
-    return '<div class="mb-card">' +
-        '<div class="mb-cap"><span class="mbc-ico">📡</span><span>' + T('statiileMele') + '</span></div>' +
-        '<div style="font-size:0.84rem;color:rgba(255,255,255,0.82);line-height:1.45;">' + T('statiiText') + '</div>' +
-        '</div>';
-}
-
 /* ══ GRILA DE DETALII ══ */
 function mobCardUV() {
     // Use the current city's current UV, never today's forecast maximum.
@@ -10509,13 +10497,12 @@ function mobRandareAcum() {
     h += mobCardZile();
     h += mobCardRadar();
     h += mobCardClima();
-    h += mobCardStatii();
     h += mobCardVant();
     h += mobCardHartaANM();
     h += mobCardLuna();
     h += mobGrila();
-    h += '<div style="text-align:center;font-size:0.7rem;color:rgba(255,255,255,0.5);padding:8px 24px 0;line-height:1.5;">' +
-         T('surseMob') + '</div>';
+    h += '<footer class="mb-info-footer"><a href="weather-credits.html">' + T('weatherCredits') + '</a>' +
+         '<span aria-hidden="true">·</span><a href="privacy.html">' + T('ftPrivacy') + '</a></footer>';
     document.getElementById('mbContinut').innerHTML = h;
     mobReataseazaHarti(hartiPastrate);
     mobActualizeazaHartiLocatie();

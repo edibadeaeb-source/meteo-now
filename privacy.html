@@ -5,55 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Politica de confidențialitate — METEO NOW</title>
 <meta name="description" content="Politica de confidențialitate a aplicației METEO NOW.">
-<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-        background: #141416; color: #e6e7eb; line-height: 1.65;
-        padding: 32px 20px 60px;
-    }
-    .wrap { max-width: 760px; margin: 0 auto; }
-    .top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
-    .top img { width: 44px; height: 44px; border-radius: 10px; }
-    h1 { font-size: 1.5rem; font-weight: 800; color: #fff; }
-    .data { font-size: 0.8rem; color: #9ca0ab; margin-bottom: 26px; }
-    h2 { font-size: 1.05rem; font-weight: 800; color: #fff; margin: 26px 0 8px; }
-    p, li { font-size: 0.92rem; color: #d5d8e0; }
-    ul { margin: 8px 0 8px 20px; }
-    li { margin-bottom: 5px; }
-    a { color: #4f83ff; }
-    .box {
-        background: #1c1c1f; border: 1px solid #33343a; border-radius: 12px;
-        padding: 16px 18px; margin: 16px 0;
-    }
-    .lang { display: flex; gap: 8px; margin-bottom: 22px; }
-    .lang button {
-        background: #232327; border: 1px solid #33343a; color: #e6e7eb;
-        border-radius: 8px; padding: 7px 16px; font-size: 0.84rem; font-weight: 700;
-        cursor: pointer; font-family: inherit;
-    }
-    .lang button.activ { background: #1d4fd7; border-color: #1d4fd7; color: #fff; }
-    .sec-en { display: none; }
-    body.en .sec-ro { display: none; }
-    body.en .sec-en { display: block; }
-    footer { margin-top: 34px; padding-top: 18px; border-top: 1px solid #33343a; font-size: 0.8rem; color: #9ca0ab; }
-</style>
+<link rel="stylesheet" href="info-pages.css?v=1">
+<script src="info-pages.js?v=1" defer></script>
 </head>
 <body>
 <div class="wrap">
-    <div class="top">
-        <img src="icon-192.png" alt="METEO NOW">
-        <div>
-            <h1>METEO NOW</h1>
-            <div class="data">Politica de confidențialitate · Privacy Policy</div>
-        </div>
-    </div>
-
-    <div class="lang">
-        <button id="bRo" class="activ">Română</button>
-        <button id="bEn">English</button>
-    </div>
-
+    <nav class="page-nav"><a class="back" href="/">← METEO NOW</a>
+        <div class="lang" role="group" aria-label="Language"><button id="bRo" class="activ" type="button">RO</button><button id="bEn" type="button">EN</button></div>
+    </nav>
+    <h1 data-title-ro="Confidențialitate" data-title-en="Privacy"><span class="ro">Confidențialitate</span><span class="en">Privacy</span></h1>
     <!-- ══════════════ ROMÂNĂ ══════════════ -->
     <div class="sec-ro">
         <p><b>Ultima actualizare:</b> 17 octombrie 2026</p>
@@ -62,11 +22,12 @@
             <p><b>Pe scurt:</b> METEO NOW nu creează conturi și nu vinde informații nimănui. Locația este folosită pentru vremea locală. Prognozele pe coordonate sunt păstrate într-un cache al serverului, fără identificator de persoană sau dispozitiv. Dacă activezi notificările, localitatea este păstrată și cu abonamentul tehnic necesar alertelor.</p>
         </div>
 
-        <h2>1. Cine suntem</h2>
+        <details class="policy-section"><summary><h2>1. Cine suntem</h2></summary><div class="policy-content">
         <p>METEO NOW este o aplicație meteo dezvoltată de Eduard-Emanuel Badea.
         Contact: <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a></p>
 
-        <h2>2. Ce date folosim</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>2. Ce date folosim</h2></summary><div class="policy-content">
         <ul>
             <li><b>Locația aproximativă sau precisă</b> — doar dacă îți dai acordul. O folosim pentru a determina localitatea și a afișa vremea pentru ea. La folosirea butonului de localizare, coordonatele sunt trimise către BigDataCloud pentru identificarea localității și apoi către serviciile meteo (vezi secțiunea 5) pentru prognoză. Prognozele pentru coordonatele cerute sunt păstrate într-un cache al serverului, fără identificator de persoană sau dispozitiv. Cererile către MET Norway trec prin serverul METEO NOW, astfel că furnizorul primește IP-ul serverului. Dacă activezi notificările, coordonatele și numele localității selectate sunt păstrate împreună cu abonamentul tehnic, pentru a trimite alerte relevante. Poți refuza accesul și poți căuta manual orice oraș.</li>
             <li><b>Preferințele tale</b> (orașul ales, tema, limba, locațiile recente) se salvează
@@ -87,7 +48,8 @@
         <p>Dacă activezi „Urmărește locația mea”, localitatea este verificată la deschiderea și revenirea în aplicație, precum și periodic cât timp o folosești. Identificarea localității utilizează BigDataCloud. Cu notificările activate, ultima localitate GPS confirmată este sincronizată pentru alerte; consultarea altui oraș nu schimbă această alegere. Cu aplicația închisă, alertele folosesc ultima locație sincronizată, fără urmărire GPS în fundal.</p>
         <p>Pentru confirmarea permisiunii Android, păstrăm ultimul rezultat tehnic (permis/refuzat), identificatorul cererii și data verificării sub un identificator opac al instalării. Acesta nu conține coordonate sau date de identitate și este înlocuit la următoarea verificare.</p>
 
-        <h2>3. Ce NU facem</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>3. Ce NU facem</h2></summary><div class="policy-content">
         <ul>
             <li>Nu îți cerem cont, nume, e-mail sau număr de telefon.</li>
             <li>Nu urmărim locația în fundal.</li>
@@ -95,11 +57,13 @@
             <li>Nu afișăm reclame și nu folosim instrumente de publicitate sau profilare.</li>
         </ul>
 
-        <h2>4. Copii</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>4. Copii</h2></summary><div class="policy-content">
         <p>Aplicația nu se adresează special copiilor și nu colectează cu bună știință date de la
         persoane sub 13 ani.</p>
 
-        <h2>5. Servicii externe folosite</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>5. Servicii externe folosite</h2></summary><div class="policy-content">
         <p>Pentru a-ți oferi datele meteo, aplicația trimite coordonatele localității alese către:</p>
         <ul>
             <li><b>BigDataCloud</b> — identificarea localității din coordonatele GPS, numai când ceri localizarea</li>
@@ -115,7 +79,8 @@
         </ul>
         <p>Fiecare serviciu are propria politică de confidențialitate.</p>
 
-        <h2>6. Drepturile tale</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>6. Drepturile tale</h2></summary><div class="policy-content">
         <p>Aplicația nu creează conturi. Datele locale pot fi șterse din setările telefonului, iar abonamentul push poate fi eliminat prin dezactivarea notificărilor. Poți oricând:</p>
         <ul>
             <li>să retragi permisiunea de locație din setările telefonului;</li>
@@ -125,9 +90,11 @@
         <p>Pentru orice întrebare legată de datele tale, scrie-ne la
         <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a>.</p>
 
-        <h2>7. Modificări</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>7. Modificări</h2></summary><div class="policy-content">
         <p>Dacă vom schimba această politică, vom actualiza data de sus. Modificările importante vor fi
-        anunțate în aplicație.</p>
+        anunțate în aplicație.</p></div></details>
+
     </div>
 
     <!-- ══════════════ ENGLISH ══════════════ -->
@@ -138,11 +105,12 @@
             <p><b>In short:</b> METEO NOW does not create accounts or sell information. Location is used for local weather. Forecasts by coordinates are retained in a server cache, without a person or device identifier. If you enable notifications, the locality is also stored with the technical subscription required to deliver alerts.</p>
         </div>
 
-        <h2>1. Who we are</h2>
+        <details class="policy-section"><summary><h2>1. Who we are</h2></summary><div class="policy-content">
         <p>METEO NOW is a weather app developed by Eduard-Emanuel Badea.
         Contact: <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a></p>
 
-        <h2>2. Data we use</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>2. Data we use</h2></summary><div class="policy-content">
         <ul>
             <li><b>Approximate or precise location</b> — only with your consent. We use it to determine your locality and show its weather. When you use the location button, coordinates are sent to BigDataCloud to identify the locality and then to the weather services listed in section 5. Forecasts for the requested coordinates are retained in a server cache, without a person or device identifier. Requests to MET Norway go through the METEO NOW server, so that provider receives the server IP address. If you enable notifications, the selected locality name and coordinates are stored with the technical push subscription so that relevant alerts can be delivered. You may decline permission and search for any city manually.</li>
             <li><b>Your preferences</b> (selected city, theme, language and recent locations) are
@@ -163,7 +131,8 @@
         <p>If you enable “Follow my location”, the locality is checked when you open or return to the app and periodically while you use it. BigDataCloud identifies the locality. With notifications enabled, the last confirmed GPS locality is synced for alerts; browsing another city does not change this preference. When the app is closed, alerts use the last synced location without background GPS tracking.</p>
         <p>To confirm Android permission, we store the latest technical result (granted/denied), request identifier and verification time under an opaque installation identifier. It contains no coordinates or personal identity and is replaced at the next check.</p>
 
-        <h2>3. What we do NOT do</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>3. What we do NOT do</h2></summary><div class="policy-content">
         <ul>
             <li>We do not ask for an account, name, e-mail or phone number.</li>
             <li>We do not track your location in the background.</li>
@@ -171,10 +140,12 @@
             <li>We show no ads and use no advertising or profiling tools.</li>
         </ul>
 
-        <h2>4. Children</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>4. Children</h2></summary><div class="policy-content">
         <p>The app is not directed at children and does not knowingly collect data from persons under 13.</p>
 
-        <h2>5. Third-party services</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>5. Third-party services</h2></summary><div class="policy-content">
         <p>To provide weather data, the app sends the coordinates of the selected location to:</p>
         <ul>
             <li><b>BigDataCloud</b> — identifying the locality from GPS coordinates, only when you request location</li>
@@ -190,7 +161,8 @@
         </ul>
         <p>Each service has its own privacy policy.</p>
 
-        <h2>6. Your rights</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>6. Your rights</h2></summary><div class="policy-content">
         <p>The app does not create accounts. Local data can be removed from the phone settings, and the push subscription can be deleted by turning notifications off. At any time you can:</p>
         <ul>
             <li>revoke the location permission in your phone settings;</li>
@@ -200,9 +172,11 @@
         <p>For any question about your data, write to
         <a href="mailto:edibadea.eb@gmail.com">edibadea.eb@gmail.com</a>.</p>
 
-        <h2>7. Changes</h2>
+        </div></details>
+<details class="policy-section"><summary><h2>7. Changes</h2></summary><div class="policy-content">
         <p>If we change this policy, we will update the date above. Significant changes will be announced
-        in the app.</p>
+        in the app.</p></div></details>
+
     </div>
 
     <footer>
@@ -211,18 +185,6 @@
     </footer>
 </div>
 
-<script>
-    var b = document.body, bRo = document.getElementById('bRo'), bEn = document.getElementById('bEn');
-    function set(en) {
-        b.classList.toggle('en', en);
-        bEn.classList.toggle('activ', en);
-        bRo.classList.toggle('activ', !en);
-        document.documentElement.lang = en ? 'en' : 'ro';
-    }
-    bRo.addEventListener('click', function () { set(false); });
-    bEn.addEventListener('click', function () { set(true); });
-    // limba implicită, după browser
-    if ((navigator.language || 'ro').toLowerCase().indexOf('ro') !== 0) set(true);
-</script>
+
 </body>
 </html>

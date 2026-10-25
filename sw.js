@@ -1,10 +1,11 @@
 // METEO NOW: versioned app files work offline; weather stays in its per-city store.
 // No API, notification, conversation or account responses enter Cache Storage.
 
-const CACHE = 'meteo-now-net-v69';
+const CACHE = 'meteo-now-net-v70';
 const SHELL = 'meteo-now-shell-v1';
 const APP_FILES = [
   '/', '/diagnostics.js?v=1', '/ai-conversations.js?v=3', '/ai-glass.js?v=1',
+  '/info-pages.css?v=1', '/info-pages.js?v=1',
   '/app-messages.js?v=1', '/app-messages.css?v=2',
   '/weather-glass.css?v=13', '/weather-ai.css?v=10',
   '/weather-geography.js?v=1', '/weather-library.js?v=6', '/weather-data-cache.js?v=6',

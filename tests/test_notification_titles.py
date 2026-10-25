@@ -30,13 +30,13 @@ class NotificationTitleTests(unittest.TestCase):
             (self.forecast(63,[63]*6),'rain_now','🌧️'),
             (self.forecast(2,[2,61,61,61,61,61]),'rain_start','🌧️'),
             (self.forecast(63),'rain_end','🌧️'),
-            (self.forecast(73,[73]*6),'snow_now','🌨️'),
-            (self.forecast(2,[2,73,73,73,73,73]),'snow_start','🌨️'),
-            (self.forecast(73),'snow_end','🌨️'),
+            (self.forecast(73,[73]*6),'snow_now','❄️'),
+            (self.forecast(2,[2,73,73,73,73,73]),'snow_start','❄️'),
+            (self.forecast(73),'snow_end','❄️'),
             (self.forecast(95),'storm_now','⛈️'),
             (self.forecast(2,[2,95,95,95,95,95]),'storm_start','⛈️'),
-            (self.forecast(45),'fog_now','🌫️'),
-            (self.forecast(2,[2,45,45,45,45,45]),'fog_start','🌫️'),
+            (self.forecast(45),'fog_now','☁️'),
+            (self.forecast(2,[2,45,45,45,45,45]),'fog_start','☁️'),
         ]
         wind_now=self.forecast();wind_now['current']['wind_gusts_10m']=70
         wind_future=self.forecast();wind_future['hourly']['wind_gusts_10m']=[10,70,70,70,70,70]
@@ -81,7 +81,7 @@ class NotificationTitleTests(unittest.TestCase):
         self.assertEqual(weather_emoji(0,True),'☀️')
         self.assertEqual(weather_emoji(0,False),'🌙')
         self.assertEqual(weather_emoji(2,False),'☁️')
-        for code,symbol in [(3,'☁️'),(45,'🌫️'),(57,'🌧️'),(67,'🌧️'),(69,'🌧️'),(77,'🌨️'),(86,'🌨️'),(99,'⛈️'),(None,'🌦️')]:
+        for code,symbol in [(3,'☁️'),(45,'☁️'),(57,'🌧️'),(67,'🌧️'),(69,'🌧️'),(77,'❄️'),(86,'❄️'),(99,'⛈️'),(None,'🌦️')]:
             self.assertEqual(weather_emoji(code),symbol)
         data=fixtures.NotificationCopyTests.forecast();data['daily']['weather_code'][2]=0
         self.assertEqual(meteo._compune_rezumat(data,'seara','ro','C','Moreni')[0],'Moreni ☀️')

@@ -72,6 +72,9 @@ def main():
         record = {'host': host, 'checks': []}
         for endpoint, local in [('/', 'index.html'), ('/sw.js', 'sw.js'),
                                 ('/privacy.html', 'privacy.html'),
+                                ('/weather-credits.html', 'weather-credits.html'),
+                                ('/info-pages.css?v=1', 'info-pages.css'),
+                                ('/info-pages.js?v=1', 'info-pages.js'),
                                 ('/.well-known/assetlinks.json', 'assetlinks.json')]:
             with urlopen(host + endpoint, timeout=45) as response:
                 data = response.read()
@@ -84,7 +87,7 @@ def main():
                 assert normalized(data) == normalized((REPO / local).read_bytes()), host + endpoint
             record['checks'].append({'endpoint': endpoint, 'status': 200, 'matchesSource': True})
         results['hosts'].append(record)
-    results['webVersion'] = '2026.10.25.1'
+    results['webVersion'] = '2026.10.25.2'
     assert results['webVersion'] in (REPO / 'diagnostics.py').read_text()
     results['remaining'] = ['developer account registration', 'provider sharing/retention review',
                             'Play Console requirements and signing certificate',

@@ -79,9 +79,10 @@ def weather_emoji(code, is_day=True):
     if code == 3:
         return '☁️'
     if code in (45, 48):
-        return '🌫️'
+        # Samsung draws the fog emoji as a framed landscape. Use a clean cloud.
+        return '☁️'
     if code in (71, 73, 75, 77, 85, 86):
-        return '🌨️'
+        return '❄️'
     if code in (95, 96, 99):
         return '⛈️'
     if code in (51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 80, 81, 82):
@@ -91,8 +92,8 @@ def weather_emoji(code, is_day=True):
 
 def event_title(kind, name, language='ro'):
     """Event timing stays in the body, never in the compact city header."""
-    symbol = {'rain': '🌧️', 'snow': '🌨️', 'storm': '⛈️',
-              'fog': '🌫️', 'wind': '💨'}.get(kind.split('_')[0], '🌦️')
+    symbol = {'rain': '🌧️', 'snow': '❄️', 'storm': '⛈️',
+              'fog': '☁️', 'wind': '💨'}.get(kind.split('_')[0], '🌦️')
     return city_title(name, language, symbol)
 
 
