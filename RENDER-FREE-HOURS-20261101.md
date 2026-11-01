@@ -14,11 +14,11 @@ Render oferă 750 ore gratuite comune întregului workspace, pe lună calendaris
 - Publicările și verificările curente țintesc doar meteo-now. Nu se reia rezerva și nu se fac cereri publice de verificare către ea fără o cerere explicită de reactivare.
 - Verificarea release-package-audit.py nu mai contactează rezerva. Starea suspendării se verifică separat prin metadatele Render, fără a trezi serviciul.
 
-Suspendarea a fost efectuată de utilizator și confirmată prin Render: meteo-vechi are suspended=suspended, suspenders=[user], updatedAt=2026-11-01T10:57:54.597518Z. meteo-now are suspended=not_suspended, fără suspenders. Starea programărilor cron-job.org rămâne de verificat separat.
+Suspendarea a fost efectuată de utilizator și confirmată prin Render: meteo-vechi are suspended=suspended, suspenders=[user], updatedAt=2026-11-01T10:57:54.597518Z. meteo-now are suspended=not_suspended, fără suspenders. Utilizatorul a confirmat reactivarea celor două joburi și HTTP 200 în Test run pentru ambele; consola cron-job.org nu a putut fi operată direct de agent.
 
 ## Programările externe
 
-Utilizatorul a identificat două joburi cu roluri diferite: ping la 10 minute și /api/push/check la 15 minute. Nu sunt dubluri. Se reactivează pentru meteo-now.onrender.com și se verifică rezultatul HTTP din Test run. Confirmarea executării rămâne în așteptare.
+Utilizatorul a identificat două joburi cu roluri diferite: ping la 10 minute și /api/push/check la 15 minute. Nu sunt dubluri. Se reactivează pentru meteo-now.onrender.com și se verifică rezultatul HTTP din Test run. Utilizatorul a raportat HTTP 200 pentru ambele teste după reactivare.
 
 Se verifică joburile existente în cron-job.org. Joburile principalului serviciu trebuie reactivate numai după confirmarea că adresa și autentificarea sunt corecte. Nu se înlocuiește cheia cu URL-ul redat trunchiat în e-mail. Dacă există joburi identice, se compară programul și parametrii înainte de a decide care rămâne activ. Joburile pentru rezervă trebuie să rămână dezactivate.
 
