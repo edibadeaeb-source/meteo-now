@@ -1,6 +1,6 @@
 # METEO NOW — verificare înainte de Google Play
 
-Actualizat: 25 octombrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
+Actualizat: 1 noiembrie 2026. Acesta este punctul de pornire pentru pachetul din `02-Lansare-Google-Play/play-store/release-ready`.
 
 ## Pachetul actual
 
@@ -22,6 +22,8 @@ Actualizarea web 2026.10.25.2 compactează notificările din aplicație și rafi
 Actualizarea 2026.10.25.2 simplifică pagina principală și secțiunea Despre, elimină cardul stațiilor proprii, reorganizează confidențialitatea și creditele în secțiuni pliabile fără imagini încorporate și înlocuiește emoji-urile de ceață/ninsoare din notificările viitoare. Nu schimbă datele meteo, permisiunile sau colectarea datelor.
 
 Actualizarea 2026.10.25.3 lasă pe pagina principală doar numele furnizorilor meteo, jos: OpenWeather · MET Norway · Open-Meteo. Setări → Despre conține un singur buton Confidențialitate; pagina reunește politica, sursele și toate creditele în secțiuni pliabile, fără media încorporate. Android rămâne 1.0.27 / versionCode 28.
+
+Politica Render din 1 noiembrie 2026: meteo-now este serviciul activ, iar meteo-vechi se păstrează oprit ca rezervă pentru a economisi orele gratuite comune. Codul continuă să aibă backup pe main/backup și local. Verificările publice și publicările curente vizează numai serviciul principal. Starea efectivă și programările externe trebuie confirmate separat; vezi RENDER-FREE-HOURS-20261101.md.
 
 ## Funcții confirmate în surse
 

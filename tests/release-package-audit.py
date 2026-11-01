@@ -68,7 +68,10 @@ def main():
         assert data[24:26] == bytes([8, 2]), 'Expected 24-bit RGB PNG without alpha'
         assert hashlib.sha256(data).hexdigest() == entry['sha256']
         results['screenshots'].append(entry['file'])
-    for host in ['https://meteo-now.onrender.com', 'https://meteo-targoviste.onrender.com']:
+    # The reserve service is deliberately suspended to preserve shared free hours.
+    # Never wake it for a release audit; validate the main service only.
+    results['reservePublicRequestsSkipped'] = True
+    for host in ['https://meteo-now.onrender.com']:
         record = {'host': host, 'checks': []}
         for endpoint, local in [('/', 'index.html'), ('/sw.js', 'sw.js'),
                                 ('/privacy.html', 'privacy.html'),
@@ -94,7 +97,7 @@ def main():
                             'physical push delivery and battery/standby check']
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / 'release-audit.json').write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding='utf8')
-    print('PASS: package hashes, five providers, images, document copies and both public services')
+    print('PASS: package hashes, five providers, images, document copies and primary public service; reserve not contacted')
 
 
 if __name__ == '__main__':
