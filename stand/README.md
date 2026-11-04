@@ -18,6 +18,8 @@ Necesită doar Python 3.10+ (deja disponibil pe acest laptop), fără instalare 
 - Explicații interactive pentru traseul măsurătorii.
 - Legătură spre aplicația publică METEO NOW, deschisă doar la apăsare.
 - Demo interactiv fără internet: valori simulate, etichetate permanent, cu reglaje pentru temperatură și umiditate. CSV-urile demo sunt etichetate SIMULAT.
+- Aspect inspirat din panouri de monitorizare: antet bleumarin, cadrane semicirculare pentru umiditatea 0–100%, indicatori de temperatură, patru grafice cu zone umplute și un panou pentru starea datelor. Graficele nu unesc pauze de peste 10 minute. Numărul de înregistrări este cel afișat, nu totalul din baza de date.
+- Chatbot în dreapta jos, legat de AI-ul existent. Primește valorile afișate ale ambelor stații și etichetele real/istoric/demo. Necesită internet; nu are pornire sau întrebări automate. Conversația rămâne numai în memoria filei și poate fi ștearsă cu butonul de resetare.
 
 ## Date reale și siguranță
 
@@ -26,6 +28,8 @@ Implicit se deschide în „Senzori reali”. Citirea este exclusiv GET, fără 
 „Date recente” necesită o măsurătoare datată în ultimele 5 minute și citire reușită. Întreruperea conexiunii păstrează valorile și le marchează indisponibile; datele vechi nu sunt prezentate ca măsurători actuale. Ora nevalidă nu este inventată. Dashboardul nu verifică separat gateway-ul, ChirpStack sau MQTT; verifică numai datele ajunse la capătul traseului. IAQ este orientativ și nu certifică siguranța aerului. Montajul din interior măsoară mediul din interior, nu vremea orașului.
 
 Aplicația mobilă, regulile Firebase, firmware-ul și serviciile Render nu sunt modificate. `meteo-vechi` rămâne suspendat. Dashboardul nu este publicat pe Render și nu folosește orele gratuite ale serviciului de rezervă. Demo funcționează cu fișiere locale și nu depinde de CDN, fonturi externe, AI sau notificări.
+
+La trimiterea explicită a unei întrebări, serverul local trimite întrebarea, ultimele mesaje și un snapshot numeric validat către `/ask` pe serviciul principal METEO NOW. Nu transmite chei, coordonate sau acces la ramurile private Firebase. Limitele existente de răspuns și buget rămân active; local sunt permise o întrebare simultan, minimum 10 secunde între cereri și maximum 30 de cereri/zi de rulare. Limita principală poate fi atinsă mai devreme dacă aceeași conexiune este folosită și de aplicația mobilă. Repornirea lansatorului actualizează în siguranță un server local vechi pornit din același folder.
 
 ## Mâine, cu montajul
 

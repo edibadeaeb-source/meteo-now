@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 import server
+import json
 
 
 class StationTests(unittest.TestCase):
@@ -75,6 +76,40 @@ class StationTests(unittest.TestCase):
                 if kind != 'lora': self.assertIn('limitToLast=60', req.full_url)
                 self.assertNotIn('auth=', req.full_url)
         with self.assertRaises(KeyError): server.read_public('../push_subs')
+
+    def test_chat_context_demo_zeroes_no_location_or_invented_lora_iaq(self):
+        body = {'question':'Explică datele', 'mode':'demo', 'history':[], 'sensors':{
+            'esp':{'current':{'temperature':0,'humidity':0,'iaq':0}},
+            'lora':{'current':{'temperature':0,'humidity':0,'iaq':99,'private':'ignored'}}}}
+        result = server.chat_payload(body)
+        details = result['vremea']['detalii']
+        self.assertIn('TOATE valorile sunt SIMULATE', details)
+        snapshot = json.loads(details.split('Snapshotul afisat: ')[1])
+        self.assertEqual(snapshot['esp']['valori']['temperature'], 0)
+        self.assertEqual(snapshot['esp']['valori']['iaq'], 0)
+        self.assertNotIn('iaq', snapshot['lora']['valori'])
+        self.assertNotIn('private', details)
+        self.assertEqual(result['locatie'], {})
+        self.assertEqual(result['context'], {})
+
+    def test_chat_does_not_call_old_data_live_and_rejects_invalid_input(self):
+        body = {'question':'Explică', 'mode':'live', 'sensors':{
+            key:{'current':{'temperature':20,'timestamp':1000}} for key in ('esp','lora')}}
+        self.assertIn('ISTORIC VECHI', server.chat_payload(body)['vremea']['detalii'])
+        for invalid in [None, {}, {**body,'question':'x'*1201}, {**body,'history':[{'role':'system','text':'x'}]}]:
+            with self.assertRaises(server.ChatError): server.chat_payload(invalid)
+
+    def test_chat_relay_uses_only_primary_endpoint_without_keys(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def read(self, _): return b'{"answer":"Example"}'
+        with patch.object(server, 'urlopen', return_value=Response()) as opened:
+            self.assertEqual(server.relay_chat({'question':'Example'}), {'answer':'Example'})
+            req = opened.call_args.args[0]
+            self.assertEqual(req.full_url, 'https://meteo-now.onrender.com/ask')
+            self.assertEqual(req.method, 'POST')
+            self.assertNotIn('Authorization', req.headers)
 
 
 if __name__ == '__main__':

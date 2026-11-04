@@ -2,6 +2,7 @@
 import json
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 from http.server import ThreadingHTTPServer
@@ -40,12 +41,38 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(error.exception.code, 404)
 
     def test_no_writes_and_rejects_cross_site_and_rebinding(self):
-        for request, code in [(Request(self.url+'/api/station', method='POST', data=b'{}'),501),
+        for request, code in [(Request(self.url+'/api/station', method='POST', data=b'{}'),404),
                               (Request(self.url+'/api/station',headers={'Sec-Fetch-Site':'cross-site'}),403),
                               (Request(self.url+'/api/station',headers={'Host':'untrusted.example'}),403)]:
             with self.assertRaises(HTTPError) as error:
                 urlopen(request)
             self.assertEqual(error.exception.code, code)
+
+    def test_chat_explicit_only_and_context_is_bounded(self):
+        body = {'question':'Ce înseamnă umiditate?', 'mode':'demo', 'history':[],
+                'sensors':{'esp':{'current':{'temperature':23,'humidity':48},'state':'demo'},
+                           'lora':{'current':{'temperature':23.2,'humidity':48},'state':'demo'}}}
+        req = Request(self.url+'/api/chat', data=json.dumps(body).encode(), headers={'Content-Type':'application/json'})
+        with patch.object(server.Handler, 'chat_gate', server.ChatGate()), patch.object(server, 'relay_chat', return_value={'answer':'Explicație de test.'}) as relay:
+            result = json.load(urlopen(req))
+            self.assertEqual(result['answer'], 'Explicație de test.')
+            self.assertEqual(relay.call_count, 1)
+            self.assertIn('TOATE valorile sunt SIMULATE', relay.call_args.args[0]['vremea']['detalii'])
+            self.assertEqual(relay.call_args.args[0]['locatie'], {})
+            with self.assertRaises(HTTPError) as error:
+                urlopen(req)
+            self.assertEqual(error.exception.code, 429)
+
+    def test_chat_rejects_untrusted_origin_oversize_and_bad_json(self):
+        cases = [(Request(self.url+'/api/chat', data=b'{}',headers={'Content-Type':'application/json','Origin':'https://other.example'}),403),
+                 (Request(self.url+'/api/chat', data=b'x'*25000,headers={'Content-Type':'application/json'}),413),
+                 (Request(self.url+'/api/chat', data=b'{',headers={'Content-Type':'application/json'}),400)]
+        with patch.object(server, 'relay_chat') as relay:
+            for req, code in cases:
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(req)
+                self.assertEqual(error.exception.code, code)
+            relay.assert_not_called()
 
 
 if __name__ == '__main__':

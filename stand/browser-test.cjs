@@ -29,11 +29,21 @@ const snapshot=(state='live')=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const external=[];page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   let apiCalls=0, fixture=snapshot('stale'), fail=false;
+  const chatCalls=[];
+  let chatError=false;
+  await page.route('**/api/chat',async route=>{
+    chatCalls.push(route.request().postDataJSON());
+    if(chatError)await route.fulfill({status:429,json:{error:'Limită temporară de test.'}});
+    else await route.fulfill({json:{answer:'În acest demo, valorile sunt simulate. Wi-Fi și LoRaWAN sunt cele două trasee de transmisie ale stației.'}});
+  });
   await page.route('**/api/station',async route=>{apiCalls++;if(fail) await route.abort();else await route.fulfill({json:fixture});});
   await page.goto(url);await page.locator('#espState').filter({hasText:'Date vechi'}).waitFor();
   assert.match(await page.locator('#espCaption').innerText(),/nu trimite date recente/);
+  assert.equal(await page.locator('#freshCount').innerText(),'0 / 2');
   await page.locator('#demoButton').click();
   await page.locator('#espState').filter({hasText:'Simulat'}).waitFor();
+  assert.equal(await page.locator('#freshCount').innerText(),'DEMO');
+  assert.ok(await page.locator('#espHumidityDial').getAttribute('aria-valuenow'));
   assert.match(await page.locator('#notice').innerText(),/Toate valorile.*simulate/);
   const before=await page.locator('#espTemperature').innerText();
   await page.locator('#demoTemp').fill('35');
@@ -62,20 +72,39 @@ const snapshot=(state='live')=>{
     await page.setViewportSize({width,height});await page.waitForTimeout(80);
     const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
     assert.equal(overflow,false,`horizontal overflow at ${width}`);
+    assert.ok(await page.locator('.shell').evaluate(el=>el.getBoundingClientRect().width>=innerWidth*.98),'dashboard should fill window width');
     for(const selector of ['#espTemperature','#loraTemperature','#espState','#loraState','#demoButton','#exportButton'])assert.ok(await page.locator(selector).isVisible());
     layouts.push({width,height,overflow});
     if(artifacts && [1440,1366,412].includes(width)){fs.mkdirSync(artifacts,{recursive:true});await page.screenshot({path:path.join(artifacts,`stand-demo-${width}.png`),fullPage:true});}
   }
   await page.setViewportSize({width:1440,height:1080});
+  assert.ok(await page.locator('.metric strong').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=39));
   await page.locator('#fullscreenButton').click();
   await page.waitForFunction(()=>!!document.fullscreenElement);
   if(artifacts)await page.screenshot({path:path.join(artifacts,'stand-preview.png')});
+  await page.locator('#chatLauncher').click();
+  assert.ok(await page.locator('#chatInput').evaluate(el=>el===document.activeElement));
+  if(artifacts)await page.screenshot({path:path.join(artifacts,'stand-ai-preview.png')});
+  await page.locator('[data-question]').first().click();
+  await page.locator('.chat-message.assistant').filter({hasText:'În acest demo'}).waitFor();
+  assert.equal(chatCalls.length,1);assert.equal(chatCalls[0].mode,'demo');assert.ok(chatCalls[0].sensors.esp.current);assert.ok(chatCalls[0].sensors.lora.current);
+  await page.locator('#chatInput').fill('De ce diferă valorile?');await page.locator('#chatSend').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.chat-message.assistant').length===3);
+  assert.equal(chatCalls[1].history.length,2,'conversation history should accompany follow-up');
+  await page.locator('#chatReset').click();assert.equal(await page.locator('.chat-message').count(),1);
+  chatError=true;await page.locator('#chatInput').fill('Altă întrebare');await page.locator('#chatSend').click();await page.locator('.chat-message.error').filter({hasText:'Limită temporară'}).waitFor();chatError=false;
+  const chatCount=chatCalls.length;await page.context().setOffline(true);await page.locator('#chatInput').fill('Întrebare offline');await page.locator('#chatSend').click();assert.match(await page.locator('#chatFeedback').innerText(),/nevoie de internet/);assert.equal(chatCalls.length,chatCount);await page.context().setOffline(false);
+  await page.keyboard.press('Escape');assert.ok(await page.locator('#chatPanel').isHidden());
+  await page.setViewportSize({width:320,height:740});await page.locator('#chatLauncher').click();
+  const chatBounds=await page.locator('#chatPanel').boundingBox();assert.ok(chatBounds.x>=0&&chatBounds.y>=0&&chatBounds.x+chatBounds.width<=321&&chatBounds.y+chatBounds.height<=740);
+  await page.locator('#chatClose').click();await page.setViewportSize({width:1440,height:1080});
   await page.locator('#fullscreenButton').click();
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await page.locator('.step-icon').first().evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
   assert.ok(await page.locator('.metric>span').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=14));
   fixture=snapshot();await page.locator('#liveButton').click();await page.locator('#espState').filter({hasText:'Date recente'}).waitFor();
   assert.match(await page.locator('#notice').innerText(),/Date recente pe ambele/);
+  assert.equal(await page.locator('#freshCount').innerText(),'2 / 2');
   // A local-server outage must not leave a previously successful "live" badge.
   await page.locator('#demoButton').click();fail=true;await page.locator('#liveButton').click();await page.locator('#espState').filter({hasText:'Fără conexiune'}).waitFor();
   assert.notEqual(await page.locator('#espTemperature').innerText(),'—');
@@ -84,6 +113,14 @@ const snapshot=(state='live')=>{
   // Invalid sample time never creates a live badge.
   fixture=snapshot();fixture.channels.esp.current.timestamp=null;
   await page.locator('#demoButton').click();await page.locator('#liveButton').click();await page.locator('#espState').filter({hasText:'Oră nevalidată'}).waitFor();
+  fixture=snapshot();fixture.channels.esp.current.humidity=0;fixture.channels.lora.current.humidity=100;
+  await page.locator('#demoButton').click();await page.locator('#liveButton').click();await page.waitForFunction(()=>document.getElementById('espHumidityDial').getAttribute('aria-valuenow')==='0');
+  assert.equal(await page.locator('#espHumidityArc').getAttribute('stroke-dasharray'),'0 100');
+  assert.equal(await page.locator('#loraHumidityArc').getAttribute('stroke-dasharray'),'100 100');
+  assert.equal(await page.locator('#espHumidityThumb').getAttribute('hidden'),null);
+  fixture=snapshot();fixture.channels.esp.current.humidity=null;
+  await page.locator('#demoButton').click();await page.locator('#liveButton').click();await page.waitForFunction(()=>document.getElementById('espHumidityDial').getAttribute('aria-valuenow')===null);
+  assert.ok(await page.locator('#espHumidityThumb').isHidden());
   assert.equal(external.length,0,'dashboard must not depend on external assets');assert.deepEqual(errors,[]);
   // Late live responses cannot overwrite the demo after switching modes.
   await page.unroute('**/api/station');
@@ -93,7 +130,7 @@ const snapshot=(state='live')=>{
   await page.locator('#demoButton').click();await page.locator('#liveButton').click();await pending;await page.locator('#demoButton').click();release();await page.waitForTimeout(100);
   assert.equal(await page.locator('#espState').innerText(),'Simulat');
   await browser.close();
-  const report={passed:true,layouts,jsErrors:errors,externalRequests:external.length,checks:['both stations simultaneously','four comparative plots','five temperature color bands','readable metric labels','stale labels','live labels','demo controls','offline demo','CSV provenance','no invented LoRa IAQ','explanations','no overflow','reduced motion','outage and recovery','invalid time','late response isolation']};
+  const report={passed:true,layouts,jsErrors:errors,externalRequests:external.length,realAiRequests:0,checks:['humidity gauges at zero and 100 percent','missing readings have no gauge needle','fresh-source counter excludes demo and stale data','full-width layout','larger metric typography','station chatbot open/close','chat snapshot for both sources','chat conversation and reset','chat limit errors','chat offline','chat at 320px','both stations simultaneously','four comparative plots','five temperature color bands','readable metric labels','stale labels','live labels','demo controls','offline demo','CSV provenance','no invented LoRa IAQ','explanations','no overflow','reduced motion','outage and recovery','invalid time','late response isolation']};
   if(artifacts)fs.writeFileSync(path.join(artifacts,'browser-results.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
   testServer?.kill();

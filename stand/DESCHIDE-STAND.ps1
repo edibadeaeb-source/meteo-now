@@ -8,11 +8,14 @@ $runtimePath = Join-Path $PSScriptRoot '.runtime'
 function Test-StandReady {
     try {
         $health = Invoke-RestMethod -Uri "$standUrl/health" -TimeoutSec 2
-        return $health.app -eq 'METEO-NOW-STAND'
+        return $health.app -eq 'METEO-NOW-STAND' -and $health.version -eq 2
     } catch { return $false }
 }
 
 if (-not (Test-StandReady)) {
+    if (Test-Path -LiteralPath (Join-Path $runtimePath 'server.pid')) {
+        & (Join-Path $PSScriptRoot 'OPRESTE-STAND.ps1')
+    }
     $pythonCandidates = @(
         (Join-Path $env:USERPROFILE 'scoop\apps\python313\current\python.exe'),
         (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python313\python.exe')

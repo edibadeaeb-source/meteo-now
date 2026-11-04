@@ -38,6 +38,10 @@
   }
   function render() {
     const channels = (state.mode === 'demo' ? state.demo : state.data)?.channels;
+    const sensors={};
+    ['esp','lora'].forEach(key=>{const channel=channels?.[key];sensors[key]={current:channel?.current||null,state:channel?channelState(channel):'empty'};});
+    window.StandSnapshot={mode:state.mode,sensors};
+    window.dispatchEvent(new Event('stand-context'));
     document.body.classList.toggle('demo-mode', state.mode === 'demo');
     $('demoControls').hidden = state.mode !== 'demo';
     const captions = {live:'Măsurătoare recentă · în locul unde se află senzorul', stale:'Ultima valoare păstrată · senzorul nu trimite date recente', unknown:'Valoare fără o dată și oră validate', empty:'Conectează montajul pentru a primi măsurători', unavailable:'Conexiune întreruptă · valorile păstrate pot fi vechi', demo:'Valoare simulată · experimentează cu reglajele de mai jos'};
@@ -47,6 +51,13 @@
       status(key+'State',mode);
       $(key+'Temperature').textContent=format(current.temperature);
       $(key+'Humidity').textContent=format(current.humidity);
+      const humidity=finite(current.humidity)?Math.max(0,Math.min(100,current.humidity)):null;
+      const dial=$(key+'HumidityDial'),arc=$(key+'HumidityArc'),thumb=$(key+'HumidityThumb');
+      if(humidity===null){dial.removeAttribute('aria-valuenow');dial.setAttribute('aria-valuetext','Fără măsurătoare');}
+      else{dial.setAttribute('aria-valuenow',String(humidity));dial.setAttribute('aria-valuetext',`${format(humidity)} % RH`);}
+      arc.setAttribute('stroke-dasharray',`${humidity??0} 100`);arc.toggleAttribute('hidden',humidity===null);thumb.toggleAttribute('hidden',humidity===null);
+      const angle=Math.PI*(1-(humidity??0)/100);thumb.setAttribute('cx',String(100+80*Math.cos(angle)));thumb.setAttribute('cy',String(100-80*Math.sin(angle)));
+      const marker=$(key+'ThermalMarker');marker.toggleAttribute('hidden',!finite(current.temperature));marker.setAttribute('cx',String(Math.max(0,Math.min(240,((current.temperature??-10)+10)/55*240))));
       $(key+'Pressure').textContent=format(current.pressure,0);
       $(key+'Gas').textContent=format(current.gas,0);
       if(key==='esp')$('espIaq').textContent=format(current.iaq,0);
@@ -58,8 +69,14 @@
       $(key+'Card').classList.toggle('is-live',mode==='live');
     });
     $('rssi').textContent=format(channels?.lora.current?.rssi,0);
+    $('signalValue').textContent=format(channels?.lora.current?.rssi,0);
     $('snr').textContent=format(channels?.lora.current?.snr);
     const espState=channels?channelState(channels.esp):null,loraState=channels?channelState(channels.lora):null;
+    $('freshCount').textContent=state.mode==='demo'?'DEMO':`${[espState,loraState].filter(s=>s==='live').length} / 2`;
+    $('freshLabel').textContent=state.mode==='demo'?'valori simulate':'stații cu date recente';
+    $('sampleCount').textContent=String((channels?.esp.history?.length||0)+(channels?.lora.history?.length||0));
+    $('pollRate').textContent=state.mode==='demo'?'10 sec · demo':'20 secunde';
+    $('connectionNote').textContent=state.mode==='demo'?'Valorile, cadranele și graficele sunt simulate local. Nu trimit comenzi sau date senzorilor.':'Date recente = pachet primit în ultimele 5 minute. Gateway-ul, ChirpStack și MQTT nu sunt verificate separat.';
     if(!channels){
       if(state.failed)showNotice('Dashboardul local nu răspunde. Reîncercăm automat; verifică dacă serverul este pornit.','warning');
       drawChart(null);return;
@@ -104,7 +121,13 @@
     svg.append(node('text',{x:8,y:11},unit));
     if(all.length) [0,.5,1].forEach((p,index)=>svg.append(node('text',{x:left+(right-left)*p,y:199,'text-anchor':index===0?'start':index===2?'end':'middle'},new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',hour:'2-digit',minute:'2-digit'}).format((start+(end-start)*p)*1000))));
     series.forEach(({key,rows})=>{
-      const color=key==='esp'?'#39765f':'#457da7'; let previous=null;
+      const color=key==='esp'?'#087f50':'#176dd0'; let previous=null;
+      const segments=[];
+      rows.forEach(row=>{if(!segments.length||row.timestamp-segments.at(-1).at(-1).timestamp>600)segments.push([]);segments.at(-1).push(row);});
+      segments.filter(segment=>segment.length>1).forEach(segment=>{
+        const area=`M${x(segment[0].timestamp)},${bottom} `+segment.map(row=>`L${x(row.timestamp)},${y(row[metric])}`).join(' ')+` L${x(segment.at(-1).timestamp)},${bottom} Z`;
+        svg.append(node('path',{d:area,fill:color,opacity:.13,stroke:'none',class:'plot-area'}));
+      });
       const d=rows.map(row=>{const command=previous!==null && row.timestamp-previous<=600?'L':'M';previous=row.timestamp;return `${command}${x(row.timestamp).toFixed(2)},${y(row[metric]).toFixed(2)}`;}).join(' ');
       if(rows.length) svg.append(node('path',{d,class:'plot',stroke:color}));
       rows.forEach(row=>{const point=node('circle',{cx:x(row.timestamp),cy:y(row[metric]),r:rows.length===1?4:2.4,fill:color,class:'point'});point.append(node('title',{},`${key==='esp'?'ESP32':'LoRaWAN'} · ${dateFormat.format(row.timestamp*1000)} · ${format(row[metric])} ${unit}`));svg.append(point);});
