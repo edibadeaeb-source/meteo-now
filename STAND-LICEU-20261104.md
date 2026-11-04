@@ -29,6 +29,14 @@ Planul folosește un extras OSM de 800×480m / 569 elemente, cu atribuire vizibi
 
 Regresia în browser acoperă ambele teme la toate cele șapte dimensiuni, persistența temei, ambele puncte inițial vizibile, parametrii și actualizarea lor, offline hartă/QR, zoom/reset, culorile și toate verificările anterioare. Nicio cerere AI reală suplimentară. Dovezi finale: `artifacts-stand-map-theme-20261104`.
 
+## Hartă standard Leaflet — versiunea locală 4
+
+Înlocuit controlul SVG cu Leaflet 1.9.4 și harta standard OpenStreetMap, cu zoom, glisare, ferestre pe hartă și ambele carduri de placă vizibile implicit. Ambele markere păstrează aceeași coordonată configurată a campusului și au ancore în pixeli diferite; nu se inventează două coordonate măsurate. Interfața folosește „Localizarea stațiilor” și „Coordonate GPS ale locației”; nu pretinde receptoare GPS sau urmărire a plăcilor. Contextul AI cunoaște locația evenimentului și distinge configurația hărții de telemetria GPS.
+
+Tile-urile se cer direct furnizorului, numai pentru harta vizibilă, cu atribuire, referer și cache normal de browser. Planul local rămâne sub hartă pentru lipsa conexiunii. Biblioteca/CSS și licența sunt locale; CSP permite doar hostul de imagini al furnizorului. Nu există proxy, arhivare sau preîncărcări de tile-uri.
+
+Regresia în browser a trecut cu tile-uri simulate: 37 cereri interceptate, zero descărcări reale de tile-uri, zero erori JS și zero cereri externe neașteptate. Verificarea separată HEAD a furnizorului: 200, image/png, fără corp de imagine descărcat. Capturile din `artifacts-stand-leaflet-20261104` arată planul de rezervă; nu sunt capturi de basemap online. Testele nu certifică rețeaua de la liceu. Nicio cerere AI reală nouă.
+
 ## De verificat cu montajul real
 
 Montajul nu a fost disponibil. Alimentarea, radioul, gateway-ul, ChirpStack, puntea MQTT și scrierile autentificate de pe ESP32 nu sunt validate. Scrierile anonime au fost închise în octombrie; nu le redeschidem și nu instalăm identitatea administrativă a aplicației pe placă. Mâine verificăm mai întâi configurația originală și accesul la server/rețea, apoi pregătim autentificarea adecvată și proba capăt la capăt. Datele simulate nu sunt prezentate ca măsurători reale.

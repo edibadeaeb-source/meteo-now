@@ -29,6 +29,8 @@ const snapshot=(state='live')=>{
   const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const external=[];page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+  const mockedTiles=[];
+  await page.route('https://tile.openstreetmap.org/**',async route=>{mockedTiles.push(route.request().url());await route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"></svg>'});});
   let apiCalls=0, fixture=snapshot('stale'), fail=false;
   const chatCalls=[];
   let chatError=false;
@@ -90,7 +92,7 @@ const snapshot=(state='live')=>{
   await page.locator('[data-map-sensor="esp"]').click();assert.match(await page.locator('#mapDeviceName').innerText(),/ESP32-C6/);assert.match(await page.locator('#mapDeviceReadings').innerText(),/Indice aer/);
   await page.locator('[data-map-sensor="lora"]').click();assert.match(await page.locator('#mapDeviceName').innerText(),/SparkFun/);assert.match(await page.locator('#mapDeviceReadings').innerText(),/Semnal radio/);assert.doesNotMatch(await page.locator('#mapDeviceReadings').innerText(),/Indice aer/);
   await page.locator('#demoTemp').fill('29');await page.locator('.venue-section').scrollIntoViewIfNeeded();assert.match(await page.locator('#mapDeviceReadings').innerText(),/29,/);
-  await page.locator('#mapZoomIn').click();assert.notEqual(await page.locator('#venueMap').getAttribute('viewBox'),'0 0 1000 600');await page.locator('#mapReset').click();assert.equal(await page.locator('#venueMap').getAttribute('viewBox'),'0 0 1000 600');
+  const initialZoom=await page.evaluate(()=>window.StandVenueMap.getZoom());await page.locator('#mapZoomIn').click();await page.waitForFunction(z=>window.StandVenueMap.getZoom()>z,initialZoom);await page.locator('#mapReset').click();assert.equal(await page.evaluate(()=>window.StandVenueMap.getZoom()),17);await page.locator('.leaflet-popup').waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.getElementById('appQr').complete&&document.getElementById('appQr').naturalWidth>0);
   if(artifacts){await page.locator('.venue-section').screenshot({path:path.join(artifacts,'venue-light.png')});await page.locator('#appQr').screenshot({path:path.join(artifacts,'qr-rendered-light.png')});}
   await page.locator('#themeButton').click();assert.equal(await page.evaluate(()=>localStorage.getItem('meteo-stand-theme')),'dark');
@@ -145,7 +147,8 @@ const snapshot=(state='live')=>{
   fixture=snapshot();fixture.channels.esp.current.humidity=null;
   await page.locator('#demoButton').click();await page.locator('#liveButton').click();await page.waitForFunction(()=>document.getElementById('espHumidityDial').getAttribute('aria-valuenow')===null);
   assert.ok(await page.locator('#espHumidityThumb').isHidden());
-  assert.equal(external.length,0,'dashboard must not depend on external assets');assert.deepEqual(errors,[]);
+  assert.ok(mockedTiles.length>0,'standard online tile layer should be requested after map appears');
+  assert.equal(external.filter(url=>!url.startsWith('https://tile.openstreetmap.org/')).length,0,'only the documented map tile provider is allowed');assert.deepEqual(errors,[]);
   // Late live responses cannot overwrite the demo after switching modes.
   await page.unroute('**/api/station');
   let release;const gate=new Promise(r=>release=r);let started;
@@ -154,7 +157,7 @@ const snapshot=(state='live')=>{
   await page.locator('#demoButton').click();await page.locator('#liveButton').click();await pending;await page.locator('#demoButton').click();release();await page.waitForTimeout(100);
   assert.equal(await page.locator('#espState').innerText(),'Simulat');
   await browser.close();
-  const report={passed:true,layouts,jsErrors:errors,externalRequests:external.length,realAiRequests:0,checks:['light and dark themes at every size','theme persistence','both map pins visible by default','map parameters and live updates','map zoom/reset','offline map and QR','red green and blue plot series','humidity gauges at zero and 100 percent','missing readings have no gauge needle','fresh-source counter excludes demo and stale data','full-width layout','larger metric typography','station chatbot open/close','chat snapshot for both sources','chat conversation and reset','chat limit errors','chat offline','chat at 320px','both stations simultaneously','four comparative plots','five temperature color bands','readable metric labels','stale labels','live labels','demo controls','offline demo','CSV provenance','no invented LoRa IAQ','explanations','no overflow','reduced motion','outage and recovery','invalid time','late response isolation']};
+  const report={passed:true,layouts,jsErrors:errors,unexpectedExternalRequests:external.filter(url=>!url.startsWith('https://tile.openstreetmap.org/')).length,mockedMapTileRequests:mockedTiles.length,realMapTileDownloads:0,realAiRequests:0,checks:['standard Leaflet map with mocked tiles','light and dark themes at every size','theme persistence','both map pins visible by default','map parameters and live updates','map zoom/reset','offline map fallback and QR','red green and blue plot series','humidity gauges at zero and 100 percent','missing readings have no gauge needle','fresh-source counter excludes demo and stale data','full-width layout','larger metric typography','station chatbot open/close','chat snapshot for both sources','chat conversation and reset','chat limit errors','chat offline','chat at 320px','both stations simultaneously','four comparative plots','five temperature color bands','readable metric labels','stale labels','live labels','demo controls','offline demo','CSV provenance','no invented LoRa IAQ','explanations','no overflow','reduced motion','outage and recovery','invalid time','late response isolation']};
   if(artifacts)fs.writeFileSync(path.join(artifacts,'browser-results.json'),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
   testServer?.kill();

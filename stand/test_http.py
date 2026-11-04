@@ -27,7 +27,7 @@ class HttpTests(unittest.TestCase):
         server.Handler.reader = cls.original_reader
 
     def test_serves_only_dashboard_assets_and_normalized_read_only_data(self):
-        for path in ('/', '/stand.css', '/stand.js', '/theme.js', '/venue.js', '/venue-plan.svg', '/venue-geometry.json', '/app-qr.svg', '/app-qr.png', '/health', '/api/station'):
+        for path in ('/', '/stand.css', '/stand.js', '/theme.js', '/venue.js', '/leaflet.js', '/leaflet.css', '/venue-plan.svg', '/venue-geometry.json', '/app-qr.svg', '/app-qr.png', '/health', '/api/station'):
             with urlopen(self.url+path) as response:
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.headers['Cache-Control'], 'no-store')

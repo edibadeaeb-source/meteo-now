@@ -26,6 +26,8 @@ FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/chat.js': ('chat.js', 'text/javascript; charset=utf-8'),
          '/theme.js': ('theme.js', 'text/javascript; charset=utf-8'),
          '/venue.js': ('venue.js', 'text/javascript; charset=utf-8'),
+         '/leaflet.js': ('leaflet.js', 'text/javascript; charset=utf-8'),
+         '/leaflet.css': ('leaflet.css', 'text/css; charset=utf-8'),
          '/venue-plan.svg': ('venue-plan.svg', 'image/svg+xml'),
          '/venue-geometry.json': ('venue-geometry.json', 'application/json; charset=utf-8'),
          '/app-qr.svg': ('app-qr.svg', 'image/svg+xml'),
@@ -75,7 +77,8 @@ def chat_payload(body):
             values.pop('iaq', None)
         snapshot[key] = {'stare': status, 'valori': values}
     details = ('Dashboard de prezentare al statiei BME680: ESP32-C6 prin Wi-Fi si SparkFun expLoRaBLE prin LoRaWAN. '
-               'Valorile descriu mediul montajului, nu prognoza orasului. Nu cunoastem localitatea fizica. '
+               'Valorile descriu mediul montajului, nu prognoza orasului. Evenimentul este la Colegiul National Constantin Carabella, '
+               'Targoviste, str. Locotenent Parvan Popescu 58. Harta foloseste locatia configurata pentru stand; nu primim coordonate GPS de la placi. '
                'Nu verificam separat gateway, ChirpStack sau MQTT; nu afirma ca fiecare este online. '
                'Temperatura in C, umiditate in %, presiune in hPa, gas in kOhm, IAQ orientativ doar ESP32. '
                + ('MOD DEMO: TOATE valorile sunt SIMULATE. Precizeaza asta cand le interpretezi. ' if mode == 'demo' else
@@ -246,7 +249,7 @@ class Reader:
                 channel['state'] = ('unavailable' if channel['error'] else 'empty' if not current else
                                     'unknown' if age is None or age < -60 else
                                     'live' if age < 300 else 'stale')
-            return {'app': 'METEO-NOW-STAND', 'version': 3, 'generatedAt': self.clock(),
+            return {'app': 'METEO-NOW-STAND', 'version': 4, 'generatedAt': self.clock(),
                     'pollSeconds': 20, 'channels': result}
 
 
@@ -309,7 +312,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(self.reader.snapshot(), ensure_ascii=False, allow_nan=False).encode('utf-8')
             mime = 'application/json; charset=utf-8'
         elif path == '/health':
-            body, mime = b'{"app":"METEO-NOW-STAND","version":3}', 'application/json'
+            body, mime = b'{"app":"METEO-NOW-STAND","version":4}', 'application/json'
         elif path in FILES:
             name, mime = FILES[path]
             body = (ROOT / name).read_bytes()
@@ -324,8 +327,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length', str(len(body)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')
-        self.send_header('Referrer-Policy', 'no-referrer')
-        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+        self.send_header('Referrer-Policy', 'strict-origin-when-cross-origin')
+        self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
         self.end_headers()
         self.wfile.write(body)
 
