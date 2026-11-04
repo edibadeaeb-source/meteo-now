@@ -99,7 +99,61 @@
     $('chartRange').textContent=state.mode==='demo' ? 'Historicul este simulat · ultimele 10 minute' : 'Ultimele 60 de măsurători / senzor · istoric inclus';
     document.querySelectorAll('[data-plot]').forEach(svg=>drawPlot(svg,svg.dataset.plot,channels));
   }
+  const chartInteractions=new WeakMap();
+  function chartInteraction(svg){
+    if(chartInteractions.has(svg))return chartInteractions.get(svg);
+    const wrap=svg.closest('.chart-wrap'),tip=document.createElement('div');
+    tip.id=svg.id+'Tooltip';tip.className='chart-tooltip';tip.hidden=true;tip.setAttribute('role','tooltip');wrap.append(tip);
+    svg.setAttribute('tabindex','0');
+    let entries=[],unit='',metric='',active=-1,frame=0,down=null;
+    function hide(){if(active>=0)entries[active]?.point.classList.remove('is-active');active=-1;tip.hidden=true;svg.removeAttribute('aria-describedby');}
+    function show(index,keyboard=false){
+      if(!entries[index]){hide();return;}
+      if(active>=0)entries[active]?.point.classList.remove('is-active');
+      active=index;const entry=entries[index];entry.point.classList.add('is-active');tip.replaceChildren();
+      const heading=document.createElement('span');heading.className='tooltip-heading';heading.textContent={temperature:'Temperatură',humidity:'Umiditate',pressure:'Presiune',gas:'Rezistență gaz'}[metric];
+      const value=document.createElement('strong');value.className='tooltip-value';value.textContent=`${format(entry.value)} ${unit}`;
+      const source=document.createElement('span');source.className='tooltip-source';source.textContent=entry.key==='esp'?'ESP32-C6 · Wi-Fi':'expLoRaBLE · LoRaWAN';
+      const time=document.createElement('time');time.dateTime=new Date(entry.timestamp*1000).toISOString();time.textContent=dateFormat.format(entry.timestamp*1000);
+      const provenance=document.createElement('small');provenance.textContent=state.mode==='demo'?'Date simulate':Date.now()/1000-entry.timestamp>=300?'Înregistrare istorică':'Date măsurate';
+      tip.append(heading,value,source,time,provenance);tip.hidden=false;tip.setAttribute('aria-live',keyboard?'polite':'off');svg.setAttribute('aria-describedby',tip.id);
+      const point=entry.point.getBoundingClientRect(),bounds=wrap.getBoundingClientRect();
+      const px=point.left+point.width/2-bounds.left,py=point.top+point.height/2-bounds.top;
+      tip.style.left=Math.max(5,Math.min(bounds.width-tip.offsetWidth-5,px-tip.offsetWidth/2))+'px';
+      const above=py-tip.offsetHeight-12;
+      tip.style.top=Math.max(5,Math.min(bounds.height-tip.offsetHeight-5,above>=5?above:py+14))+'px';
+    }
+    function nearest(clientX,clientY,touch=false){
+      const matrix=svg.getScreenCTM();if(!matrix||!entries.length){hide();return;}
+      const point=new DOMPoint(clientX,clientY).matrixTransform(matrix.inverse());let best=-1,distance=Infinity;
+      entries.forEach((entry,index)=>{const d=Math.hypot((entry.x-point.x)*matrix.a,(entry.y-point.y)*matrix.d);if(d<distance){best=index;distance=d;}});
+      if(distance<=(touch?44:32))show(best);else hide();
+    }
+    svg.addEventListener('pointermove',event=>{
+      if(event.pointerType==='touch'){if(down&&Math.hypot(event.clientX-down.x,event.clientY-down.y)>8){down.moved=true;hide();}return;}
+      if(event.buttons)return;
+      cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>nearest(event.clientX,event.clientY));
+    });
+    svg.addEventListener('pointerdown',event=>{if(event.pointerType==='touch')down={x:event.clientX,y:event.clientY,moved:false};});
+    svg.addEventListener('pointerup',event=>{if(event.pointerType==='touch'&&down&&!down.moved)nearest(event.clientX,event.clientY,true);down=null;});
+    svg.addEventListener('pointerleave',event=>{if(event.pointerType!=='touch'){cancelAnimationFrame(frame);hide();}});
+    svg.addEventListener('pointercancel',()=>{down=null;hide();});svg.addEventListener('blur',hide);
+    document.addEventListener('pointerdown',event=>{if(!svg.contains(event.target))hide();},true);
+    svg.addEventListener('keydown',event=>{
+      if(event.key==='Escape'){hide();return;}
+      if(!entries.length||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','Enter',' '].includes(event.key))return;
+      event.preventDefault();let index=active;
+      if(event.key==='Home')index=0;else if(event.key==='End'||event.key==='Enter'||event.key===' ')index=active<0?entries.length-1:active;
+      else if(event.key==='ArrowRight')index=active<0?0:Math.min(entries.length-1,active+1);
+      else if(event.key==='ArrowLeft')index=active<0?entries.length-1:Math.max(0,active-1);
+      else{const current=entries[Math.max(0,active)];let distance=Infinity;entries.forEach((entry,i)=>{const delta=Math.abs(entry.timestamp-current.timestamp);if(entry.key!==current.key&&delta<distance){index=i;distance=delta;}});}
+      show(index,true);
+    });
+    const interaction={update(next,nextUnit,nextMetric){cancelAnimationFrame(frame);hide();entries=next.sort((a,b)=>a.timestamp-b.timestamp||a.key.localeCompare(b.key));unit=nextUnit;metric=nextMetric;}};
+    chartInteractions.set(svg,interaction);return interaction;
+  }
   function drawPlot(svg,metric,channels){
+    const interaction=chartInteraction(svg);interaction.update([], '',metric);
     svg.replaceChildren();
     const card=svg.closest('.plot-card');card.dataset.metric=metric;
     if(!card.querySelector('.plot-series')){
@@ -127,6 +181,7 @@
     }
     svg.append(node('text',{x:8,y:11},unit));
     if(all.length) [0,.5,1].forEach((p,index)=>svg.append(node('text',{x:left+(right-left)*p,y:199,'text-anchor':index===0?'start':index===2?'end':'middle'},new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',hour:'2-digit',minute:'2-digit'}).format((start+(end-start)*p)*1000))));
+    const interactivePoints=[];
     series.forEach(({key,rows})=>{
       const color=palette.getPropertyValue(key==='esp'?'--series-esp':'--series-lora').trim(); let previous=null;
       const segments=[];
@@ -137,9 +192,10 @@
       });
       const d=rows.map(row=>{const command=previous!==null && row.timestamp-previous<=600?'L':'M';previous=row.timestamp;return `${command}${x(row.timestamp).toFixed(2)},${y(row[metric]).toFixed(2)}`;}).join(' ');
       if(rows.length) svg.append(node('path',{d,class:'plot',stroke:color,'stroke-dasharray':key==='lora'?'5 3':'none'}));
-      rows.forEach(row=>{const point=node('circle',{cx:x(row.timestamp),cy:y(row[metric]),r:rows.length===1?4:2.4,fill:color,class:'point'});point.append(node('title',{},`${key==='esp'?'ESP32':'LoRaWAN'} · ${dateFormat.format(row.timestamp*1000)} · ${format(row[metric])} ${unit}`));svg.append(point);});
+      rows.forEach(row=>{const px=x(row.timestamp),py=y(row[metric]);const point=node('circle',{cx:px,cy:py,r:rows.length===1?4:2.4,fill:color,class:'point'});svg.append(point);interactivePoints.push({point,key,x:px,y:py,value:row[metric],timestamp:row.timestamp});});
     });
-    svg.setAttribute('aria-label',`${{temperature:'Temperatură',humidity:'Umiditate',pressure:'Presiune',gas:'Rezistență gaz'}[metric]}: ${all.length} puncte. ${state.mode==='demo'?'Date simulate.':'Istoric din stație; verifică vechimea ultimului pachet.'}`);
+    interaction.update(interactivePoints,unit,metric);
+    svg.setAttribute('aria-label',`${{temperature:'Temperatură',humidity:'Umiditate',pressure:'Presiune',gas:'Rezistență gaz'}[metric]}: ${all.length} puncte. ${state.mode==='demo'?'Date simulate.':'Istoric din stație; verifică vechimea ultimului pachet.'} Explorează valorile cu mouse-ul, atingere sau tastele săgeată.`);
   }
   function demoRecord(key,t,index,baseTemp=23,baseHum=48){
     const offset=key==='lora'?.25:0;

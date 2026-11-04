@@ -15,6 +15,7 @@ Necesită doar Python 3.10+ (deja disponibil pe acest laptop), fără instalare 
 - Ambele stații sunt afișate simultan, fără selectarea senzorului. Cifre și texte mărite pentru vizitatorii standului, pe fundal crem/alb cu accente naturale.
 - Temperatura are cinci intervale de culoare: sub 10°C, 10–18°C, 18–26°C, 26–32°C, minimum 32°C. Sunt repere vizuale, nu avertizări meteo sau de siguranță.
 - Patru grafice comparative vizibile: temperatură, umiditate, presiune și rezistență de gaz. Export CSV cu data și ora UTC.
+- La trecerea mouse-ului sau atingerea unui punct, o casetă afișează valoarea, unitatea, nodul, data/ora și proveniența real/istoric/demo. Este suficient să ajungi în apropierea punctului. Graficele pot fi explorate și cu săgețile după focalizare; Home/End aleg începutul/sfârșitul, sus/jos schimbă nodul, Escape închide caseta. Atingerea nu blochează scrollul vertical.
 - Explicații interactive pentru traseul măsurătorii.
 - Legătură spre aplicația publică METEO NOW, deschisă doar la apăsare.
 - Demo interactiv fără internet: valori simulate, etichetate permanent, cu reglaje pentru temperatură și umiditate. CSV-urile demo sunt etichetate SIMULAT.

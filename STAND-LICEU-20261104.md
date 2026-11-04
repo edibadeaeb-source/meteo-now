@@ -43,6 +43,12 @@ AI-ul prezintă numele colegiului și adresa atunci când este întrebat unde es
 
 Au trecut cele 15 teste Python. Un singur test AI real, cu snapshotul citit din Firebase, a returnat colegiul/adresa și fluxul celor două noduri fără explicația nesolicitată despre coordonate. Datele vechi au fost recunoscute drept istoric, nu valori actuale. Lansatorul detectează și repornește versiunea anterioară locală pentru încărcarea promptului nou.
 
+## Valorile punctelor din grafice
+
+Adăugate casete de detalii pentru toate cele patru grafice, la mouse, atingere și tastatură. Selectarea caută cel mai apropiat punct în limita unei raze de 32px (44px la atingere), fără interpolarea valorilor. Caseta arată valoarea cu unitatea, nodul, timestampul eșantionului și proveniența real/istoric/demo. Punctul selectat este evidențiat. Caseta rămâne în interiorul graficului, se închide la ieșire/tap exterior/Escape și se șterge la redesenare pentru a nu păstra detalii vechi. Interacțiunea tactilă păstrează `pan-y` și nu modifică blocarea scrollului paginii.
+
+Test dedicat `stand/tooltips-test.cjs`: toate mărimile/unitățile, nodul și timestampul exact, zero, navigare tastatură, temele light/dark la 1920/1366/768/412/320px, istoric și lipsă date, tap și scroll vertical în emulare tactilă. Zero erori JavaScript, zero cereri AI reale și zero descărcări reale de tile-uri. Dovezi: `artifacts-stand-tooltips-20261104`. Nu s-a efectuat test fizic pe S24 Ultra în acest pas. Nu sunt necesare modificări ale serverului sau APK nou; reîmprospătarea paginii încarcă fișierele locale actualizate.
+
 ## De verificat cu montajul real
 
 Montajul nu a fost disponibil. Alimentarea, radioul, gateway-ul, ChirpStack, puntea MQTT și scrierile autentificate de pe ESP32 nu sunt validate. Scrierile anonime au fost închise în octombrie; nu le redeschidem și nu instalăm identitatea administrativă a aplicației pe placă. Mâine verificăm mai întâi configurația originală și accesul la server/rețea, apoi pregătim autentificarea adecvată și proba capăt la capăt. Datele simulate nu sunt prezentate ca măsurători reale.
