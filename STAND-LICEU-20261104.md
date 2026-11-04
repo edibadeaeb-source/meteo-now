@@ -37,6 +37,12 @@ Tile-urile se cer direct furnizorului, numai pentru harta vizibilă, cu atribuir
 
 Regresia în browser a trecut cu tile-uri simulate: 37 cereri interceptate, zero descărcări reale de tile-uri, zero erori JS și zero cereri externe neașteptate. Verificarea separată HEAD a furnizorului: 200, image/png, fără corp de imagine descărcat. Capturile din `artifacts-stand-leaflet-20261104` arată planul de rezervă; nu sunt capturi de basemap online. Testele nu certifică rețeaua de la liceu. Nicio cerere AI reală nouă.
 
+## Context AI — versiunea locală 5
+
+AI-ul prezintă numele colegiului și adresa atunci când este întrebat unde este standul; elimină explicațiile nesolicitate despre configurarea poziției. Informațiile de proveniență rămân corecte pentru întrebări explicite despre GPS. Modul real este descris prin fluxul celor două noduri ESP32-C6/Wi-Fi și SparkFun expLoRaBLE/LoRaWAN către Firebase. Cititorul, ramurile de date și firmware-ul nu sunt schimbate, iar demo-ul rămâne explicit etichetat.
+
+Au trecut cele 15 teste Python. Un singur test AI real, cu snapshotul citit din Firebase, a returnat colegiul/adresa și fluxul celor două noduri fără explicația nesolicitată despre coordonate. Datele vechi au fost recunoscute drept istoric, nu valori actuale. Lansatorul detectează și repornește versiunea anterioară locală pentru încărcarea promptului nou.
+
 ## De verificat cu montajul real
 
 Montajul nu a fost disponibil. Alimentarea, radioul, gateway-ul, ChirpStack, puntea MQTT și scrierile autentificate de pe ESP32 nu sunt validate. Scrierile anonime au fost închise în octombrie; nu le redeschidem și nu instalăm identitatea administrativă a aplicației pe placă. Mâine verificăm mai întâi configurația originală și accesul la server/rețea, apoi pregătim autentificarea adecvată și proba capăt la capăt. Datele simulate nu sunt prezentate ca măsurători reale.

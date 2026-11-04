@@ -78,7 +78,10 @@ def chat_payload(body):
         snapshot[key] = {'stare': status, 'valori': values}
     details = ('Dashboard de prezentare al statiei BME680: ESP32-C6 prin Wi-Fi si SparkFun expLoRaBLE prin LoRaWAN. '
                'Valorile descriu mediul montajului, nu prognoza orasului. Evenimentul este la Colegiul National Constantin Carabella, '
-               'Targoviste, str. Locotenent Parvan Popescu 58. Harta foloseste locatia configurata pentru stand; nu primim coordonate GPS de la placi. '
+               'Targoviste, str. Locotenent Parvan Popescu 58. La intrebari despre locul standului, indica numele colegiului si adresa. '
+               'Masuratorile din modul real provin din cele doua noduri, ESP32-C6 si SparkFun expLoRaBLE, prin Firebase. '
+               'Nu adauga spontan explicatii despre configurarea hartii sau GPS. Doar daca esti intrebat explicit despre sursa coordonatelor, '
+               'explica exact ca punctul hartii este stabilit pentru eveniment; nu inventa ca placile transmit GPS. '
                'Nu verificam separat gateway, ChirpStack sau MQTT; nu afirma ca fiecare este online. '
                'Temperatura in C, umiditate in %, presiune in hPa, gas in kOhm, IAQ orientativ doar ESP32. '
                + ('MOD DEMO: TOATE valorile sunt SIMULATE. Precizeaza asta cand le interpretezi. ' if mode == 'demo' else
@@ -249,7 +252,7 @@ class Reader:
                 channel['state'] = ('unavailable' if channel['error'] else 'empty' if not current else
                                     'unknown' if age is None or age < -60 else
                                     'live' if age < 300 else 'stale')
-            return {'app': 'METEO-NOW-STAND', 'version': 4, 'generatedAt': self.clock(),
+            return {'app': 'METEO-NOW-STAND', 'version': 5, 'generatedAt': self.clock(),
                     'pollSeconds': 20, 'channels': result}
 
 
@@ -312,7 +315,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(self.reader.snapshot(), ensure_ascii=False, allow_nan=False).encode('utf-8')
             mime = 'application/json; charset=utf-8'
         elif path == '/health':
-            body, mime = b'{"app":"METEO-NOW-STAND","version":4}', 'application/json'
+            body, mime = b'{"app":"METEO-NOW-STAND","version":5}', 'application/json'
         elif path in FILES:
             name, mime = FILES[path]
             body = (ROOT / name).read_bytes()
