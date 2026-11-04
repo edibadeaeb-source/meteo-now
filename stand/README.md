@@ -20,6 +20,9 @@ Necesită doar Python 3.10+ (deja disponibil pe acest laptop), fără instalare 
 - Demo interactiv fără internet: valori simulate, etichetate permanent, cu reglaje pentru temperatură și umiditate. CSV-urile demo sunt etichetate SIMULAT.
 - Aspect inspirat din panouri de monitorizare: antet bleumarin, cadrane semicirculare pentru umiditatea 0–100%, indicatori de temperatură, patru grafice cu zone umplute și un panou pentru starea datelor. Graficele nu unesc pauze de peste 10 minute. Numărul de înregistrări este cel afișat, nu totalul din baza de date.
 - Chatbot în dreapta jos, legat de AI-ul existent. Primește valorile afișate ale ambelor stații și etichetele real/istoric/demo. Necesită internet; nu are pornire sau întrebări automate. Conversația rămâne numai în memoria filei și poate fi ștearsă cu butonul de resetare.
+- Temă albă și temă închisă, cu preferință păstrată local numai pentru dashboard. Graficele au roșu, verde, albastru, mov și portocaliu; fiecare grafic are legendă proprie. Linia ESP32 este continuă, LoRaWAN întreruptă.
+- Harta zonei Colegiului Național „Constantin Carabella”, strada Locotenent Pârvan Popescu nr. 58, Târgoviște. Ambele marcaje apar implicit. Selectarea unui punct afișează valorile și starea plăcii, actualizate împreună cu panourile principale. Pozițiile sunt planificate pentru același stand, nu GPS al plăcilor; separarea este vizuală pentru selectare. Harta permite glisare, zoom și recentrare și funcționează offline.
+- QR local către `https://meteo-now.onrender.com/`, cu descărcare PNG; deschide site-ul pe telefon, fără să trimită spre un magazin de aplicații. QR-ul a fost decodat independent inclusiv din capturi ale interfeței pe ambele teme.
 
 ## Date reale și siguranță
 
@@ -40,3 +43,11 @@ La trimiterea explicită a unei întrebări, serverul local trimite întrebarea,
 5. Facem o probă de deconectare și revenire. Luăm încărcătorul laptopului, alimentări/cabluri, montajul și telefonul. Demo rămâne o rezervă etichetată pentru explicații, nu o simulare prezentată drept măsurătoare reală.
 
 Referință pentru interogările limitate: https://firebase.google.com/docs/database/rest/retrieve-data
+
+## Harta și QR-ul
+
+Adresa colegiului a fost verificată pe https://www.carabella.ro/ și https://carabella.edupage.org/contact/. Poziția campusului este din https://www.openstreetmap.org/way/295331770, prin căutarea publică Nominatim: 44.9294563, 25.4521470. Standul și pozițiile fizice ale plăcilor în clădire nu au fost încă măsurate.
+
+Planul SVG local provine dintr-un extras de date OpenStreetMap de aproximativ 800 × 480 metri, pregătit la 4 noiembrie 2026, cu 569 elemente. Atribuire: © OpenStreetMap contributors, https://www.openstreetmap.org/copyright, licență ODbL 1.0. `venue-geometry.json` conține extrasul folosit și sursa; `venue-plan.svg` este randarea locală. Nu au fost descărcate, arhivate sau preîncărcate tile-uri de hartă și nu sunt contactate servicii de hărți în timpul utilizării. Nu este o hartă de navigație și nu urmărește GPS.
+
+`build-venue-assets.py` regenerează planul din extrasul local și QR-ul. Necesită doar la generare `qrcode`, Pillow și `zxing-cpp` pentru decodare independentă; uneltele de generare sunt în folderul de testare, nu sunt necesare la stand. Nu executa scriptul pentru pornirea dashboardului. QR-ul are margine albă inclusiv în tema închisă.

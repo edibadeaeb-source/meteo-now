@@ -101,6 +101,13 @@
   }
   function drawPlot(svg,metric,channels){
     svg.replaceChildren();
+    const card=svg.closest('.plot-card');card.dataset.metric=metric;
+    if(!card.querySelector('.plot-series')){
+      const legend=document.createElement('div');legend.className='plot-series';
+      [['esp','ESP32 · continuă'],['lora','LoRaWAN · întreruptă']].forEach(([key,label])=>{const span=document.createElement('span');span.className='series-'+key;const mark=document.createElement('i');span.append(mark,document.createTextNode(label));legend.append(span);});
+      card.insertBefore(legend,card.querySelector('.chart-wrap'));
+    }
+    const palette=getComputedStyle(card);
     const series=['esp','lora'].map(key=>({key,rows:(channels?.[key].history || []).filter(r=>finite(r[metric]) && finite(r.timestamp) && r.timestamp<=Date.now()/1000+60)}));
     const all=series.flatMap(s=>s.rows); $('empty'+metric[0].toUpperCase()+metric.slice(1)).hidden=all.length>0;
     const unit={temperature:'°C',humidity:'%',pressure:'hPa',gas:'kΩ'}[metric];
@@ -121,7 +128,7 @@
     svg.append(node('text',{x:8,y:11},unit));
     if(all.length) [0,.5,1].forEach((p,index)=>svg.append(node('text',{x:left+(right-left)*p,y:199,'text-anchor':index===0?'start':index===2?'end':'middle'},new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',hour:'2-digit',minute:'2-digit'}).format((start+(end-start)*p)*1000))));
     series.forEach(({key,rows})=>{
-      const color=key==='esp'?'#087f50':'#176dd0'; let previous=null;
+      const color=palette.getPropertyValue(key==='esp'?'--series-esp':'--series-lora').trim(); let previous=null;
       const segments=[];
       rows.forEach(row=>{if(!segments.length||row.timestamp-segments.at(-1).at(-1).timestamp>600)segments.push([]);segments.at(-1).push(row);});
       segments.filter(segment=>segment.length>1).forEach(segment=>{
@@ -129,7 +136,7 @@
         svg.append(node('path',{d:area,fill:color,opacity:.13,stroke:'none',class:'plot-area'}));
       });
       const d=rows.map(row=>{const command=previous!==null && row.timestamp-previous<=600?'L':'M';previous=row.timestamp;return `${command}${x(row.timestamp).toFixed(2)},${y(row[metric]).toFixed(2)}`;}).join(' ');
-      if(rows.length) svg.append(node('path',{d,class:'plot',stroke:color}));
+      if(rows.length) svg.append(node('path',{d,class:'plot',stroke:color,'stroke-dasharray':key==='lora'?'5 3':'none'}));
       rows.forEach(row=>{const point=node('circle',{cx:x(row.timestamp),cy:y(row[metric]),r:rows.length===1?4:2.4,fill:color,class:'point'});point.append(node('title',{},`${key==='esp'?'ESP32':'LoRaWAN'} · ${dateFormat.format(row.timestamp*1000)} · ${format(row[metric])} ${unit}`));svg.append(point);});
     });
     svg.setAttribute('aria-label',`${{temperature:'Temperatură',humidity:'Umiditate',pressure:'Presiune',gas:'Rezistență gaz'}[metric]}: ${all.length} puncte. ${state.mode==='demo'?'Date simulate.':'Istoric din stație; verifică vechimea ultimului pachet.'}`);
@@ -188,6 +195,7 @@
   function tick(){const now=new Date();$('clock').textContent=clockFormat.format(now);$('date').textContent=new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',weekday:'long',day:'numeric',month:'long'}).format(now);}
   document.addEventListener('visibilitychange',()=>{if(document.hidden){state.request++;state.controller?.abort();clearTimeout(state.timer);}else if(state.mode==='live')poll();});
   new ResizeObserver(()=>{const channels=(state.mode==='demo'?state.demo:state.data)?.channels;drawChart(channels);}).observe(document.querySelector('.plots-grid'));
+  window.addEventListener('stand-theme',()=>drawChart((state.mode==='demo'?state.demo:state.data)?.channels));
   tick();setInterval(tick,1000);setInterval(()=>{if(!document.hidden){if(state.mode==='demo')createDemo();render();}},10000);
   render();poll();
 })();

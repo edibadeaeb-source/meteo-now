@@ -19,6 +19,16 @@ Nicio modificare în runtime-ul mobil/web, firmware, puntea MQTT, ChirpStack sau
 - Lansatorul PowerShell a pornit serverul local; `/health` a confirmat identitatea, apoi scriptul de oprire l-a închis.
 - Dovezi finale: `03-Testare-si-capturi/tests/artifacts-stand-instruments-20261104` — capturi, `browser-results.json` și `verification.json`. Dovezile primei versiuni rămân în `artifacts-stand-20261104`.
 
+## Hartă, QR și cele două teme — completare 4 noiembrie
+
+Adăugate temele albă/închisă cu preferință locală, grafice roșii/verzi/albastre și legende pe fiecare grafic, plus aspectul violet-albastru al chatbotului inspirat din aplicație. Conturul luminos este separat de fundalul static, fără blur dinamic; mișcarea redusă dezactivează animația.
+
+Harta locală vectorială arată implicit ambele marcaje, ESP32-C6 și expLoRaBLE. Click/Enter afișează parametrii aceleiași plăci din snapshotul dashboardului, cu etichete demo/istoric/indisponibil. Include glisare, zoom și resetarea vizualizării. Pozițiile sunt explicit planificate la stand, nu GPS în timp real. Colegiul Național „Constantin Carabella”, str. Locotenent Pârvan Popescu 58, Târgoviște; adresă verificată pe site-ul oficial, campus verificat în obiectul OSM way 295331770. Marcajele sunt decalate vizual la același campus, nu inventează două poziții GPS.
+
+Planul folosește un extras OSM de 800×480m / 569 elemente, cu atribuire vizibilă și datele derivate ODbL incluse. Zero tile-uri descărcate și zero cereri externe pentru hartă. QR SVG/PNG local către `https://meteo-now.onrender.com/`, generat cu corecție Q și margine 4 module, decodat cu zxing-cpp din imaginea generată și din capturi light/dark. Nu indică Play Store și nu instalează automat APK.
+
+Regresia în browser acoperă ambele teme la toate cele șapte dimensiuni, persistența temei, ambele puncte inițial vizibile, parametrii și actualizarea lor, offline hartă/QR, zoom/reset, culorile și toate verificările anterioare. Nicio cerere AI reală suplimentară. Dovezi finale: `artifacts-stand-map-theme-20261104`.
+
 ## De verificat cu montajul real
 
 Montajul nu a fost disponibil. Alimentarea, radioul, gateway-ul, ChirpStack, puntea MQTT și scrierile autentificate de pe ESP32 nu sunt validate. Scrierile anonime au fost închise în octombrie; nu le redeschidem și nu instalăm identitatea administrativă a aplicației pe placă. Mâine verificăm mai întâi configurația originală și accesul la server/rețea, apoi pregătim autentificarea adecvată și proba capăt la capăt. Datele simulate nu sunt prezentate ca măsurători reale.

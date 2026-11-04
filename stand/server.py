@@ -23,7 +23,13 @@ PATHS = {'esp': 'senzori/bme680', 'lora': 'senzori/lorawan', 'history': 'istoric
 FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
          '/stand.css': ('stand.css', 'text/css; charset=utf-8'),
          '/stand.js': ('stand.js', 'text/javascript; charset=utf-8'),
-         '/chat.js': ('chat.js', 'text/javascript; charset=utf-8')}
+         '/chat.js': ('chat.js', 'text/javascript; charset=utf-8'),
+         '/theme.js': ('theme.js', 'text/javascript; charset=utf-8'),
+         '/venue.js': ('venue.js', 'text/javascript; charset=utf-8'),
+         '/venue-plan.svg': ('venue-plan.svg', 'image/svg+xml'),
+         '/venue-geometry.json': ('venue-geometry.json', 'application/json; charset=utf-8'),
+         '/app-qr.svg': ('app-qr.svg', 'image/svg+xml'),
+         '/app-qr.png': ('app-qr.png', 'image/png')}
 MAX_BYTES = 512 * 1024
 MAX_CHAT_BYTES = 24 * 1024
 AI_URL = 'https://meteo-now.onrender.com/ask'
@@ -240,7 +246,7 @@ class Reader:
                 channel['state'] = ('unavailable' if channel['error'] else 'empty' if not current else
                                     'unknown' if age is None or age < -60 else
                                     'live' if age < 300 else 'stale')
-            return {'app': 'METEO-NOW-STAND', 'version': 2, 'generatedAt': self.clock(),
+            return {'app': 'METEO-NOW-STAND', 'version': 3, 'generatedAt': self.clock(),
                     'pollSeconds': 20, 'channels': result}
 
 
@@ -303,7 +309,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(self.reader.snapshot(), ensure_ascii=False, allow_nan=False).encode('utf-8')
             mime = 'application/json; charset=utf-8'
         elif path == '/health':
-            body, mime = b'{"app":"METEO-NOW-STAND","version":2}', 'application/json'
+            body, mime = b'{"app":"METEO-NOW-STAND","version":3}', 'application/json'
         elif path in FILES:
             name, mime = FILES[path]
             body = (ROOT / name).read_bytes()
