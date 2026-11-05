@@ -3,13 +3,47 @@
     ".read": false,
     ".write": false,
     "senzori": {
-      "bme680": { ".read": true, ".write": false },
-      "lorawan": { ".read": true, ".write": false }
+      "bme680": {
+        ".read": true,
+        ".write": false,
+        "$sample": {
+          ".write": "auth != null && auth.uid === 'meteo-stand-esp32-2026' && newData.exists()",
+          ".validate": "newData.hasChildren(['temperatura','umiditate','presiune','gaz_kOhm','iaq','timestamp','server_timestamp']) && newData.child('temperatura').isNumber() && newData.child('umiditate').isNumber() && newData.child('presiune').isNumber() && newData.child('gaz_kOhm').isNumber() && newData.child('iaq').isNumber() && newData.child('timestamp').isNumber() && newData.child('server_timestamp').isNumber() && (newData.child('timestamp').val() + '') === $sample"
+        }
+      },
+      "lorawan": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === 'meteo-stand-lorawan-2026' && newData.exists()",
+        ".validate": "newData.hasChildren(['temperatura','umiditate','presiune','gaz_kOhm','timestamp','server_timestamp','fcnt']) && newData.child('temperatura').isNumber() && newData.child('umiditate').isNumber() && newData.child('presiune').isNumber() && newData.child('gaz_kOhm').isNumber() && newData.child('timestamp').isNumber() && newData.child('server_timestamp').isNumber() && newData.child('fcnt').isNumber() && (!data.exists() || newData.child('server_timestamp').val() >= data.child('server_timestamp').val())"
+      }
     },
-    "istoric": { "lorawan": { ".read": true, ".write": false } },
-    "esp32_location": { ".read": true, ".write": false },
-    "sparkfun_location": { ".read": true, ".write": false },
-    "status": { ".read": true, ".write": false },
-    "status_lorawan": { ".read": true, ".write": false }
+    "istoric": {
+      "lorawan": {
+        ".read": true,
+        ".write": false,
+        "$sample": {
+          ".write": "auth != null && auth.uid === 'meteo-stand-lorawan-2026' && newData.exists()",
+          ".validate": "newData.hasChildren(['temperatura','umiditate','presiune','gaz_kOhm','timestamp','server_timestamp','fcnt']) && newData.child('temperatura').isNumber() && newData.child('umiditate').isNumber() && newData.child('presiune').isNumber() && newData.child('gaz_kOhm').isNumber() && newData.child('timestamp').isNumber() && newData.child('server_timestamp').isNumber() && newData.child('fcnt').isNumber()"
+        }
+      }
+    },
+    "esp32_location": {
+      ".read": true,
+      ".write": false
+    },
+    "sparkfun_location": {
+      ".read": true,
+      ".write": false
+    },
+    "status": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'meteo-stand-esp32-2026' && newData.exists()",
+      ".validate": "newData.hasChildren(['uptime','rssi','connected','max_gas','timestamp','server_timestamp']) && newData.child('uptime').isNumber() && newData.child('rssi').isNumber() && newData.child('connected').isBoolean() && newData.child('max_gas').isNumber() && newData.child('timestamp').isNumber() && newData.child('server_timestamp').isNumber()"
+    },
+    "status_lorawan": {
+      ".read": true,
+      ".write": "auth != null && auth.uid === 'meteo-stand-lorawan-2026' && newData.exists()",
+      ".validate": "newData.hasChildren(['connected','timestamp','fcnt','last_seen']) && newData.child('connected').isBoolean() && newData.child('timestamp').isNumber() && newData.child('fcnt').isNumber() && newData.child('last_seen').isString() && (!data.exists() || newData.child('timestamp').val() >= data.child('timestamp').val())"
+    }
   }
 }
