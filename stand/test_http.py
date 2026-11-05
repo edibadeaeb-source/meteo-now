@@ -49,15 +49,15 @@ class HttpTests(unittest.TestCase):
             self.assertEqual(error.exception.code, code)
 
     def test_chat_explicit_only_and_context_is_bounded(self):
-        body = {'question':'Ce înseamnă umiditate?', 'mode':'demo', 'history':[],
-                'sensors':{'esp':{'current':{'temperature':23,'humidity':48},'state':'demo'},
-                           'lora':{'current':{'temperature':23.2,'humidity':48},'state':'demo'}}}
+        body = {'question':'Ce înseamnă umiditate?', 'history':[],
+                'sensors':{'esp':{'current':{'temperature':23,'humidity':48},'state':'unknown'},
+                           'lora':{'current':{'temperature':23.2,'humidity':48},'state':'unknown'}}}
         req = Request(self.url+'/api/chat', data=json.dumps(body).encode(), headers={'Content-Type':'application/json'})
         with patch.object(server.Handler, 'chat_gate', server.ChatGate()), patch.object(server, 'relay_chat', return_value={'answer':'Explicație de test.'}) as relay:
             result = json.load(urlopen(req))
             self.assertEqual(result['answer'], 'Explicație de test.')
             self.assertEqual(relay.call_count, 1)
-            self.assertIn('TOATE valorile sunt SIMULATE', relay.call_args.args[0]['vremea']['detalii'])
+            self.assertIn('Datele marcate ISTORIC', relay.call_args.args[0]['vremea']['detalii'])
             self.assertEqual(relay.call_args.args[0]['locatie'], {})
             with self.assertRaises(HTTPError) as error:
                 urlopen(req)

@@ -8,7 +8,7 @@ $runtimePath = Join-Path $PSScriptRoot '.runtime'
 function Test-StandReady {
     try {
         $health = Invoke-RestMethod -Uri "$standUrl/health" -TimeoutSec 2
-        return $health.app -eq 'METEO-NOW-STAND' -and $health.version -eq 5
+        return $health.app -eq 'METEO-NOW-STAND' -and $health.version -eq 6
     } catch { return $false }
 }
 

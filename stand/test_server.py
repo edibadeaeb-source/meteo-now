@@ -77,13 +77,13 @@ class StationTests(unittest.TestCase):
                 self.assertNotIn('auth=', req.full_url)
         with self.assertRaises(KeyError): server.read_public('../push_subs')
 
-    def test_chat_context_demo_zeroes_no_location_or_invented_lora_iaq(self):
-        body = {'question':'Explică datele', 'mode':'demo', 'history':[], 'sensors':{
+    def test_chat_context_zeroes_no_location_or_invented_lora_iaq(self):
+        body = {'question':'Explică datele', 'history':[], 'sensors':{
             'esp':{'current':{'temperature':0,'humidity':0,'iaq':0}},
             'lora':{'current':{'temperature':0,'humidity':0,'iaq':99,'private':'ignored'}}}}
         result = server.chat_payload(body)
         details = result['vremea']['detalii']
-        self.assertIn('TOATE valorile sunt SIMULATE', details)
+        self.assertIn('Datele marcate ISTORIC', details)
         snapshot = json.loads(details.split('Snapshotul afisat: ')[1])
         self.assertEqual(snapshot['esp']['valori']['temperature'], 0)
         self.assertEqual(snapshot['esp']['valori']['iaq'], 0)
@@ -93,7 +93,7 @@ class StationTests(unittest.TestCase):
         self.assertEqual(result['context'], {})
 
     def test_chat_does_not_call_old_data_live_and_rejects_invalid_input(self):
-        body = {'question':'Explică', 'mode':'live', 'sensors':{
+        body = {'question':'Explică', 'sensors':{
             key:{'current':{'temperature':20,'timestamp':1000}} for key in ('esp','lora')}}
         self.assertIn('ISTORIC VECHI', server.chat_payload(body)['vremea']['detalii'])
         for invalid in [None, {}, {**body,'question':'x'*1201}, {**body,'history':[{'role':'system','text':'x'}]}]:

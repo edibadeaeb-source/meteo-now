@@ -4,7 +4,7 @@
   $('appQr').loading='eager';
   const center=[44.9294563,25.4521470];
   const names={esp:'ESP32-C6 · Wi-Fi',lora:'SparkFun expLoRaBLE · LoRaWAN'};
-  const statusNames={live:'Date recente',stale:'Istoric · date vechi',empty:'Fără măsurători',unavailable:'Conexiune indisponibilă',unknown:'Oră nevalidată',demo:'Date simulate'};
+  const statusNames={live:'Date recente',stale:'Istoric · date vechi',empty:'Fără măsurători',unavailable:'Conexiune indisponibilă',unknown:'Oră nevalidată'};
   const map=L.map('venueMap',{center,zoom:17,minZoom:4,maxZoom:19,zoomControl:false,scrollWheelZoom:false,attributionControl:true});
   map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>');
   map.attributionControl.addAttribution('© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>');
@@ -14,7 +14,7 @@
   let selected=null,tileLayer=null,tileSuccess=false,tileErrors=0,mapVisible=false;
   const markers={};
   function fieldsFor(sensor){return [['temperature','Temperatură','°C'],['humidity','Umiditate','% RH'],['pressure','Presiune','hPa'],['gas','Rezistență gaz','kΩ'],...(sensor==='esp'?[['iaq','Indice aer estimat','IAQ']]:[['rssi','Semnal radio','dBm'],['snr','Semnal / zgomot','dB']])];}
-  function sensorData(sensor){const snapshot=window.StandSnapshot,source=snapshot?.sensors[sensor];return {current:source?.current||{},mode:snapshot?.mode==='demo'?'demo':source?.state||'empty'};}
+  function sensorData(sensor){const snapshot=window.StandSnapshot,source=snapshot?.sensors[sensor];return {current:source?.current||{},mode:source?.state||'empty'};}
   function fillReadings(list,sensor,current){
     list.replaceChildren();
     fieldsFor(sensor).forEach(([key,label,unit])=>{const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;const value=current[key];dd.textContent=typeof value==='number'&&Number.isFinite(value)?`${value.toLocaleString('ro-RO',{maximumFractionDigits:1})} ${unit}`:'—';row.append(dt,dd);list.append(row);});
@@ -41,7 +41,7 @@
     const {current,mode}=sensorData(selected);
     $('mapDeviceName').textContent=names[selected];$('mapDeviceState').textContent=statusNames[mode]||'Se verifică';$('mapDeviceState').className=`status ${mode}`;
     fillReadings($('mapDeviceReadings'),selected,current);
-    $('mapDeviceTime').textContent=current.timestamp?`${mode==='demo'?'Simulare':'Ultimul pachet'} · ${new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(current.timestamp*1000)}`:'Încă nu avem un pachet cu oră validă.';
+    $('mapDeviceTime').textContent=current.timestamp?`Ultimul pachet · ${new Intl.DateTimeFormat('ro-RO',{timeZone:'Europe/Bucharest',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(current.timestamp*1000)}`:'Încă nu avem un pachet cu oră validă.';
   }
   function mapStatus(){
     $('mapConnection').textContent=!navigator.onLine?'Fără internet · hartă locală':tileSuccess?'Hartă OpenStreetMap':tileErrors?'Harta online nu răspunde · plan local':'Se încarcă harta…';

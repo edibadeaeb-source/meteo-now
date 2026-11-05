@@ -52,7 +52,7 @@ async function pointCenter(page,metric,index){
       await page.mouse.move(0,0);
     }
   }
-  data=fixture(86400);await page.reload();await page.waitForFunction(()=>document.querySelectorAll('#chartTemperature .point').length===6);
+  data=fixture(86400);data.archive=Object.fromEntries(Object.entries(data.channels).map(([key,channel])=>[key,channel.history]));await page.reload();await page.waitForFunction(()=>document.querySelectorAll('#chartTemperature .point').length===6);
   await page.locator('#chartTemperature').scrollIntoViewIfNeeded();await page.locator('#chartTemperature').focus();await page.keyboard.press('End');assert.match(await page.locator('#chartTemperatureTooltip').innerText(),/Înregistrare istorică/);
   data=fixture(0,true);await page.reload();await page.locator('#chartTemperature').scrollIntoViewIfNeeded();await page.locator('#chartTemperature').focus();await page.keyboard.press('End');assert.ok(await page.locator('#chartTemperatureTooltip').isHidden());
   const touch=await browser.newContext({viewport:{width:412,height:915},hasTouch:true,isMobile:true});

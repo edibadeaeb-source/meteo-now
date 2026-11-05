@@ -35,6 +35,7 @@ FILES = {'/': ('index.html', 'text/html; charset=utf-8'),
 MAX_BYTES = 512 * 1024
 MAX_CHAT_BYTES = 24 * 1024
 AI_URL = 'https://meteo-now.onrender.com/ask'
+ARCHIVE = json.loads((ROOT / 'station-archive.json').read_text(encoding='utf-8'))
 
 
 class ChatError(Exception):
@@ -48,10 +49,9 @@ def chat_payload(body):
     question = body.get('question')
     if not isinstance(question, str) or not 1 <= len(question.strip()) <= 1200:
         raise ChatError(400, 'Scrie o întrebare de maximum 1.200 de caractere.')
-    mode = body.get('mode')
     sensors = body.get('sensors')
     history = body.get('history', [])
-    if mode not in ('live', 'demo') or not isinstance(sensors, dict) or not isinstance(history, list) or len(history) > 8:
+    if not isinstance(sensors, dict) or not isinstance(history, list) or len(history) > 8:
         raise ChatError(400, 'Contextul conversației este invalid.')
     cleaned_history = []
     for message in history:
@@ -67,8 +67,7 @@ def chat_payload(body):
         current = normalize(sensor.get('current'))
         stamp = current.get('timestamp') if current else None
         age = time.time() - stamp if stamp else None
-        status = ('SIMULAT' if mode == 'demo' else
-                  'CONEXIUNE INDISPONIBILA' if sensor.get('state') == 'unavailable' else
+        status = ('CONEXIUNE INDISPONIBILA' if sensor.get('state') == 'unavailable' else
                   'FARA DATE' if not current else
                   'ORA NEVALIDATA' if age is None or age < -60 else
                   'RECENT' if age < 300 else 'ISTORIC VECHI')
@@ -79,13 +78,12 @@ def chat_payload(body):
     details = ('Dashboard de prezentare al statiei BME680: ESP32-C6 prin Wi-Fi si SparkFun expLoRaBLE prin LoRaWAN. '
                'Valorile descriu mediul montajului, nu prognoza orasului. Evenimentul este la Colegiul National Constantin Carabella, '
                'Targoviste, str. Locotenent Parvan Popescu 58. La intrebari despre locul standului, indica numele colegiului si adresa. '
-               'Masuratorile din modul real provin din cele doua noduri, ESP32-C6 si SparkFun expLoRaBLE, prin Firebase. '
+               'Masuratorile provin din cele doua noduri, ESP32-C6 si SparkFun expLoRaBLE, prin Firebase. '
                'Nu adauga spontan explicatii despre configurarea hartii sau GPS. Doar daca esti intrebat explicit despre sursa coordonatelor, '
                'explica exact ca punctul hartii este stabilit pentru eveniment; nu inventa ca placile transmit GPS. '
                'Nu verificam separat gateway, ChirpStack sau MQTT; nu afirma ca fiecare este online. '
                'Temperatura in C, umiditate in %, presiune in hPa, gas in kOhm, IAQ orientativ doar ESP32. '
-               + ('MOD DEMO: TOATE valorile sunt SIMULATE. Precizeaza asta cand le interpretezi. ' if mode == 'demo' else
-                  'Datele marcate ISTORIC nu descriu momentul actual. ')
+               'Datele marcate ISTORIC nu descriu momentul actual. '
                + 'Raspunde pe scurt, clar, pentru elevi. Snapshotul afisat: '
                + json.dumps(snapshot, ensure_ascii=False, separators=(',', ':')))
     return {'question': question.strip(), 'lang': 'ro', 'history': cleaned_history,
@@ -252,8 +250,8 @@ class Reader:
                 channel['state'] = ('unavailable' if channel['error'] else 'empty' if not current else
                                     'unknown' if age is None or age < -60 else
                                     'live' if age < 300 else 'stale')
-            return {'app': 'METEO-NOW-STAND', 'version': 5, 'generatedAt': self.clock(),
-                    'pollSeconds': 20, 'channels': result}
+            return {'app': 'METEO-NOW-STAND', 'version': 6, 'generatedAt': self.clock(),
+                    'pollSeconds': 20, 'channels': result, 'archive': ARCHIVE}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -315,7 +313,7 @@ class Handler(BaseHTTPRequestHandler):
             body = json.dumps(self.reader.snapshot(), ensure_ascii=False, allow_nan=False).encode('utf-8')
             mime = 'application/json; charset=utf-8'
         elif path == '/health':
-            body, mime = b'{"app":"METEO-NOW-STAND","version":5}', 'application/json'
+            body, mime = b'{"app":"METEO-NOW-STAND","version":6}', 'application/json'
         elif path in FILES:
             name, mime = FILES[path]
             body = (ROOT / name).read_bytes()

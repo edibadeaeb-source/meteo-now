@@ -52,3 +52,7 @@ Test dedicat `stand/tooltips-test.cjs`: toate mărimile/unitățile, nodul și t
 ## De verificat cu montajul real
 
 Montajul nu a fost disponibil. Alimentarea, radioul, gateway-ul, ChirpStack, puntea MQTT și scrierile autentificate de pe ESP32 nu sunt validate. Scrierile anonime au fost închise în octombrie; nu le redeschidem și nu instalăm identitatea administrativă a aplicației pe placă. Mâine verificăm mai întâi configurația originală și accesul la server/rețea, apoi pregătim autentificarea adecvată și proba capăt la capăt. Datele simulate nu sunt prezentate ca măsurători reale.
+
+## 5 noiembrie 2026 · Arhivă și date live
+
+Standul pornește cu datele celor două noduri. Cele patru grafice combină câte 30 de măsurători istorice distincte din 16 iulie 2026 pentru fiecare nod și până la 30 de măsurători recente. În Firebase nu apar măsurători din perioada căutată, în jurul datei de 22 octombrie. Data de sesiune și data fiecărui punct sunt afișate separat. Modul cu date simulate a fost eliminat. Antetul indică Colegiul Național „Constantin Carabella”, Târgoviște.
